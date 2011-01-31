@@ -1151,11 +1151,11 @@ normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges, int iri)
   }
   if ( ranges->query.start )
   { add_charbuf(cb, '?');
-    add_range_charbuf(cb, &ranges->query, iri, ESC_QUERY);
+    add_range_charbuf(cb, &ranges->query, iri, ESC_QVALUE);
   }
   if ( ranges->fragment.start )
   { add_charbuf(cb, '#');
-    add_range_charbuf(cb, &ranges->fragment, iri, ESC_FRAGMENT);
+    add_range_charbuf(cb, &ranges->fragment, iri, ESC_QVALUE);
   }
 
   return TRUE;
