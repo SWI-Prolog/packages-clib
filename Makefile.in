@@ -9,41 +9,14 @@
 # Author: Jan Wielemaker (wielemak@science.uva.nl)
 ################################################################
 
-.SUFFIXES: .tex .dvi .doc .pl
+PACKAGE=clib
+DOC=clib
+PKGCFLAGS=-I$(srcdir) -I$(srcdir)/maildrop/rfc2045 -I$(srcdir)/maildrop/rfc822
+include ../Makefile.defs
 
-PL=@PL@
-PLBASE=@PLBASE@
-PLARCH=@PLARCH@
-PLINCL=@PLINCL@
-PKGDOC=$(PLBASE)/doc/packages
-PCEHOME=../xpce
-
-CC=@CC@
-COFLAGS=@COFLAGS@
-CWFLAGS=@CWFLAGS@
-CMFLAGS=@CMFLAGS@
-CIFLAGS=-I. -Imaildrop/rfc2045 -Imaildrop/rfc822
-CFLAGS=$(COFLAGS) $(CWFLAGS) $(CMFLAGS) $(CIFLAGS) @DEFS@
-LIBS=@LIBS@
 NETLIBS=@NETLIBS@
 CRYPTLIBS=@CRYPTLIBS@
 MIMELIBS=maildrop/rfc2045/librfc2045.a maildrop/rfc822/librfc822.a
-
-PUBLICPL=swipl
-DOCTOTEX=$(PCEHOME)/bin/doc2tex
-PLTOTEX=$(PUBLICPL) -q -s pltotex.pl -g pltotex --
-DOC=clib
-TEX=$(DOC).tex process.tex uri.tex filesex.tex
-DVI=$(DOC).dvi
-PDF=$(DOC).pdf
-RUNTEX=../../man/runtex
-
-LD=@LD@
-LDFLAGS=@LDSOFLAGS@
-
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
 
 LIBPL=		@PLTARGETS@ streaminfo.pl process.pl prolog_server.pl sha.pl \
 		uri.pl
@@ -70,35 +43,35 @@ SHAOBJ=		error.o sha4pl.o sha1/sha1.o sha1/sha2.o \
 all:		$(TARGETS)
 
 random.@SO@:	$(RANDOMOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(RANDOMOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(RANDOMOBJ)
 unix.@SO@:	$(UNXOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(UNXOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(UNXOBJ)
 socket.@SO@:	$(SOCKOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(SOCKOBJ) $(NETLIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(SOCKOBJ) $(NETLIBS)
 cgi.@SO@:	$(CGIOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(CGIOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(CGIOBJ)
 crypt.@SO@:	$(CRYPTOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(CRYPTOBJ) $(CRYPTLIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(CRYPTOBJ) $(CRYPTLIBS)
 memfile.@SO@:	$(MEMOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(MEMOBJ) $(LIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(MEMOBJ) $(LIBS)
 mime.@SO@:	$(MIMEOBJ) $(MIMELIBS)
-		$(LD) $(LDFLAGS) -o $@ $(MIMEOBJ) $(MIMELIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(MIMEOBJ) $(MIMELIBS)
 time.@SO@:	$(TIMEOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(TIMEOBJ) $(LIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(TIMEOBJ) $(LIBS)
 files.@SO@:	$(FILESOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(FILESOBJ) $(LIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(FILESOBJ) $(LIBS)
 rlimit.@SO@:	$(RLIMITOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(RLIMITOBJ) $(LIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(RLIMITOBJ) $(LIBS)
 readutil.@SO@:	$(READUTILOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(READUTILOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(READUTILOBJ)
 process.@SO@:	$(PROCESSOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(PROCESSOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(PROCESSOBJ)
 streaminfo.@SO@: $(STREAMINFOOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(STREAMINFOOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(STREAMINFOOBJ)
 sha4pl.@SO@:	$(SHAOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(SHAOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(SHAOBJ)
 uri.@SO@:	$(URIOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(URIOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(URIOBJ)
 
 socket.o:	socket.c sockcommon.c
 
@@ -113,14 +86,14 @@ maildrop/rfc2045/librfc2045.a:
 		(cd maildrop/rfc2045 && $(MAKE))
 
 
-install:	$(TARGETS) $(LIBPL)
+install:	$(TARGETS)
 		mkdir -p $(DESTDIR)$(PLBASE)/lib/$(PLARCH)
 		for f in $(TARGETS); do \
 		  $(INSTALL_PROGRAM) $$f $(DESTDIR)$(PLBASE)/lib/$(PLARCH); \
 		done
 		mkdir -p $(DESTDIR)$(PLBASE)/library
 		for f in $(LIBPL); do \
-		  $(INSTALL_DATA) $$f $(DESTDIR)$(PLBASE)/library; \
+		  $(INSTALL_DATA) $(srcdir)/$$f $(DESTDIR)$(PLBASE)/library; \
 		done
 		$(PL) -f none -g make -t halt
 
@@ -179,20 +152,8 @@ check-read::
 # Documentation
 ################################################################
 
-pdf:		$(PDF)
-
-$(DVI):		$(TEX)
-		$(RUNTEX) $(DOC)
-
-$(PDF):		$(TEX)
-		$(RUNTEX) --pdf $(DOC)
-
-html:		$(TEX)
-		latex2html $(DOC)
-		mv html/index.html clib.html
-		rm -r html
-
-$(TEX):		$(DOCTOTEX)
+TEXEXTRA=process.tex uri.tex filesex.tex
+$(TEX):	    	$(TEXEXTRA)
 
 uri.tex:	uri.pl
 		$(PLTOTEX) 'library(uri)'
@@ -200,10 +161,6 @@ process.tex:	process.pl
 		$(PLTOTEX) 'library(process)'
 filesex.tex:	filesex.pl
 		$(PLTOTEX) 'library(filesex)'
-
-.doc.tex:
-		$(DOCTOTEX) $*.doc > $*.tex
-
 
 ################################################################
 # Clean

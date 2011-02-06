@@ -86,7 +86,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
       break;
     }
     case ERR_ARGTYPE:
-    { int argn	      = va_arg(args, int);
+    { (void)va_arg(args, int);		/* skip argument position */
       term_t actual   = va_arg(args, term_t);
       atom_t expected = PL_new_atom(va_arg(args, const char*));
 
