@@ -29,6 +29,10 @@
 #include "clib.h"
 #include "form.h"
 
+#ifdef __WINDOWS__		/* strtoll is C99, but it is only 2011 ... */
+#define strtoll(s,e,b) _strtoi64(s,e,b)
+#endif
+
 static int
 isinteger(const char *s, long long *val, size_t len)
 { char *e;
