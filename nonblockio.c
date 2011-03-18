@@ -894,9 +894,11 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	s->error = err;
 	if ( sock )
-	{ /* We cannot close the socket yet, since the late arrival of FD_CLOSE might be delivered to this socket
-             even after it has been reallocated. Instead, calculate a timeout to allow for the case when FD_CLOSE
-             never comes, and then continue as normal
+	{ /* We cannot close the socket yet, since the late arrival
+             of FD_CLOSE might be delivered to this socket even after
+	     it has been reallocated. Instead, calculate a timeout to
+             allow for the case when FD_CLOSE never comes, and then
+	     continue as normal
           */
           socketIsPendingClose(s);
 	}
@@ -1598,15 +1600,17 @@ nbio_cleanup(void)
 }
 
 #ifdef __WINDOWS__
+
 plsocket *
 lookupTimedOutSocket(DWORD t)
 { size_t i;
   plsocket *p;
+
   LOCK();
   for(i=0; i<socks_allocated; i++)
   { if ( (p=sockets[i]) && p->close_timeout != 0 && p->close_timeout < t)
     { UNLOCK();
-    
+
       if ( p->magic != PLSOCK_MAGIC )
       { errno = EINVAL;
 	DEBUG(1, Sdprintf("Invalid OS socket: %d\n", socket));
@@ -1616,29 +1620,41 @@ lookupTimedOutSocket(DWORD t)
     }
   }
   UNLOCK();
+
   return NULL;
 }
 
-static int 
+
+/* socketIsPendingClose() is called if a Windows socked is closed, but
+   we did not yet see an FD_CLOSE message for it.  We will reuse this
+   socket using lookupTimedOutSocket() if we have not seen the FD_CLOSE
+   after 30 seconds.  This is a random time.  Are we guaranteed to get
+   an FD_CLOSE?
+*/
+
+static int
 socketIsPendingClose(plsocket *s)
-{ s->close_timeout = GetTickCount() + 30 * 1000; // 30 seconds picked at random. Could probably be MUCH smaller?
+{ s->close_timeout = GetTickCount() + 30 * 1000;
   shutdown(s->socket, SD_BOTH);
   DEBUG(3, Sdprintf("Setting timeout for FD_CLOSE on socket %d...\n", s->id));
+
   return 0;
 }
 
 
-void 
+void
 cleanupClosedSockets(void)
 { DWORD now = GetTickCount();
   plsocket *p = lookupTimedOutSocket(now);
   while(p != NULL)
-    { DEBUG(3, Sdprintf("Reaping socket %d (%d vs %d)\n", p->id, p->close_timeout, now));
-    freeSocket(p);  
+    { DEBUG(3, Sdprintf("Reaping socket %d (%d vs %d)\n",
+			p->id, p->close_timeout, now));
+    freeSocket(p);
     p = lookupTimedOutSocket(now);
   }
 }
-#endif
+
+#endif /*__WINDOWS__*/
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 socket(-Socket)
@@ -1695,7 +1711,7 @@ nbio_closesocket(nbio_sock_t socket)
       Sclose(s->output);
     }
   } else
-  { 
+  {
   // We cannot free the socket in Windows since we might subsequently get an FD_CLOSE. Instead set the timeout
 #ifdef __WINDOWS__
   socketIsPendingClose(s);
