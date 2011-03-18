@@ -1243,6 +1243,8 @@ allocSocket(SOCKET socket)
   size_t i;
 
 #ifdef __WINDOWS__
+  DWORD now = GetTickCount();
+
   if ( (p=lookupOSSocket(socket)) )
   { DEBUG(1, Sdprintf("WinSock %d already registered on %d\n",
 		      (int)socket, p->id));
@@ -1267,10 +1269,25 @@ allocSocket(SOCKET socket)
   }
 
   for(i=0; i<socks_allocated; i++)
-  { if ( sockets[i] == NULL )
+  { if ( (p=sockets[i]) == NULL )
     { sockets[i] = p = PL_malloc(sizeof(*p));
       socks_count++;
       break;
+#ifdef __WINDOWS__
+    } else
+    { if ( p->close_timeout && p->close_timeout < now )
+      { SOCKET sock;
+
+	if ( (sock=p->socket) )		/* is this ever the case? */
+	{ int rval;
+
+	  do
+	  { rval = closesocket(sock);
+	  } while(rval == SOCKET_ERROR && errno == EINTR);
+	}
+	break;
+      }
+#endif
     }
   }
   UNLOCK();
@@ -1601,30 +1618,6 @@ nbio_cleanup(void)
 
 #ifdef __WINDOWS__
 
-plsocket *
-lookupTimedOutSocket(DWORD t)
-{ size_t i;
-  plsocket *p;
-
-  LOCK();
-  for(i=0; i<socks_allocated; i++)
-  { if ( (p=sockets[i]) && p->close_timeout != 0 && p->close_timeout < t)
-    { UNLOCK();
-
-      if ( p->magic != PLSOCK_MAGIC )
-      { errno = EINVAL;
-	DEBUG(1, Sdprintf("Invalid OS socket: %d\n", socket));
-        return NULL;
-      }
-      return p;
-    }
-  }
-  UNLOCK();
-
-  return NULL;
-}
-
-
 /* socketIsPendingClose() is called if a Windows socked is closed, but
    we did not yet see an FD_CLOSE message for it.  We will reuse this
    socket using lookupTimedOutSocket() if we have not seen the FD_CLOSE
@@ -1639,19 +1632,6 @@ socketIsPendingClose(plsocket *s)
   DEBUG(3, Sdprintf("Setting timeout for FD_CLOSE on socket %d...\n", s->id));
 
   return 0;
-}
-
-
-void
-cleanupClosedSockets(void)
-{ DWORD now = GetTickCount();
-  plsocket *p = lookupTimedOutSocket(now);
-  while(p != NULL)
-    { DEBUG(3, Sdprintf("Reaping socket %d (%d vs %d)\n",
-			p->id, p->close_timeout, now));
-    freeSocket(p);
-    p = lookupTimedOutSocket(now);
-  }
 }
 
 #endif /*__WINDOWS__*/
@@ -1669,9 +1649,6 @@ nbio_socket(int domain, int type, int protocol)
 
   assert(initialised);
 
-#ifdef __WINDOWS__
-  cleanupClosedSockets();
-#endif
   if ( (sock = socket(domain, type , protocol)) < 0)
   { nbio_error(GET_ERRNO, TCP_ERRNO);
     return -1;
