@@ -35,7 +35,7 @@ Ported to SWI-Prolog by Jan Wielemaker
 
 To compile:
 
-	plld -o random -shared -fpic random.c
+	swipl-ld -o random -shared -fpic random.c
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include <SWI-Prolog.h>
@@ -47,47 +47,13 @@ static functor_t FUNCTOR_rand3;
 static short a1 = 27314, b1 = 9213, c1 = 17773;
 
 static int
-type_error(term_t actual, const char *expected)
-{ term_t ex;
-
-  if ( (ex = PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR_CHARS, "error", 2,
-		       PL_FUNCTOR_CHARS, "type_error", 2,
-		         PL_CHARS, expected,
-		         PL_TERM, actual,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
-
-static int
-domain_error(term_t actual, const char *expected)
-{ term_t ex;
-
-  if ( (ex = PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR_CHARS, "error", 2,
-		       PL_FUNCTOR_CHARS, "domain_error", 2,
-		         PL_CHARS, expected,
-		         PL_TERM, actual,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
-
-static int
 get_short_ex(term_t t, short *p)
 { long v;
 
-  if ( !PL_get_long(t, &v) )
-    return type_error(t, "integer");
+  if ( !PL_get_long_ex(t, &v) )
+    return FALSE;
   if ( v < SHRT_MIN || v > SHRT_MAX )
-    return domain_error(t, "short integer");
+    return PL_domain_error("short integer", t);
 
   *p = (short)v;
 
@@ -124,7 +90,7 @@ p_random(term_t rnd)
 static foreign_t
 p_setrand(term_t state)
 { if ( !PL_is_functor(state, FUNCTOR_rand3) )
-    return type_error(state, "rand_state");
+    return PL_type_error("rand_state", state);
 
   if ( !get_short_arg_ex(1, state, &a1) ||
        !get_short_arg_ex(2, state, &b1) ||
@@ -138,9 +104,9 @@ static foreign_t
 p_getrand(term_t state)
 { return PL_unify_term(state,
 		       PL_FUNCTOR, FUNCTOR_rand3,
-		         PL_INTEGER, a1,
-		         PL_INTEGER, b1,
-		         PL_INTEGER, c1);
+		         PL_SHORT, a1,
+		         PL_SHORT, b1,
+		         PL_SHORT, c1);
 }
 
 
