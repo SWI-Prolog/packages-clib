@@ -38,7 +38,8 @@
 	    randseq/3,			% +Size, +Max, -Set
 	    randset/3,			% +Size, +Max, -List
 	    getrand/1,			% -State
-	    setrand/1			% +State
+	    setrand/1,			% +State
+	    random_permutation/2	% +List, -Permutation
 	  ]).
 :- use_module(library(pairs)).
 
@@ -48,7 +49,7 @@
 
 Random number generator developed as  part   of  the  DEC10 library. The
 algorithm is based  on  AS  183   from  Applied  Statistics.  Originally
-implemented ib Prolog by Richard O'Keeke.   The SWI-Prolog versions is a
+implemented in Prolog by Richard O'Keeke.   The SWI-Prolog versions is a
 translation of a C-version for YAP based on the orginal source.
 
 @copyright	DEC10 version: Public domain, YAP: Artistic
@@ -158,6 +159,17 @@ randseq(K, N, Si, So) :-
 	M is N-1,
 	randseq(K, M, Si, So).
 
+%%	random_permutation(+List, -Permutation) is det.
+%
+%	Permutation is a random permutation of List. This is intended to
+%	process the elements of List in random order.
 
+random_permutation(List, RandomPermutation) :-
+        key_random(List, Keyed),
+        keysort(Keyed, Sorted),
+        pairs_values(Sorted, RandomPermutation).
 
-
+key_random([], []).
+key_random([H|T0], [K-H|T]) :-
+        random(K),
+        key_random(T0, T).
