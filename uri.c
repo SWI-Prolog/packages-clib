@@ -1599,3 +1599,9 @@ install_uri()
   PL_register_foreign("uri_encoded",	      3, uri_encoded,	       0);
   PL_register_foreign("uri_iri",	      2, uri_iri,	       0);
 }
+
+
+install_t
+uninstall_uri()
+{ pthread_key_delete(base_key);
+}
