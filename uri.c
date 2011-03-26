@@ -172,7 +172,7 @@ fill_flags()
     set_flags("-._~",        CH_EX_UNRES);
     set_flags(":/?#[]@",     CH_GENDELIM);
     set_flags("!$&'()+*,;=", CH_SUBDELIM);
-    set_flags("!$'()*,;",    CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
+    set_flags("!$'()*,",     CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
     set_flags(":@",          CH_EX_PCHAR);
     set_flags("/",           CH_EX_PATH);
     set_flags("/?",          CH_EX_QF);
@@ -852,7 +852,7 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
       name.end   = skip_not(qs, end, L"=");
       if ( name.end < end )
       { value.start = name.end+1;
-	value.end   = skip_not(value.start, end, L"&");
+	value.end   = skip_not(value.start, end, L"&;");
 
 	qs = value.end+1;
       } else
