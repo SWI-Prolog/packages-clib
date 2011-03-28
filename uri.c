@@ -121,7 +121,7 @@ domain_error(const char *expected, term_t found)
 		 *******************************/
 
 #define	ESC_PATH       (CH_PCHAR|CH_EX_PATH)
-#define	ESC_QUERY      (CH_PCHAR|CH_EX_QF)
+#define	ESC_QUERY      (CH_UNRESERVED|CH_PSUBDELIM|CH_EX_PCHAR|CH_EX_QF)
 #define	ESC_QVALUE     (CH_UNRESERVED|CH_QSUBDELIM|CH_EX_PCHAR|CH_EX_QF)
 #define	ESC_QNAME      (CH_PCHAR)
 #define	ESC_FRAGMENT   (CH_PCHAR|CH_EX_QF)
@@ -142,7 +142,8 @@ domain_error(const char *expected, term_t found)
 #define CH_EX_QF      0x0080		/* Extra query and fragment chars */
 #define CH_EX_SCHEME  0x0100
 #define CH_QSUBDELIM  0x0200
-#define CH_EX_PATH    0x0400
+#define CH_PSUBDELIM  0x0400
+#define CH_EX_PATH    0x0800
 
 #define CH_SCHEME	(CH_ALPHA|CH_DIGIT|CH_EX_SCHEME)
 #define CH_UNRESERVED	(CH_ALPHA|CH_DIGIT|CH_EX_UNRES)
@@ -172,6 +173,7 @@ fill_flags()
     set_flags("-._~",        CH_EX_UNRES);
     set_flags(":/?#[]@",     CH_GENDELIM);
     set_flags("!$&'()+*,;=", CH_SUBDELIM);
+    set_flags("!$&'()*,;=",  CH_PSUBDELIM); /* = CH_SUBDELIM - "+"  */
     set_flags("!$'()*,",     CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
     set_flags(":@",          CH_EX_PCHAR);
     set_flags("/",           CH_EX_PATH);
@@ -1151,7 +1153,7 @@ normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges, int iri)
   }
   if ( ranges->query.start )
   { add_charbuf(cb, '?');
-    add_range_charbuf(cb, &ranges->query, iri, ESC_QVALUE);
+    add_range_charbuf(cb, &ranges->query, iri, ESC_QUERY);
   }
   if ( ranges->fragment.start )
   { add_charbuf(cb, '#');

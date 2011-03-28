@@ -71,6 +71,12 @@ test(normalise_iri, NormalIRI == 'example://a/b/c/%7Bfoo%7D') :-
 	uri_normalized_iri('eXAMPLE://a/./b/../b/%63/%7bfoo%7d', NormalIRI).
 test(normalise_iri, NormalIRI == 'http://a.b/a%3F?x') :-	% 3F = '?'
 	uri_normalized_iri('http://a.b/a%3f?x', NormalIRI).
+test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2') :-
+	uri_normalized_iri('http://a.b/a?x=1&y=2', NormalIRI).
+test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2#aap') :-
+	uri_normalized_iri('http://a.b/a?x=1&y=2#aap', NormalIRI).
+test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2#aap%20noot') :-
+	uri_normalized_iri('http://a.b/a?x=1&y=2#aap+noot', NormalIRI).
 
 :- end_tests(iri).
 
