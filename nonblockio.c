@@ -1563,14 +1563,11 @@ nbio_last_error(nbio_sock_t socket)
 
 NBIO_EXPORT(int)
 nbio_init(const char *module)
-{ INITLOCK();				/* is this ok? */
-
-  LOCK();
-  if ( initialised )
-  { UNLOCK();
-    return TRUE;
-  }
+{ if ( initialised )			/* called from install handlers, which */
+    return TRUE;			/* are serialized by the compiler mutex */
   initialised = TRUE;
+
+  INITLOCK();
 
   FUNCTOR_module2  = PL_new_functor(PL_new_atom(":"), 2);
   FUNCTOR_ip4	   = PL_new_functor(PL_new_atom("ip"), 4);
@@ -1592,14 +1589,11 @@ nbio_init(const char *module)
 #endif
 
   if ( WSAStartup(MAKEWORD(2,0), &WSAData) )
-  { UNLOCK();
     return PL_warning("nbio_init() - WSAStartup failed.");
-  }
   startSocketThread();
 }
 #endif /*__WINDOWS__*/
 
-  UNLOCK();
   return TRUE;
 }
 
