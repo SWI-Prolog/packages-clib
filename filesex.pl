@@ -139,7 +139,9 @@ to_dot_dot([_|T0], ['..'|T], Tail) :-
 
 directory_file_path(Dir, File, Path) :-
 	nonvar(Dir), nonvar(File), !,
-	(   is_absolute_file_name(File)
+	(   (   is_absolute_file_name(File)
+	    ;	Dir == '.'
+	    )
 	->  Path = File
 	;   sub_atom(Dir, _, _, 0, /)
 	->  atom_concat(Dir, File, Path)
