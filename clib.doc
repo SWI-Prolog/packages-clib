@@ -187,6 +187,7 @@ controlling terminal.
 
 \input{process.tex}
 \input{filesex.tex}
+\input{uid.tex}
 
 \section{Socket library}
 
