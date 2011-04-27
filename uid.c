@@ -29,6 +29,21 @@
 #include <pwd.h>
 #include <grp.h>
 
+static int
+error(int error, const char *op, const char *type, term_t culprit)
+{ if ( error == EAGAIN )
+    return PL_resource_error("rlimit_nproc");
+  else if ( error == EMFILE )
+    return PL_resource_error("max_files");
+  else if ( error == ENOMEM )
+    return PL_resource_error("memory");
+  else if ( error == ERANGE )
+    return PL_resource_error("buffer_space");
+  else
+    return PL_permission_error(op, type, culprit);
+}
+
+
 static foreign_t
 pl_getuid(term_t uid)
 { return PL_unify_integer(uid, getuid());
@@ -57,14 +72,33 @@ pl_user_info(term_t user, term_t info)
   char *name;
 
   if ( PL_get_integer(user, &uid) )
-  { if ( getpwuid_r(uid, &pwd, buf, sizeof(buf), &pwdp) != 0 )
-      return PL_existence_error("user", user);
+  { again1:
+    errno = 0;
+    if ( getpwuid_r(uid, &pwd, buf, sizeof(buf), &pwdp) != 0 )
+    { if ( errno == EINTR )
+      { if ( PL_handle_signals() < 0 )
+	  return FALSE;
+	goto again1;
+      }
+      return error(errno, "info", "user", user);
+    }
   } else if ( PL_get_chars(user, &name, CVT_ATOMIC|REP_MB) )
-  { if ( getpwnam_r(name, &pwd, buf, sizeof(buf), &pwdp) != 0 )
-      return PL_existence_error("user", user);
+  { again2:
+    errno = 0;
+    if ( getpwnam_r(name, &pwd, buf, sizeof(buf), &pwdp) != 0 )
+    { if ( errno == EINTR )
+      { if ( PL_handle_signals() < 0 )
+	  return FALSE;
+	goto again2;
+      }
+      return error(errno, "info", "user", user);
+    }
   } else
   { return PL_type_error("user", user);
   }
+
+  if ( !pwdp )
+    return PL_existence_error("user", user);
 
   return PL_unify_term(info,
 		       PL_FUNCTOR_CHARS, "user_info", 7,
@@ -91,14 +125,33 @@ pl_group_info(term_t group, term_t info)
   char **memp;
 
   if ( PL_get_integer(group, &gid) )
-  { if ( getgrgid_r(gid, &grp, buf, sizeof(buf), &pgrp) != 0 )
-      return PL_existence_error("group", group);
+  { again1:
+    errno = 0;
+    if ( getgrgid_r(gid, &grp, buf, sizeof(buf), &pgrp) != 0 )
+    { if ( errno == EINTR )
+      { if ( PL_handle_signals() < 0 )
+	  return FALSE;
+	goto again1;
+      }
+      return error(errno, "info", "group", group);
+    }
   } else if ( PL_get_chars(group, &name, CVT_ATOMIC|REP_MB) )
-  { if ( getgrnam_r(name, &grp, buf, sizeof(buf), &pgrp) != 0 )
-      return PL_existence_error("group", group);
+  { again2:
+    errno = 0;
+    if ( getgrnam_r(name, &grp, buf, sizeof(buf), &pgrp) != 0 )
+    { if ( errno == EINTR )
+      { if ( PL_handle_signals() < 0 )
+	  return FALSE;
+	goto again2;
+      }
+      return error(errno, "info", "group", group);
+    }
   } else
   { return PL_type_error("group", group);
   }
+
+  if ( !pgrp )
+    return PL_existence_error("group", group);
 
   for(memp=pgrp->gr_mem; *memp; memp++)
   { if ( !PL_unify_list(tail, head, tail) ||
@@ -117,14 +170,6 @@ pl_group_info(term_t group, term_t info)
 		      );
 }
 
-
-static int
-error(int error, const char *op, const char *type, term_t culprit)
-{ if ( error == EAGAIN )
-    return PL_resource_error("rlimit_nproc");
-  else
-    return PL_permission_error(op, type, culprit);
-}
 
 static foreign_t
 pl_setuid(term_t uid)
