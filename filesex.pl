@@ -92,9 +92,9 @@ high-level utilities.
 
 %%	relative_file_name(+Path:atom, +RelTo:atom, -RelPath:atom) is det.
 %
-%	True when RelPath is a  relative   path  to AbsPath, relative to
-%	RelTo. Path and RelTo are  first handed to absolute_file_name/2,
-%	which makes the absolute *and* canonical. Below is an example:
+%	True when RelPath is Path, relative to RelTo. Path and RelTo are
+%	first handed to absolute_file_name/2, which   makes the absolute
+%	*and* canonical. Below is an example:
 %
 %	==
 %	?- relative_file_name('/home/janw/nice',
