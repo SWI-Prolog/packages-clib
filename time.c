@@ -324,6 +324,8 @@ unlinkEvent(Event ev)
 
   if ( ev->next )
     ev->next->previous = ev->previous;
+
+  ev->next = ev->previous = NULL;	/* in case it's reused */
 }
 
 
