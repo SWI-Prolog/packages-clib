@@ -32,7 +32,8 @@
 :- module(time,
 	  [ alarm/3,			% +Time, :Callable, -Id
 	    alarm/4,			% +Time, :Callable, -Id, +Options
-	    alarm_at/4,		% +Time, :Callable, -Id, +Options
+	    alarm_at/3,			% +Time, :Callable, -Id
+	    alarm_at/4,			% +Time, :Callable, -Id, +Options
 	    remove_alarm/1,		% +Id
 	    install_alarm/1,		% +Id
 	    install_alarm/2,		% +Id, +Time
@@ -67,9 +68,11 @@
 %		If =false= (default =true=) do not install the alarm.
 %		It must be installed separately using install_alarm/1.
 
-%%	alarm_at(+Time, :Callable, -Id, +Options) is det
+%%	alarm_at(+Time, :Callable, -Id) is det.
+%%	alarm_at(+Time, :Callable, -Id, +Options) is det.
 %
-%	As alarm/4, but schedule the alarm at an absolute point in time.
+%	As alarm/3 and alarm/4, but schedule   the  alarm at an absolute
+%	point in time.
 %
 %	@see date_time_stamp/2.
 
@@ -95,6 +98,7 @@
 %	=scheduled= otherwise.
 
 :- use_foreign_library(foreign(time)).
+:- public time_debug/1.			% set debugging
 
 %%	call_with_time_limit(+Time, :Goal) is semidet.
 %
