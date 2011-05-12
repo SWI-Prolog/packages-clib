@@ -46,7 +46,7 @@
 
 	    udp_socket/1,		% -Socket
 	    udp_receive/4,		% +Socket, -Data, -Sender, +Options
-	    udp_send/4  		% +Socket, +Data, +Sender, +Options
+	    udp_send/4			% +Socket, +Data, +Sender, +Options
 	  ]).
 :- use_module(library(shlib)).
 
@@ -56,6 +56,7 @@ These predicates are documented in the source-distribution of the package
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 :- use_foreign_library(foreign(socket), install_socket).
+:- public tcp_debug/1.			% set debugging.
 
 
 		 /*******************************
@@ -75,7 +76,7 @@ These predicates are documented in the source-distribution of the package
 %
 %	    socket:tcp_connect_hook(Socket, Address, Read, Write) :-
 %	        proxy(ProxyAdress),
-%	    	tcp_connect(Socket, ProxyAdress),
+%		tcp_connect(Socket, ProxyAdress),
 %		tcp_open_socket(Socket, Read, Write),
 %		proxy_connect(Address, Read, Write).
 %	    ==

@@ -649,9 +649,6 @@ install_socket()
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 
-#ifdef O_DEBUG
-  PL_register_foreign_in_module("user", "tcp_debug", 1, pl_debug, 0);
-#endif
   PL_register_foreign("tcp_accept",           3, pl_accept,           0);
   PL_register_foreign("tcp_bind",             2, pl_bind,             0);
   PL_register_foreign("tcp_connect",          2, pl_connect,	      0);
@@ -667,6 +664,10 @@ install_socket()
   PL_register_foreign("udp_socket",           1, udp_socket,          0);
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
   PL_register_foreign("udp_send",	      4, udp_send,	      0);
+
+#ifdef O_DEBUG
+  PL_register_foreign("tcp_debug",	      1, pl_debug,	      0);
+#endif
 }
 
 
