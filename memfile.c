@@ -3,9 +3,10 @@
     Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@uva.nl
+    E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2009, University of Amsterdam
+    Copyright (C): 1985-2011, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -70,7 +71,7 @@ typedef struct
   size_t	data_size;		/* byte-size of data */
   size_t	size;			/* size in characters */
   IOSTREAM     *stream;			/* Stream hanging onto it */
-  atom_t 	atom;			/* Created from atom */
+  atom_t	atom;			/* Created from atom */
 } memfile;
 
 
@@ -188,7 +189,7 @@ static struct encname
 };
 
 
-IOENC
+static IOENC
 atom_to_encoding(atom_t a)
 { struct encname *en;
 
