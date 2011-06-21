@@ -63,6 +63,7 @@ sha1/hmac_sha256.obj:	sha1/hmac.c
 
 process.obj:	win_error.c
 files.obj:	win_error.c
+socket.obj:	sockcommon.c
 
 !IF "$(CFG)" == "rt"
 install:	idll
