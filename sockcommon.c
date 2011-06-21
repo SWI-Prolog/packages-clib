@@ -76,7 +76,14 @@ tcp_control(void *handle, int action, void *arg)
 { nbio_sock_t socket = fdFromHandle(handle);
 
   switch(action)
-  { case SIO_GETFILENO:
+  {
+#ifdef __WINDOWS__
+    case SIO_GETFILENO:
+      return -1;
+    case SIO_GETWINSOCK:
+#else
+    case SIO_GETFILENO:
+#endif
     { SOCKET fd = nbio_fd(socket);
       SOCKET *fdp = arg;
       *fdp = fd;
