@@ -1612,7 +1612,7 @@ nbio_cleanup(void)
 
 #ifdef __WINDOWS__
 
-/* socketIsPendingClose() is called if a Windows socked is closed, but
+/* socketIsPendingClose() is called if a Windows socket is closed, but
    we did not yet see an FD_CLOSE message for it.  We will reuse this
    socket using lookupTimedOutSocket() if we have not seen the FD_CLOSE
    after 30 seconds.  This is a random time.  Are we guaranteed to get
