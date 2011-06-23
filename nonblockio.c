@@ -806,6 +806,7 @@ doRequest(plsocket *s)
 	  doneRequest(s);
 	}
       }
+      break;
     case REQ_SENDTO:
       if ( s->w32_flags & FD_WRITE )
       { int n;
@@ -839,6 +840,7 @@ doRequest(plsocket *s)
 	s->rdata.sendto.bytes = n;
 	doneRequest(s);
       }
+      break;
   }
 
   return TRUE;
