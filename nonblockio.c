@@ -805,6 +805,12 @@ doRequest(plsocket *s)
 	{ s->rdata.write.bytes = (int)s->rdata.write.written;
 	  doneRequest(s);
 	}
+      } else if ( s->w32_flags & FD_CLOSE )
+      { if ( s->rdata.write.written > 0 )
+	  s->rdata.write.bytes = (int)s->rdata.write.written;
+	else
+	  s->rdata.write.bytes = -1;
+	doneRequest(s);
       }
       break;
     case REQ_SENDTO:
