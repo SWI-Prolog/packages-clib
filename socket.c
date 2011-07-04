@@ -40,11 +40,6 @@
 #undef HAVE_H_ERRNO
 #endif
 
-#if defined(__MINGW32__)
-#define WINVER 0x0501
-#include <ws2tcpip.h>
-#endif
-
 #include "nonblockio.h"
 
 #include <SWI-Stream.h>

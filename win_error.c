@@ -19,7 +19,7 @@ WinError()
 { int id = GetLastError();
   char *msg;
   static WORD lang;
-  static int lang_initialised = 0;
+  static lang_initialised = 0;
 
   if ( !lang_initialised )
     lang = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_UK);
