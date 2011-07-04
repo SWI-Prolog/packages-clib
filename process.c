@@ -84,7 +84,11 @@ static functor_t FUNCTOR_eq2;		/* =/2 */
 #include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
+
+#if !defined(__MINGW32__)
 typedef DWORD  pid_t;
+#endif
+
 typedef wchar_t echar;			/* environment character */
 
 #ifndef CREATE_BREAKAWAY_FROM_JOB
