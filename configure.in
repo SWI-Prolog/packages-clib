@@ -11,14 +11,14 @@ AC_SUBST(CRYPTLIBS)
 
 m4_include([../ac_swi_c.m4])
 
-TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO"
+TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO"
 
 case "$host" in
     *-mingw32msvc)
 	NETLIBS="$NETLIBS -lws2_32 -lgdi32"
         ;;
     *)
-        TARGETS="$TARGETS unix.$SO"
+        TARGETS="$TARGETS unix.$SO crypt.$SO"
         ;;
 esac
 
