@@ -15,7 +15,8 @@ TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO"
 
 case "$host" in
     *-mingw32msvc)
-	NETLIBS="$NETLIBS -lws2_32 -lgdi32"
+        NETLIBS="$NETLIBS -lws2_32 -lgdi32"
+        LIBS="$LIBS -lpthreadGC2"
         ;;
     *)
         TARGETS="$TARGETS uid.$SO unix.$SO"
