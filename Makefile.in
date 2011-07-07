@@ -16,6 +16,7 @@ include ../Makefile.defs
 
 NETLIBS=@NETLIBS@
 CRYPTLIBS=@CRYPTLIBS@
+LIBS=@LIBS@
 MIMELIBS=maildrop/rfc2045/librfc2045.a maildrop/rfc822/librfc822.a
 
 LIBPL=		@PLTARGETS@ streaminfo.pl process.pl prolog_server.pl sha.pl \
@@ -72,7 +73,7 @@ streaminfo.@SO@: $(STREAMINFOOBJ)
 sha4pl.@SO@:	$(SHAOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(SHAOBJ)
 uri.@SO@:	$(URIOBJ)
-		$(LD) $(LDSOFLAGS) -o $@ $(URIOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(URIOBJ) $(LIBS)
 uid.@SO@:	$(UIDOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(UIDOBJ)
 
