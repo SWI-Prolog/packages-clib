@@ -8,6 +8,7 @@ AC_SUBST(TARGETS)
 AC_SUBST(PLTARGETS)
 AC_SUBST(NETLIBS)
 AC_SUBST(CRYPTLIBS)
+AC_SUBST(CRYPTOBJ)
 
 m4_include([../ac_swi_c.m4])
 
@@ -37,7 +38,11 @@ AC_CHECK_FUNC(gethostent, [], [
 oldlibs="$LIBS"
 AC_CHECK_LIB(crypt, crypt)
 CRYPTLIBS="$LIBS"
-AC_CHECK_FUNCS(crypt)
+AC_CHECK_FUNC(crypt,
+	      [],
+	      [CRYPTOBJ=bsd-crypt.o])
+AC_DEFINE(HAVE_CRYPT, 1,
+	  "Define if you have the crypt function.")
 LIBS="$oldlibs"
 
 AC_MSG_CHECKING("Configuring MIME libraries")
