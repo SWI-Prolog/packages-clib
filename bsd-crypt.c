@@ -39,10 +39,10 @@
 static int des_setkey(const char *key);
 static int des_cipher(const char *in, char *out, long salt, int num_iter);
 
-#ifdef __WINDOWS__
+# ifdef _MSC_VER
 typedef __int32 int32_t;
 #else
-#include <sys/cdefs.h>
+#include <stdint.h>
 #endif
 
 #if !defined(lint)

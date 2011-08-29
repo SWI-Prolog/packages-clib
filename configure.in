@@ -11,7 +11,17 @@ AC_SUBST(CRYPTLIBS)
 
 m4_include([../ac_swi_c.m4])
 
-TARGETS="random.$SO unix.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO"
+TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO"
+
+case "$host" in
+    *-mingw32msvc)
+        NETLIBS="$NETLIBS -lws2_32 -lgdi32"
+        LIBS="$LIBS -lpthreadGC2"
+        ;;
+    *)
+        TARGETS="$TARGETS uid.$SO unix.$SO"
+        ;;
+esac
 
 AC_CHECK_FUNC(socket, [], [
              AC_CHECK_LIB(socket, socket,
@@ -49,8 +59,8 @@ esac
 ( CC=$ACC; LD=$ALD; CPP=$ACPP; CFLAGS=$CFLAGS; LDFLAGS=$LDFLAGS;
   export CC LD CFLAGS LDFLAGS
 
-  (cd maildrop/rfc822 && $SHELL configure)
-  (cd maildrop/rfc2045 && $SHELL configure)
+  (cd maildrop/rfc822 && $SHELL configure --host=$host)
+  (cd maildrop/rfc2045 && $SHELL configure --host=$host)
 )
 AC_MSG_RESULT("Done")
 

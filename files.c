@@ -41,6 +41,10 @@
 
 #ifdef __WINDOWS__
 
+#if defined(__MINGW32__)
+#define WINVER 0x0501
+#endif
+
 #define MAKE_FUNCTORS 1
 #include <windows.h>
 #include "win_error.c"
@@ -49,11 +53,16 @@
 /*#define HAVE_UTIME 1:	Broken ...*/
 #ifdef HAVE_UTIME
 #include <sys/utime.h>
-#define utimestruct _utimbuf
+/* FIXME: under __MINGW32__ we could use `utimbuf' (no leading underscore. */
+#define utimestruct struct _utimbuf
 #define utimefunc _wutime
 #endif
 #define FCHAR wchar_t
 #define PL_get_file_name PL_get_file_nameW
+
+#if defined(__MINGW32__)
+#include <winbase.h>
+#endif
 
 #else /*__WINDOWS__*/
 
