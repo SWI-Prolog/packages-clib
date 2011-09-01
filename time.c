@@ -74,10 +74,12 @@ typedef enum
 #define SIGALRM 14
 #endif
 
+#ifndef WIN_PTHREADS
 struct timeval
 { long tv_sec;
   long tv_usec;
 };
+#endif
 
 struct timezone
 { int zone;
