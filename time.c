@@ -67,12 +67,14 @@ typedef enum
 } time_abs_rel;
 
 #ifdef __WINDOWS__
-#include <sys/timeb.h>
-#include <malloc.h>
-
 #ifndef SIGALRM
 #define SIGALRM 14
 #endif
+#endif
+
+#ifdef _MSC_VER
+#include <sys/timeb.h>
+#include <malloc.h>
 
 #ifndef WIN_PTHREADS
 struct timeval
@@ -97,12 +99,12 @@ gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 
 
-#else /*__WINDOWS__*/
+#else /*_MSC_VER*/
 
 #include <time.h>
 #include <sys/time.h>
 
-#endif /*__WINDOWS__*/
+#endif /*_MSC_VER*/
 
 #ifdef O_DEBUG
 static int debuglevel = 0;
