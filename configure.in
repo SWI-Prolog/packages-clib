@@ -12,7 +12,7 @@ AC_SUBST(CRYPTOBJ)
 
 m4_include([../ac_swi_c.m4])
 
-TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO"
+TARGETS="random.$SO socket.$SO cgi.$SO memfile.$SO files.$SO mime.$SO crypt.$SO time.$SO"
 
 case "$PLARCH" in
     *-win32|*-win64)
