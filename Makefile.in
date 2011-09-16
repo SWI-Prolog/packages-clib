@@ -91,9 +91,9 @@ maildrop/rfc2045/librfc2045.a:
 
 
 install:	$(TARGETS)
-		mkdir -p $(DESTDIR)$(PLBASE)/lib/$(INSTALL_PLARCH)
+		mkdir -p $(DESTDIR)$(SOLIBDIR)
 		for f in $(TARGETS); do \
-		  $(INSTALL_PROGRAM) $$f $(DESTDIR)$(PLBASE)/lib/$(INSTALL_PLARCH); \
+		  $(INSTALL_PROGRAM) $$f $(DESTDIR)$(SOLIBDIR); \
 		done
 		mkdir -p $(DESTDIR)$(PLBASE)/library
 		for f in $(LIBPL); do \
@@ -115,7 +115,7 @@ pdf-install::
 		$(INSTALL) -m 644 clib.pdf $(DESTDIR)$(PKGDOC)
 
 uninstall::
-		(cd $(PLBASE)/lib/$(INSTALL_PLARCH) && rm -f $(TARGETS))
+		(cd $(SOLIBDIR) && rm -f $(TARGETS))
 		(cd $(PLBASE)/library && rm -f $(LIBPL))
 		$(PL) -f none -g make -t halt
 
