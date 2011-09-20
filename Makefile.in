@@ -99,7 +99,7 @@ install:	$(TARGETS)
 		for f in $(LIBPL); do \
 		  $(INSTALL_DATA) $(srcdir)/$$f $(DESTDIR)$(PLBASE)/library; \
 		done
-		$(PL) -f none -g make -t halt
+		$(MKINDEX)
 
 ln-install::
 		@$(MAKE) INSTALL_DATA='../ln-install' INSTALL_PROGRAM='../ln-install' install
@@ -117,7 +117,7 @@ pdf-install::
 uninstall::
 		(cd $(SOLIBDIR) && rm -f $(TARGETS))
 		(cd $(PLBASE)/library && rm -f $(LIBPL))
-		$(PL) -f none -g make -t halt
+		$(MKINDEX)
 
 ################################################################
 # Testing
