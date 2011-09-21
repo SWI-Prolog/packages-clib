@@ -86,9 +86,11 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
       break;
     }
     case ERR_ARGTYPE:
-    { int argn        = va_arg(args, int); 	/* argument position (unused) */
+    { int argn        = va_arg(args, int);	/* argument position (unused) */
       term_t actual   = va_arg(args, term_t);
       atom_t expected = PL_new_atom(va_arg(args, const char*));
+
+      (void)argn;				/* avoid unused warning */
 
       if ( PL_is_variable(actual) && expected != PL_new_atom("variable") )
 	rc = PL_unify_atom_chars(formal, "instantiation_error");
