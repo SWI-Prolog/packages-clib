@@ -7,9 +7,9 @@
 \makeindex
 
 \onefile
-\htmloutput{html}				% Output directory
-\htmlmainfile{index}				% Main document file
-\bodycolor{white}				% Page colour
+\htmloutput{.}				% Output directory
+\htmlmainfile{clib}			% Main document file
+\bodycolor{white}			% Page colour
 
 \renewcommand{\runningtitle}{CLIB -- System interfaces}
 
