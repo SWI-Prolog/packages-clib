@@ -18,6 +18,18 @@ test_time :-
 
 :- begin_tests(time).
 
+test(current) :-
+	setup_call_cleanup(alarm(5.0, writeln(ouch), ID, []),
+			   current_alarm(_At, _Goal, ID, _Status),
+			   remove_alarm(ID)).
+test(current) :-
+	setup_call_cleanup(alarm(5.0, writeln(ouch), ID, []),
+			   current_alarm(_At, writeln(ouch), _ID, _Status),
+			   remove_alarm(ID)).
+test(current) :-
+	setup_call_cleanup(alarm(5.0, writeln(ouch), ID, []),
+			   current_alarm(_At, _Goal, _ID, scheduled),
+			   remove_alarm(ID)).
 test(bg) :-
 	bg(4).
 test(flood) :-

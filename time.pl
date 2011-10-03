@@ -48,7 +48,8 @@
 	call_with_time_limit(+, 0),
 	alarm(+, 0, -),
 	alarm(+, 0, -, +),
-	alarm_at(+, 0, -, +).
+	alarm_at(+, 0, -, +),
+	current_alarm(?, :, ?, ?).
 
 %%	alarm(+Time, :Callable, -Id) is det.
 %%	alarm(+Time, :Callable, -Id, +Options) is det.

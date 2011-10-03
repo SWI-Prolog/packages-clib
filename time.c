@@ -892,24 +892,48 @@ remove_alarm(term_t alarm)
 }
 
 
+static int
+unify_event_goal(term_t goal, Event ev)
+{ term_t g = PL_new_term_ref();
+
+  return ( PL_recorded(ev->goal, g) &&
+	   PL_unify_term(goal,
+			 PL_FUNCTOR, FUNCTOR_module2,
+			   PL_ATOM, PL_module_name(ev->module),
+			   PL_TERM, g) );
+}
+
+
 static foreign_t
 current_alarms(term_t time, term_t goal, term_t id, term_t status,
 	       term_t matching)
 { Event ev;
   term_t next = PL_new_term_ref();
-  term_t g    = PL_new_term_ref();
   term_t tail = PL_copy_term_ref(matching);
   term_t head = PL_new_term_ref();
   term_t av   = PL_new_term_refs(4);
   pthread_t self = pthread_self();
+  int iterate;
 
   LOCK();
-  ev = TheSchedule()->first;
+  if ( !PL_is_variable(id) )
+  { if ( !get_timer(id, &ev) )
+    { UNLOCK();
+      return FALSE;
+    }
+    if ( !pthread_equal(self, ev->thread_id) )
+      ev = NULL;
+    iterate = FALSE;
+  } else
+  { ev = TheSchedule()->first;
+    iterate = TRUE;
+  }
 
   for(; ev; ev = ev->next)
   { atom_t s;
     double at;
     fid_t fid;
+    int ok;
 
     if ( !pthread_equal(self, ev->thread_id) )
       continue;
@@ -923,48 +947,42 @@ current_alarms(term_t time, term_t goal, term_t id, term_t status,
     else
       s = ATOM_scheduled;
 
-    if ( !PL_unify_atom(status, s) )
-      goto nomatch;
+    ok = PL_unify_atom(status, s);
 
-    PL_recorded(ev->goal, g);
-    if ( !PL_unify_term(goal,
-			PL_FUNCTOR, FUNCTOR_module2,
-			  PL_ATOM, PL_module_name(ev->module),
-			  PL_TERM, g) )
-      goto nomatch;
+    if ( ok )
+      ok = unify_event_goal(goal, ev);
 
-    at = (double)ev->at.tv_sec + (double)ev->at.tv_usec / 1000000.0;
-    if ( !PL_unify_float(time, at) )
-      goto nomatch;
-
-    if ( !unify_timer(id, ev) )
-      goto nomatch;
+    if ( ok )
+    { at = (double)ev->at.tv_sec + (double)ev->at.tv_usec / 1000000.0;
+      ok = PL_unify_float(time, at);
+    }
 
     PL_discard_foreign_frame(fid);
 
-    if ( !PL_put_float(av+0, at) ||		/* time */
-	 !PL_recorded(ev->goal, av+1) ||	/* goal */
-	 !PL_put_variable(av+2) ||		/* id */
-	 !unify_timer(av+2, ev) ||
-	 !PL_put_atom(av+3, s) ||		/* status */
-	 !PL_cons_functor_v(next, FUNCTOR_alarm4, av) )
-    { PL_close_foreign_frame(fid);
-      UNLOCK();
-      return FALSE;
-    }
-
-    if ( PL_unify_list(tail, head, tail) &&
-	 PL_unify(head, next) )
-    { continue;
+    if ( ok )
+    { if ( !PL_put_float(av+0, at) ||		/* time */
+	   !PL_put_variable(av+1)  ||		/* goal */
+	   !unify_event_goal(av+1, ev) ||
+	   !PL_put_variable(av+2) ||		/* id */
+	   !unify_timer(av+2, ev) ||
+	   !PL_put_atom(av+3, s) ||		/* status */
+					        /* Create term */
+	   !PL_cons_functor_v(next, FUNCTOR_alarm4, av) ||
+						/* Add to list */
+	   !PL_unify_list(tail, head, tail) ||
+	   !PL_unify(head, next) )
+      { UNLOCK();
+	return FALSE;
+      }
     } else
-    { PL_close_foreign_frame(fid);
-      UNLOCK();
-
-      return FALSE;
+    { if ( PL_exception(0) )
+      { UNLOCK();
+	return FALSE;
+      }
     }
 
-  nomatch:
-    PL_discard_foreign_frame(fid);
+    if ( !iterate )
+      break;
   }
   UNLOCK();
 
