@@ -527,9 +527,15 @@ the sender of the message. \arg{Socket} can be waited for using wait_for_input/3
 Defined \arg{Options}:
 
     \begin{description}
+
 	\termitem{as}{+Type}
 	Defines the returned term-type.  \arg{Type} is one of
 	\const{atom}, \const{codes} or \const{string} (default).
+
+	\termitem{max_message_size}{+Size}
+Specify the maximum number of bytes to read from a UDP datagram. Size
+must be within the range 0-65535. If unspecified, a maximum of 4096
+bytes will be read.
     \end{description}
 
 The typical sequence to receive UDP data is:

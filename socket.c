@@ -71,6 +71,7 @@ static atom_t ATOM_as;			/* "as" */
 static atom_t ATOM_atom;		/* "atom" */
 static atom_t ATOM_string;		/* "string" */
 static atom_t ATOM_codes;		/* "codes" */
+static atom_t ATOM_max_message_size;    /* "message_size" */
 
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
@@ -233,7 +234,8 @@ udp_send(+String, +String, +To, +Options)
 From/To are of the format <Host>:<Port>
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#define UDP_MAXDATA 4096
+#define UDP_MAXDATA         65535
+#define UDP_DEFAULT_BUFSIZE  4096
 
 static int
 unify_address(term_t t, struct sockaddr_in *addr)
@@ -260,9 +262,12 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 #endif
   int socket;
   int flags = 0;
-  char buf[UDP_MAXDATA];
+  char smallbuf[UDP_DEFAULT_BUFSIZE];
+  char *buf = smallbuf;
+  int bufsize = UDP_DEFAULT_BUFSIZE;
   ssize_t n;
   int as = PL_STRING;
+  int rc;
 
   if ( !PL_get_nil(options) )
   { term_t tail = PL_copy_term_ref(options);
@@ -289,8 +294,13 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 	    as = PL_STRING;
 	  else
 	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "as_option");
-	}
 
+	} else if ( name == ATOM_max_message_size )
+	{ if ( !PL_get_integer(arg, &bufsize) )
+	    return pl_error(NULL, 0, NULL, ERR_TYPE, arg, "integer");
+	  if ( bufsize < 0 || bufsize > UDP_MAXDATA )
+	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "0 - 65535");
+	}
       } else
 	return pl_error(NULL, 0, NULL, ERR_TYPE, head, "option");
     }
@@ -298,19 +308,30 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
       return pl_error(NULL, 0, NULL, ERR_TYPE, tail, "list");
   }
 
-
   if ( !tcp_get_socket(Socket, &socket) ||
        !nbio_get_sockaddr(From, &sockaddr) )
     return FALSE;
 
-  if ( (n=nbio_recvfrom(socket, buf, sizeof(buf), flags,
+  if ( bufsize > UDP_DEFAULT_BUFSIZE )
+  { if ( !(buf = malloc(bufsize)) )
+      return pl_error(NULL, 0, NULL, ERR_RESOURCE, "memory");
+  }
+
+  if ( (n=nbio_recvfrom(socket, buf, bufsize, flags,
 			(struct sockaddr*)&sockaddr, &alen)) == -1 )
-    return nbio_error(errno, TCP_ERRNO);
+  { rc = nbio_error(errno, TCP_ERRNO);
+    goto out;
+  }
 
-  if ( !PL_unify_chars(Data, as, n, buf) )
-    return FALSE;
+  rc = ( PL_unify_chars(Data, as, n, buf) &&
+	 unify_address(From, &sockaddr)
+       );
 
-  return unify_address(From, &sockaddr);
+out:
+  if ( buf != smallbuf )
+    free(buf);
+
+  return rc;
 }
 
 
@@ -641,16 +662,17 @@ install_t
 install_socket()
 { nbio_init("socket");
 
-  ATOM_reuseaddr      =	PL_new_atom("reuseaddr");
-  ATOM_broadcast      =	PL_new_atom("broadcast");
-  ATOM_nodelay	      =	PL_new_atom("nodelay");
-  ATOM_dispatch	      =	PL_new_atom("dispatch");
-  ATOM_nonblock	      =	PL_new_atom("nonblock");
-  ATOM_infinite	      =	PL_new_atom("infinite");
-  ATOM_as	      =	PL_new_atom("as");
-  ATOM_atom	      =	PL_new_atom("atom");
-  ATOM_string	      =	PL_new_atom("string");
-  ATOM_codes	      =	PL_new_atom("codes");
+  ATOM_reuseaddr        = PL_new_atom("reuseaddr");
+  ATOM_broadcast        = PL_new_atom("broadcast");
+  ATOM_nodelay	        = PL_new_atom("nodelay");
+  ATOM_dispatch	        = PL_new_atom("dispatch");
+  ATOM_nonblock	        = PL_new_atom("nonblock");
+  ATOM_infinite	        = PL_new_atom("infinite");
+  ATOM_as	        = PL_new_atom("as");
+  ATOM_atom	        = PL_new_atom("atom");
+  ATOM_string	        = PL_new_atom("string");
+  ATOM_codes	        = PL_new_atom("codes");
+  ATOM_max_message_size = PL_new_atom("max_message_size");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 
