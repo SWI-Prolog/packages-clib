@@ -87,15 +87,15 @@ as files, sockets and pipes. Data is not shared, though on most Unix
 systems data is initially shared and duplicated only if one of the
 programs attempts to modify the data.
 
-Unix \funcref{fork}{} is the only way to create new processes and fork/2
+Unix \cfuncref{fork}{} is the only way to create new processes and fork/2
 is a simple direct interface to it.
 
     \predicate{exec}{1}{+Command(...Args...)}
 Replace the running program by starting \arg{Command} using the given
 commandline arguments. Each command-line argument must be atomic and is
-converted to a string before passed to the Unix call \funcref{execvp}{}.
+converted to a string before passed to the Unix call \cfuncref{execvp}{}.
 
-Unix \funcref{exec}{} is the only way to start an executable file
+Unix \cfuncref{exec}{} is the only way to start an executable file
 executing.  It is commonly used together with fork/1.  For example to
 start \program{netscape} on an URL in the background, do:
 
@@ -116,7 +116,7 @@ detach_IO/0 disconnects the child as a deamon process.
 Wait for a child to change status. Then report the child that changed
 status as well as the reason. \arg{Status} is unified with
 \term{exited}{ExitCode} if the child with pid \arg{Pid} was terminated
-by calling \funcref{exit}{} (Prolog halt/[0,1]). \arg{ExitCode} is the
+by calling \cfuncref{exit}{} (Prolog halt/[0,1]). \arg{ExitCode} is the
 return=status. \arg{Status} is unified with \term{signaled}{Signal} if
 the child died due to a software interrupt (see kill/2). \arg{Signal}
 contains the signal number. Finally, if the process suspended execution
@@ -326,7 +326,7 @@ situations require setting this to \const{false}.
 \end{description}
 
     \predicate{tcp_fcntl}{3}{+Stream, +Action, ?Argument}
-Interface to the Unix \funcref{fcntl}{} call.  Currently only suitable
+Interface to the Unix \cfuncref{fcntl}{} call.  Currently only suitable
 to deal switch stream to non-blocking mode using:
 
 \begin{code}
@@ -343,18 +343,18 @@ end-of-input, at_end_of_stream/1 succeeds.
     \predicate{tcp_host_to_address}{2}{?HostName, ?Address}
 Translate between a machines host-name and it's (IP-)address. If
 \arg{HostName} is an atom, it is resolved using
-\funcref{getaddrinfo}{} and the IP-number is unified to \arg{Address}
+\cfuncref{getaddrinfo}{} and the IP-number is unified to \arg{Address}
 using a term of the format \term{ip}{Byte1, Byte2, Byte3, Byte4}.
 Otherwise, if \arg{Address} is bound to a \functor{ip}{4} term, it
-is resolved by \funcref{gethostbyaddr}{} and the canonical hostname
+is resolved by \cfuncref{gethostbyaddr}{} and the canonical hostname
 is unified with \arg{HostName}.\footnote{This function should support
-more functionality provided by \funcref{gethostbyaddr}{}, probably
+more functionality provided by \cfuncref{gethostbyaddr}{}, probably
 by adding an option-list.}
 
     \predicate{gethostname}{1}{-Hostname}
 Return the canonical fully qualified name of this host. This is achieved
-by calling \funcref{gethostname}{} and return the canonical name
-returned by \funcref{getaddrinfo}{}.
+by calling \cfuncref{gethostname}{} and return the canonical name
+returned by \cfuncref{getaddrinfo}{}.
 \end{description}
 
 
