@@ -21,7 +21,6 @@ MIMELIBS=	rfc2045.lib rfc822.lib
 TIMEOBJ=	error.obj time.obj
 READOBJ=	readutil.obj
 PROCESSOBJ=	error.obj process.obj
-RANDOMOBJ=	random.obj
 SHAOBJ=		error.obj sha4pl.obj sha1/sha1.obj sha1/sha2.obj \
 		sha1/hmac_sha1.obj sha1/hmac_sha256.obj
 URIOBJ=		uri.obj
@@ -29,7 +28,7 @@ FILESOBJ=	error.obj files.obj
 TIMELIBS=	winmm.lib
 
 all:		socket.dll cgi.dll memfile.dll mime.dll time.dll readutil.dll \
-		random.dll crypt.dll sha4pl.dll process.dll uri.dll files.dll
+		crypt.dll sha4pl.dll process.dll uri.dll files.dll
 
 readutil.dll:	$(READOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(READOBJ) $(PLLIB) $(LIBS)
@@ -47,8 +46,6 @@ mime.dll:	$(MIMEOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(MIMEOBJ) $(PLLIB) $(LIBS) $(MIMELIBS)
 time.dll:	$(TIMEOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(TIMEOBJ) $(PLLIB) $(LIBS) $(TIMELIBS)
-random.dll:	$(RANDOMOBJ)
-		$(LD) /dll /out:$@ $(LDFLAGS) $(RANDOMOBJ) $(PLLIB) $(LIBS)
 sha4pl.dll:	$(SHAOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(SHAOBJ) $(PLLIB) $(LIBS)
 uri.dll:	$(URIOBJ)
@@ -96,7 +93,6 @@ idll::
 		copy memfile.dll "$(BINDIR)"
 		copy mime.dll "$(BINDIR)"
 		copy time.dll "$(BINDIR)"
-		copy random.dll "$(BINDIR)"
 		copy readutil.dll "$(BINDIR)"
 		copy process.dll "$(BINDIR)"
 		copy sha4pl.dll "$(BINDIR)"
@@ -123,7 +119,6 @@ ilib::
 		copy crypt.pl "$(PLBASE)\library"
 		copy memfile.pl "$(PLBASE)\library"
 		copy mime.pl "$(PLBASE)\library"
-		copy random.pl "$(PLBASE)\library"
 		copy time.pl "$(PLBASE)\library"
 		copy sha.pl "$(PLBASE)\library"
 		copy uri.pl "$(PLBASE)\library"
@@ -138,7 +133,6 @@ uninstall::
 		del "$(BINDIR)\crypt.dll"
 		del "$(BINDIR)\memfile.dll"
 		del "$(BINDIR)\mime.dll"
-		del "$(BINDIR)\random.dll"
 		del "$(BINDIR)\time.dll"
 		del "$(BINDIR)\readutil.dll"
 		del "$(BINDIR)\sha4pl.dll"
@@ -149,7 +143,6 @@ uninstall::
 		del "$(PLBASE)\library\crypt.pl"
 		del "$(PLBASE)\library\memfile.pl"
 		del "$(PLBASE)\library\mime.pl"
-		del "$(PLBASE)\library\random.pl"
 		del "$(PLBASE)\library\time.pl"
 		del "$(PLBASE)\library\sha.pl"
 		del "$(PLBASE)\library\uri.pl"

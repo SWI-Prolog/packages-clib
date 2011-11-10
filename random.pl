@@ -3,14 +3,15 @@
     Part of SWI-Prolog
 
     Author:        R.A. O'Keefe, V.S. Costa, L. Damas, Jan Wielemaker
-    E-mail:        wielemak@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): Universidade do Porto, University of Amsterdam
+    Copyright (C): Universidade do Porto, University of Amsterdam,
+		   VU University Amsterdam.
 */
 
 /*************************************************************************
 *									 *
-*	 YAP Prolog 							 *
+*	 YAP Prolog							 *
 *									 *
 *	Yap Prolog was developed at NCCUP - Universidade do Porto	 *
 *									 *
@@ -42,18 +43,17 @@
 	    random_permutation/2	% +List, -Permutation
 	  ]).
 :- use_module(library(pairs)).
-
-:- use_foreign_library(foreign(random)).
+:- use_module(library(error)).
 
 /** <module> Random numbers
 
-Random number generator developed as  part   of  the  DEC10 library. The
-algorithm is based  on  AS  183   from  Applied  Statistics.  Originally
-implemented in Prolog by Richard O'Keeke.   The SWI-Prolog versions is a
-translation of a C-version for YAP based on the orginal source.
+This library is derived from the DEC10   library random. Later, the core
+random generator was moved to C. The current version uses the SWI-Prolog
+arithmetic functions to realise this library.  These functions are based
+on the GMP library.
 
 @copyright	DEC10 version: Public domain, YAP: Artistic
-@author 	R.A. O'Keefe, V.S. Costa, L. Damas, Jan Wielemaker
+@author		R.A. O'Keefe, V.S. Costa, L. Damas, Jan Wielemaker
 @see		Built-in function random/1: A is random(10)
 */
 
@@ -67,27 +67,52 @@ translation of a C-version for YAP based on the orginal source.
 %
 %	Binds R to a new random number in [0.0,1.0).
 %
-%	@see setrand/1, getrand/1.
+%	@see setrand/1, getrand/1 maye be used to fetch/set the state.
+%	@see In SWI-Prolog, random/1 is implemented by the function
+%	     random_float/0.
 
-%%	setrand(+State:rand(A,B,C)) is det.
-%%	getrand(+State:rand(A,B,C)) is det.
+random(R) :-
+	R is random_float.
+
+%%	setrand(+State) is det.
+%%	getrand(-State) is det.
 %
-%	Query/set the state of the  random  library.   A,  B  and  C are
-%	integers in the range 1..30,000. The initial state is predefined
-%	and can be extracted using getrand/1:
+%	Query/set the state of the random   generator.  This is intended
+%	for  restarting  the  generator  at  a  known  state  only.  The
+%	predicate  setrand/1  accepts  an  opaque    term   returned  by
+%	getrand/1. This term may be  asserted,   written  and  read. The
+%	application may not make other assumptions about this term.
 %
-%	    ==
-%	    ?- getrand(X).
-%	    X = rand(27314, 9213, 17773).
-%	    ==
+%	For compatibility reasons with older   versions of this library,
+%	setrand/1 also accepts a term rand(A,B,C), where  A, B and C are
+%	integers in the range 1..30,000. This   argument is used to seed
+%	the random generator.  Deprecated.
 %
-%	@see random/1.
+%	@see	set_random/1 and random_property/1 provide the SWI-Prolog
+%		native implementation.
+%	@error	existence_error(random_state, _) is raised if the
+%		underlying infrastructure cannot fetch the random state.
+%		This is currently the case if SWI-Prolog is not compiled
+%		with the GMP library.
+
+setrand(rand(A,B,C)) :- !,
+	Seed is A<<30+B<<15+C,
+	set_random(seed(Seed)).
+setrand(State) :-
+	set_random(state(State)).
+
+:- if(current_predicate(random_property/1)).
+getrand(State) :-
+	random_property(state(State)).
+:- else.
+getrand(State) :-
+	existence_error(random_state, State).
+:- endif.
 
 
 		 /*******************************
 		 *	       PROLOG		*
 		 *******************************/
-
 
 %%	random(+L:int, +U:int, -R:int) is det.
 %%	random(+L:float, +U:float, -R:float) is det.
@@ -102,12 +127,13 @@ translation of a C-version for YAP based on the orginal source.
 
 random(L, U, R) :-
 	integer(L), integer(U), !,
-	random(X),
-	R is L+floor((U-L)*X).
+	R is L+random(U-L).
 random(L, U, R) :-
 	number(L), number(U), !,
-	random(X),
-	R is L+((U-L)*X).
+	R is L+((U-L)*random_float).
+random(L, U, _) :-
+	must_be(number, L),
+	must_be(number, U).
 
 %%	randset(+K:int, +N:int, -S:list(int)) is det.
 %
@@ -117,7 +143,7 @@ random(L, U, R) :-
 
 
 randset(K, N, S) :-
-	K >= 0,
+	must_be(nonneg, K),
 	K =< N,
 	randset(K, N, [], S).
 
