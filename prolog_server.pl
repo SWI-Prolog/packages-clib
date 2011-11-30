@@ -3,9 +3,10 @@
     Part of SWI-Prolog
 
     Author:        Jan Wielemaker & Steve Prior
-    E-mail:        wielemak@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2007, University of Amsterdam
+    Copyright (C): 1985-2011, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -93,26 +94,24 @@ service_client(InStream, OutStream, Peer, Options) :-
 	thread_self(Id),
 	set_prolog_IO(InStream, OutStream, OutStream),
 	set_stream(InStream, tty(true)),
+	set_prolog_flag(tty_control, false),
+	current_prolog_flag(encoding, Enc),
+	set_stream(InStream, encoding(Enc)),
+	set_stream(OutStream, encoding(Enc)),
+	set_stream(InStream, newline(detect)),
 	format(user_error,
 	       'Welcome to the SWI-Prolog server on thread ~w~n~n',
 	       [Id]),
-	call_cleanup(run_prolog,
-		     (	 close(InStream),
-			 close(OutStream),
-			 thread_detach(Id))).
+	call_cleanup(prolog,
+		     ( close(InStream),
+		       close(OutStream),
+		       thread_detach(Id))).
 service_client(InStream, OutStream, _, _):-
 	thread_self(Id),
 	format(OutStream, 'Go away!!~n', []),
 	close(InStream),
 	close(OutStream),
 	thread_detach(Id).
-
-
-run_prolog :-
-	catch(prolog, E,
-	      ( print_message(error, E),
-%		E = error(_, _),
-		run_prolog)).
 
 
 allow(Peer, Options) :-
