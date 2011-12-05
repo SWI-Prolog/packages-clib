@@ -88,12 +88,12 @@ AC_TRY_COMPILE(
 AC_CHECK_HEADERS(malloc.h alloca.h unistd.h sys/time.h fcntl.h utime.h)
 AC_CHECK_HEADERS(execinfo.h sys/resource.h crypt.h)
 AC_CHECK_HEADERS(sys/types.h sys/wait.h sys/stat.h)
-AC_CHECK_HEADERS(netinet/tcp.h)
+AC_CHECK_HEADERS(netinet/tcp.h crt_externs.h)
 
 AC_CHECK_SIZEOF(long, 4)
 AC_CHECK_SIZEOF(long long, 8)
 
-AC_CHECK_FUNCS(setsid strerror utime getrlimit vfork)
+AC_CHECK_FUNCS(setsid strerror utime getrlimit vfork _NSGetEnviron)
 AC_CHECK_TYPES(socklen_t, [], [],
 [
 #include <sys/types.h>

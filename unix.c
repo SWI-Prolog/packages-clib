@@ -41,6 +41,9 @@
 #ifdef HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
+#ifdef HAVE_CRT_EXTERNS_H 
+#include <crt_externs.h>
+#endif
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Unix process management.
@@ -239,7 +242,12 @@ out:
 
 static foreign_t
 pl_environ(term_t l)
-{ extern char **environ;
+{
+#ifdef HAVE__NSGETENVIRON
+  char **environ = _NSGetEnviron();
+#else
+  extern char **environ;
+#endif
   char **e;
   term_t t = PL_copy_term_ref(l);
   term_t t2 = PL_new_term_ref();
