@@ -87,24 +87,6 @@ following finds the executable for =ls=:
 */
 
 
-		 /*******************************
-		 *	  PATH HANDLING		*
-		 *******************************/
-
-:- multifile
-	user:file_search_path/2.
-:- dynamic
-	user:file_search_path/2.
-
-user:file_search_path(path, Dir) :-
-	getenv('PATH', Path),
-	(   current_prolog_flag(windows, true)
-	->  atomic_list_concat(Dirs, (;), Path)
-	;   atomic_list_concat(Dirs, :, Path)
-	),
-	member(Dir, Dirs).
-
-
 %%	process_create(+Exe, +Args:list, +Options) is det.
 %
 %	Create a new process running the   file  Exe and using arguments
@@ -159,7 +141,7 @@ user:file_search_path(path, Dir) :-
 %           assistant' attached to them automatically unless they have a UAC
 %           manifest embedded in them. This means that you will get a
 %           permission denied error if you try and assign the newly-created
-%           PID to a job you create yourself. 
+%           PID to a job you create yourself.
 %	    * window(+Bool)
 %	    If =true=, create a window for the process (Windows only)
 %
