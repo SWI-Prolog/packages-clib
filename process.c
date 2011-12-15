@@ -450,9 +450,13 @@ get_exe(term_t exe, p_options *info)
   if ( !PL_get_chars(arg, &info->exe, CVT_ATOM|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
     return FALSE;
 
-  info->argv = PL_malloc((arity+2)*sizeof(char*));
+  if ( !(info->argv = PL_malloc((arity+2)*sizeof(char*))) )
+    return PL_resource_error("memory");
   memset(info->argv, 0, (arity+2)*sizeof(char*));
-  info->argv[0] = strdup(info->exe);
+  if ( !(info->argv[0] = PL_malloc(strlen(info->exe)+1)) )
+    return PL_resource_error("memory");
+  strcpy(info->argv[0], info->exe);
+
   { int i;
 
     for(i=1; i<=arity; i++)
