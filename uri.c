@@ -1233,8 +1233,8 @@ ranges_in_charbuf(charbuf *cb, uri_component_ranges *ranges)
 
 
 typedef struct
-{ atom_t     	       atom;
-  pl_wchar_t 	      *text;
+{ atom_t	       atom;
+  pl_wchar_t	      *text;
   uri_component_ranges ranges;
 } base_cache;
 
@@ -1263,7 +1263,7 @@ myBase()
 
   if ( (base=pthread_getspecific(base_key)) )
     return base;
-  base = PL_malloc(sizeof(*base));
+  base = PL_malloc_uncollectable(sizeof(*base)); /* Due to bug in Boehm-GC */
   memset(base, 0, sizeof(*base));
 
   pthread_setspecific(base_key, base);
