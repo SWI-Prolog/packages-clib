@@ -82,11 +82,18 @@ server_loop(ServerSocket, Options) :-
 	tcp_accept(ServerSocket, Slave, Peer),
 	tcp_open_socket(Slave, InStream, OutStream),
 	tcp_host_to_address(Host, Peer),
-	atom_concat('client@', Host, Alias),
-	thread_create(service_client(InStream, OutStream, Peer, Options),
-		      _,
-		      [ alias(Alias)
-		      ]),
+	(   Postfix = []
+	;   between(2, 1000, Num),
+	    Postfix = [-, Num]
+	),
+	atomic_list_concat(['client@', Host | Postfix], Alias),
+	catch(thread_create(
+		  service_client(InStream, OutStream, Peer, Options),
+		  _,
+		  [ alias(Alias)
+		  ]),
+	      error(permission_error(create, thread, Alias), _),
+	      fail), !,
 	server_loop(ServerSocket, Options).
 
 service_client(InStream, OutStream, Peer, Options) :-
