@@ -106,6 +106,7 @@ service_client(InStream, OutStream, Peer, Options) :-
 	set_stream(InStream, encoding(Enc)),
 	set_stream(OutStream, encoding(Enc)),
 	set_stream(InStream, newline(detect)),
+	set_stream(OutStream, newline(dos)),
 	format(user_error,
 	       'Welcome to the SWI-Prolog server on thread ~w~n~n',
 	       [Id]),
