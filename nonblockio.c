@@ -459,6 +459,8 @@ waitRequest(plsocket *s)
     } else if ( GetMessage(&msg, NULL, 0, 0) )
     { TranslateMessage(&msg);
       DispatchMessage(&msg);
+      if ( PL_exception(0) )
+	return FALSE;			/* DispatchMessage handled a signal */
     } else
     { ExitThread(0);			/* WM_QUIT received */
       return FALSE;			/* NOTREACHED */
@@ -2015,7 +2017,8 @@ nbio_connect(nbio_sock_t socket,
     { s->rdata.connect.addrlen = addrlen;
       memcpy(&s->rdata.connect.addr, serv_addr, addrlen);
       placeRequest(s, REQ_CONNECT);
-      waitRequest(s);
+      if ( !waitRequest(s) )
+	return -1;
     }
 
     if ( s->error )
