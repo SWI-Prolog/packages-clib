@@ -22,6 +22,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#define _GNU_SOURCE 1
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -114,9 +115,83 @@ add_data(const char *ndata, size_t len, void *closure)
 }
 
 
+#ifndef HAVE_STRCASESTR
+
+static char *
+my_strcasestr(const char *haystack, const char *needle)
+{ size_t nlen = strlen(needle);
+  const char *end = haystack + strlen(haystack) - nlen;
+
+  for(; haystack < end; haystack++)
+  { if ( strncasecmp(haystack, needle, nlen) == 0 )
+      return (char*)haystack;
+  }
+
+  return NULL;
+}
+
+#define strcasestr(haystack, needle) my_strcasestr(haystack, needle)
+
+#endif
+
+
+static const char *utf8_aliases[] =
+{ "UTF-8",
+  "FSS_UTF",
+  "TF-8",
+  "u8",
+  "UTF-2",
+  "UTF-FSS",
+  NULL
+};
+
+static const char *lat1_aliases[] =
+{ "ISO-8859-1",
+  "819/CR-LF",
+  "CP819/CR-LF",
+  "csISOLatin1",
+  "IBM819/CR-LF",
+  "ISO8859-1",
+  "iso-ir-100",
+  "ISO_8859-1",
+  "ISO_8859-1:1987",
+  "l1",
+  "lat1",
+  "latin1",
+  "Latin-1",
+
+  "ANSI_X3.4-1968",
+  "367/CR-LF",
+  "ANSI_X3.4-1986",
+  "ASCII CP367/CR-LF",
+  "csASCII",
+  "IBM367/CR-LF",
+  "ISO646-US",
+  "ISO646.1991-IRV",
+  "iso-ir-6",
+  "ISO_646.irv:1991",
+  "us",
+  "US-ASCII",
+  "ASCII-BS",
+  "BS",
+
+  NULL
+};
 
 static int
-mime_unify_data(term_t data, struct rfc2045 *rfc, const char *buffer)
+is_alias(const char **alias, const char *cset)
+{ for( ; *alias; alias++)
+  { if ( strcasestr(cset, *alias) )
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+static int
+mime_unify_data(term_t data, struct rfc2045 *rfc, const char *buffer,
+	        const char *cset, const char *type)
 { off_t start_pos, end_pos, start_body, nlines, nbodylines;
   struct dbuf dbuf;
   int rval;
@@ -130,7 +205,18 @@ mime_unify_data(term_t data, struct rfc2045 *rfc, const char *buffer)
   rfc2045_cdecode_start(rfc, add_data, &dbuf);
   if ( rfc2045_cdecode(rfc, buffer+start_body, end_pos-start_body) == 0 &&
        rfc2045_cdecode_end(rfc) == 0 )
-  { rval = PL_unify_atom_nchars(data, dbuf.size, dbuf.buf);
+  { int rep = REP_ISO_LATIN_1;
+
+    if ( strncmp(type, "text/", strlen("text/")) == 0 )
+    { if ( is_alias(utf8_aliases, cset) )
+	rep = REP_UTF8;
+      else if ( is_alias(lat1_aliases, cset) )
+	rep = REP_ISO_LATIN_1;
+      else
+	rep = REP_MB;
+    }
+
+    rval = PL_unify_chars(data, PL_ATOM|rep, dbuf.size, dbuf.buf);
   } else
     rval = FALSE;
 
@@ -167,6 +253,7 @@ mime_unify(term_t result, struct rfc2045 *rfc, const char *buffer)
 { term_t data = PL_new_term_ref();
   term_t subs = PL_new_term_ref();
   term_t atts = PL_new_term_ref();
+  const char *type, *cset;
 
   if ( !PL_unify_term(result,
 		      PL_FUNCTOR, FUNCTOR_mime3,
@@ -181,7 +268,7 @@ mime_unify(term_t result, struct rfc2045 *rfc, const char *buffer)
       return FALSE;
   } else
   { term_t at = PL_copy_term_ref(atts);
-    const char *type, *enc, *cset;
+    const char *enc;
     const char *disp, *name, *fnam;
 
     const char *id   = rfc2045_content_id(rfc);
@@ -226,7 +313,7 @@ mime_unify(term_t result, struct rfc2045 *rfc, const char *buffer)
     return PL_unify_nil(st);
   } else
   { if ( !PL_unify_nil(subs) ||
-	 !mime_unify_data(data, rfc, buffer) )
+	 !mime_unify_data(data, rfc, buffer, cset, type) )
       return FALSE;
   }
 
@@ -317,7 +404,7 @@ get_character_data(term_t from, char **data, size_t *len, int *malloced)
 
 
 
-foreign_t
+static foreign_t
 mime_parse(term_t handle, term_t result)
 { char *buf;
   size_t len = 0;
@@ -338,6 +425,26 @@ mime_parse(term_t handle, term_t result)
 
   return rval;
 }
+
+
+static foreign_t
+mime_default_charset(term_t old, term_t new)
+{ if ( PL_unify_atom_chars(old, rfc2045_getdefaultcharset()) )
+  { if ( PL_compare(old, new) != 0 )
+    { char *cs;
+
+      if ( PL_get_chars(new, &cs, CVT_ATOM|CVT_EXCEPTION) )
+      { rfc2045_setdefaultcharset(cs);
+	return TRUE;
+      }
+      return FALSE;
+    }
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
 
 		 /*******************************
 		 *	       ERRORS		*
@@ -387,5 +494,6 @@ install_mime()
   FUNCTOR_name1		     = mkfunctor("name", 1);
   FUNCTOR_filename1	     = mkfunctor("filename", 1);
 
-  PL_register_foreign("mime_parse", 2, mime_parse, 0);
+  PL_register_foreign("mime_parse",           2, mime_parse,           0);
+  PL_register_foreign("mime_default_charset", 2, mime_default_charset, 0);
 }

@@ -153,13 +153,15 @@ check-read::
 # Documentation
 ################################################################
 
-TEXEXTRA=process.tex uri.tex filesex.tex uid.tex
+TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
 		$(PLTOTEX) 'library(uri)'
 process.tex:	process.pl
 		$(PLTOTEX) 'library(process)'
+mime.tex:	mime.pl
+		$(PLTOTEX) 'library(mime)'
 filesex.tex:	filesex.pl
 		$(PLTOTEX) 'library(filesex)'
 uid.tex:	uid.pl
