@@ -117,6 +117,10 @@ add_data(const char *ndata, size_t len, void *closure)
 
 #ifndef HAVE_STRCASESTR
 
+#ifdef __WINDOWS__
+#define strncasecmp(h,n,c) _strnicmp(h,n,c)
+#endif
+
 static char *
 my_strcasestr(const char *haystack, const char *needle)
 { size_t nlen = strlen(needle);
