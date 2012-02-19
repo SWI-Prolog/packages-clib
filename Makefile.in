@@ -104,12 +104,12 @@ ln-install::
 rpm-install:	install
 
 html-install::
-		mkdir -p $(DESTDIR)$(PKGDOC)
-		$(INSTALL) -m 644 clib.html $(DESTDIR)$(PKGDOC)
+		mkdir -p $(DESTDIR)$(PKGDOCDIR)
+		$(INSTALL) -m 644 clib.html $(DESTDIR)$(PKGDOCDIR)
 
 pdf-install::
-		mkdir -p $(DESTDIR)$(PKGDOC)
-		$(INSTALL) -m 644 clib.pdf $(DESTDIR)$(PKGDOC)
+		mkdir -p $(DESTDIR)$(PKGDOCDIR)
+		$(INSTALL) -m 644 clib.pdf $(DESTDIR)$(PKGDOCDIR)
 
 uninstall::
 		(cd $(SOLIBDIR) && rm -f $(TARGETS))
