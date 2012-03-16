@@ -185,6 +185,44 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
     if ( utimefunc(name, &tbuf) != 0 )
       return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "set_time", "file", spec);
   }
+#elif defined (__WINDOWS__)
+  { FILETIME ctime;
+    FILETIME atime;
+    FILETIME mtime;
+    time_t tmp;
+    BOOL rc;
+    LONGLONG ll;
+    HANDLE hFile;
+
+    if ( !get_time_option(new, FUNCTOR_access1,
+                          sbuf.st_atime, &tmp) )
+       return FALSE;
+    ll = Int32x32To64(tmp, 10000000) + 116444736000000000LL;
+    atime.dwLowDateTime = (DWORD)ll;
+    atime.dwHighDateTime = ll >> 32;
+    if ( !get_time_option(new, FUNCTOR_modified1,
+                          sbuf.st_mtime, &tmp) )
+       return FALSE;
+    ll = Int32x32To64(tmp, 10000000) + 116444736000000000;
+    mtime.dwLowDateTime = (DWORD)ll;
+    mtime.dwHighDateTime = ll >> 32;
+    hFile = CreateFileW((LPCWSTR)name,
+                        GENERIC_WRITE,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE,
+                        NULL,
+                        OPEN_EXISTING,
+                        FILE_ATTRIBUTE_NORMAL ,
+                        0);
+    if ( hFile == INVALID_HANDLE_VALUE )
+       return pl_error(NULL, 0, NULL, ERR_ERRNO, GetLastError(), "stat", "file", spec);
+    rc = SetFileTime(hFile,
+                     &ctime,
+                     &atime,
+                     &mtime);
+    CloseHandle(hFile);
+    if (rc == FALSE)
+       return FALSE;
+  }
 #else
     return pl_error(NULL, 0, NULL, ERR_NOTIMPLEMENTED, "set_time", name);
 #endif

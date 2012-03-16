@@ -74,8 +74,6 @@ high-level utilities.
 %	    ?- set_time_file(foo, [acess(Access)], []).
 %	    ?- set_time_file(foo, [], [modified(now)]).
 %	    ==
-%
-%	@bug Setting times does not work on Windows.
 
 %%	link_file(+OldPath, +NewPath, +Type) is det.
 %
