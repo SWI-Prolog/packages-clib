@@ -1605,5 +1605,7 @@ install_uri()
 
 install_t
 uninstall_uri()
-{ pthread_key_delete(base_key);
+#ifdef _REENTRANT
+  pthread_key_delete(base_key);
+#endif
 }
