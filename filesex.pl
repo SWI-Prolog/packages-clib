@@ -34,7 +34,9 @@
 	    relative_file_name/3,	% +AbsPath, +RelTo, -RelPath
 	    directory_file_path/3,	% +Dir, +File, -Path
 	    copy_file/2,		% +From, +To
-	    make_directory_path/1	% +Directory
+	    make_directory_path/1,	% +Directory
+	    copy_directory/2,		% +Source, +Destination
+	    delete_directory_and_contents/1 % +Dir
 	  ]).
 
 /** <module> Extended operations on files
@@ -42,7 +44,14 @@
 This module provides additional operations on   files.  This covers both
 more  obscure  and  possible  non-portable    low-level  operations  and
 high-level utilities.
+
+Using these Prolog primitives is typically   to  be preferred over using
+operating system primitives through shell/1  or process_create/3 because
+(1) there are no potential file  name   quoting  issues, (2) there is no
+dependency  on  operating   system   commands    and   (3)   using   the
+implementations from this library is usually faster.
 */
+
 
 :- use_foreign_library(foreign(files), install_files).
 
@@ -200,3 +209,47 @@ make_directory_path_2(Dir) :-
 	file_directory_name(Dir, Parent),
 	make_directory_path_2(Parent),
 	make_directory(Dir).
+
+%%	copy_directory(+From, +To) is det.
+%
+%	Copy the contents of the directory  From to To (recursively). If
+%	To is the name of an existing  directory, the _contents_ of From
+%	are copied into To. I.e., no  subdirectory using the basename of
+%	From is created.
+
+copy_directory(From, To) :-
+	make_directory(To),
+	directory_files(From, Entries),
+	maplist(copy_directory_content(From, To), Entries).
+
+copy_directory_content(_From, _To, Special) :-
+	special(Special), !.
+copy_directory_content(From, To, Entry) :-
+	directory_file_path(From, Entry, Source),
+	directory_file_path(To, Entry, Dest),
+	(   exists_directory(Source)
+	->  copy_directory(Source, Dest)
+	;   copy_file(Source, Dest)
+	).
+
+special(.).
+special(..).
+
+%%	delete_directory_and_contents(+Dir)
+%
+%	Recursively remove the directory Dir and  its contents. Use with
+%	care!
+
+delete_directory_and_contents(Dir) :-
+	directory_files(Dir, Files),
+	maplist(delete_directory_contents(Dir), Files),
+	delete_directory(Dir).
+
+delete_directory_contents(_, Entry) :-
+	special(Entry), !.
+delete_directory_contents(Dir, Entry) :-
+	directory_file_path(Dir, Entry, Delete),
+	(   exists_directory(Delete)
+	->  delete_directory_and_contents(Delete)
+	;   delete_file(Delete)
+	).
