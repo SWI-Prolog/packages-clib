@@ -19,8 +19,10 @@
 #include       <strings.h>
 #endif
 #ifdef __WINDOWS__
+#ifndef strcasecmp
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
+#endif
 #if (_MSC_VER < 1300)
 #define write _write
 #endif

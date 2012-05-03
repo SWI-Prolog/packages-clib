@@ -42,7 +42,9 @@
 #ifdef __WINDOWS__
 
 #if defined(__MINGW32__)
+#ifndef WINVER
 #define WINVER 0x0501
+#endif
 #endif
 
 #define MAKE_FUNCTORS 1

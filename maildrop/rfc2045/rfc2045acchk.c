@@ -14,8 +14,10 @@
 #include	<stdlib.h>
 #include	<stdio.h>
 #ifdef __WINDOWS__
+#ifndef strcasecmp
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
+#endif
 #endif
 
 /* $Id$ */

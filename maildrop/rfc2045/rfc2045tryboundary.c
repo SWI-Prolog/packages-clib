@@ -17,7 +17,9 @@
 #include       <strings.h>
 #endif
 #ifdef __WINDOWS__
+#ifndef strncasecmp
 #define strncasecmp strnicmp
+#endif
 #include <io.h>
 #define read _read
 #define lseek _lseek

@@ -113,7 +113,9 @@ leave the details to this function.
 #endif
 
 #if defined(__MINGW32__)
-#define __SEH_NOOP 1
+#define __try
+#define __except(_) if (0)
+#define __finally
 #endif
 
 #if defined(__MINGW32__)

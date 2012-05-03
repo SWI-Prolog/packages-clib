@@ -21,7 +21,9 @@
 #include	"rfc2045charset.h"
 
 #ifdef __WINDOWS__
+#ifndef strncasecmp
 #define strncasecmp strnicmp
+#endif
 #endif
 
 static char	*rfc2045_defcharset=0;
