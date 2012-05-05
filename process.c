@@ -629,7 +629,7 @@ open_process_pipe(process_context *pc, int which, int fd)
 
   pc->open_mask |= (1<<which);
 #ifdef __WINDOWS__
-  pc->pipes[which] = _open_osfhandle((long)fd, _O_BINARY);
+  pc->pipes[which] = _open_osfhandle((intptr_t)fd, _O_BINARY);
 #else
   pc->pipes[which] = fd;
 #endif
@@ -979,7 +979,7 @@ create_pipes(p_options *info)
 
 static IOSTREAM *
 Sopen_handle(HANDLE h, const char *mode)
-{ return Sfdopen(_open_osfhandle((long)h, _O_BINARY), mode);
+{ return Sfdopen(_open_osfhandle((intptr_t)h, _O_BINARY), mode);
 }
 
 
@@ -1511,7 +1511,7 @@ process_wait(term_t pid, term_t code, term_t options)
 
 static foreign_t
 process_kill(term_t pid, term_t signal)
-{ int p;
+{ pid_t p;
 
   if ( !get_pid(pid, &p) )
     return FALSE;

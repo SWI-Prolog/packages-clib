@@ -31,7 +31,7 @@ Shared stuff between the normal socket interface and the TIPC one.
 		 *	  IO-STREAM STUFF	*
 		 *******************************/
 
-#define fdFromHandle(p) ((nbio_sock_t)((long)(p)))
+#define fdFromHandle(p) ((nbio_sock_t)((intptr_t)(p)))
 
 static ssize_t
 tcp_read_handle(void *handle, char *buf, size_t bufSize)
@@ -135,7 +135,7 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
 
   if ( !tcp_get_socket(Socket, &socket) )
     return FALSE;
-  handle = (void *)(long)socket;
+  handle = (void *)(intptr_t)socket;
 
   in  = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF,  &readFunctions);
   in->encoding = ENC_OCTET;

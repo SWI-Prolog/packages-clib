@@ -710,7 +710,7 @@ doRequest(plsocket *s)
 			    (int)s->socket, WinSockError(s->error)));
 
 	  if ( s->error != WSAEWOULDBLOCK )
-	  { s->rdata.accept.slave = (SOCKET)-1;
+	  { s->rdata.accept.slave = (nbio_sock_t)-1;
 	    doneRequest(s);
 	  }
 	} else
