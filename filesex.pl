@@ -36,7 +36,8 @@
 	    copy_file/2,		% +From, +To
 	    make_directory_path/1,	% +Directory
 	    copy_directory/2,		% +Source, +Destination
-	    delete_directory_and_contents/1 % +Dir
+	    delete_directory_and_contents/1, % +Dir
+	    delete_directory_contents/1 % +Dir
 	  ]).
 
 /** <module> Extended operations on files
@@ -253,3 +254,13 @@ delete_directory_contents(Dir, Entry) :-
 	->  delete_directory_and_contents(Delete)
 	;   delete_file(Delete)
 	).
+
+%%	delete_directory_contents(+Dir) is det.
+%
+%	Remove all content from  directory   Dir,  without  removing Dir
+%	itself.
+
+delete_directory_contents(Dir) :-
+	directory_files(Dir, Files),
+	maplist(delete_directory_contents(Dir), Files).
+
