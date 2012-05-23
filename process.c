@@ -967,8 +967,14 @@ create_pipes(p_options *info)
   { p_stream *s = &info->streams[i];
 
     if ( s->term )
-    { if ( !CreatePipe(&s->fd[0], &s->fd[1], &sa, 1<<13) )
-      { return win_error("CreatePipe");
+    { if ( i == 2 && info->streams[1].term &&
+	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
+      { s->fd[0] = info->streams[1].fd[0];
+	s->fd[1] = info->streams[1].fd[1];
+      } else
+      { if ( !CreatePipe(&s->fd[0], &s->fd[1], &sa, 1<<13) )
+	{ return win_error("CreatePipe");
+	}
       }
     }
   }
@@ -1164,9 +1170,15 @@ create_pipes(p_options *info)
   { p_stream *s = &info->streams[i];
 
     if ( s->term )
-    { if ( pipe(s->fd) )
-      { assert(errno = EMFILE);
-	return resource_error("open_files");
+    { if ( i == 2 && info->streams[1].term &&
+	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
+      { s->fd[0] = info->streams[1].fd[0];
+	s->fd[1] = info->streams[1].fd[1];
+      } else
+      { if ( pipe(s->fd) )
+	{ assert(errno = EMFILE);
+	  return resource_error("open_files");
+	}
       }
     }
   }

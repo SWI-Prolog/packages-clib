@@ -112,6 +112,9 @@ following finds the executable for =ls=:
 %	    the terms below. If pipe(Pipe) is used, the Prolog stream is
 %	    a stream in text-mode using the encoding of the default
 %	    locale.  The encoding can be changed using set_stream/2.
+%	    The options =stdout= and =stderr= may use the same stream,
+%	    in which case both outpur streams are connected to the same
+%	    Prolog stream.
 %
 %		* std
 %		Just share with the Prolog I/O streams
