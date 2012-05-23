@@ -183,6 +183,27 @@ following finds the executable for =ls=:
 %	?- process_create(path(ls), ['-l'], []).
 %	==
 %
+%	The following example uses grep to find  all matching lines in a
+%	file.
+%
+%	==
+%	grep(File, Pattern, Lines) :-
+%		process_create(path(grep), [ Pattern, file(File) ],
+%			       [ stdout(pipe(Out))
+%			       ]),
+%		read_lines(Out, Lines).
+%
+%	read_lines(Out, Lines) :-
+%		read_line_to_codes(Out, Line1),
+%		read_lines(Line1, Out, Lines).
+%
+%	read_lines(end_of_file, _, []) :- !.
+%	read_lines(Codes, Out, [Line|Lines]) :-
+%		atom_codes(Line, Codes),
+%		read_line_to_codes(Out, Line2),
+%		read_lines(Line2, Out, Lines).
+%	==
+%
 %	@tbd	The detach options is a no-op.
 %	@error	process_error(Exe, Status) where Status is one of
 %		exit(Code) or killed(Signal).  Raised if the process
