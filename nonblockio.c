@@ -1317,6 +1317,7 @@ allocSocket(SOCKET socket)
     { if ( p->close_timeout && p->close_timeout < now )
       { SOCKET sock;
 
+	p->close_timeout = 0;
 	if ( (sock=p->socket) )		/* is this ever the case? */
 	{ int rval;
 
