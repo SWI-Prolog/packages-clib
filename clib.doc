@@ -33,8 +33,8 @@ libraries.
 
 On Windows systems, the \pllib{unix} library can only be used if the
 whole SWI-Prolog suite is compiled using
-\url[Cywin]{http://www.cygwin.com}. The other libraries have been ported
-to native Windows.
+\url[Cygwin]{http://www.cygwin.com}. The other libraries have been
+ported to native Windows.
 \end{abstract}
 
 \vfill
