@@ -20,7 +20,7 @@ LIBS=@LIBS@
 MIMELIBS=maildrop/rfc2045/librfc2045.a maildrop/rfc822/librfc822.a
 
 LIBPL=		@PLTARGETS@ streaminfo.pl process.pl prolog_server.pl sha.pl \
-		uri.pl
+		uri.pl udp_broadcast.pl
 TARGETS=	@TARGETS@ readutil.@SO@ streaminfo.@SO@ process.@SO@ \
 		sha4pl.@SO@ uri.@SO@
 
@@ -153,7 +153,7 @@ check-read::
 # Documentation
 ################################################################
 
-TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex
+TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
@@ -166,6 +166,9 @@ filesex.tex:	filesex.pl
 		$(PLTOTEX) 'library(filesex)'
 uid.tex:	uid.pl
 		$(PLTOTEX) 'library(uid)'
+udpbroadcast.tex:	udp_broadcast.pl
+		$(PLTOTEX) 'library(udp_broadcast)'
+		$(MV) udp_broadcast.tex udpbroadcast.tex
 
 ################################################################
 # Clean
