@@ -124,6 +124,7 @@ ilib::
 		copy uri.pl "$(PLBASE)\library"
 		copy filesex.pl "$(PLBASE)\library"
 		copy process.pl "$(PLBASE)\library"
+		copy udp_broadcast.pl "$(PLBASE)\library"
 		$(MAKEINDEX)
 
 uninstall::
@@ -148,6 +149,7 @@ uninstall::
 		del "$(PLBASE)\library\uri.pl"
 		del "$(PLBASE)\library\filesex.pl"
 		del "$(PLBASE)\library\process.pl"
+		del "$(PLBASE)\library\udp_broadcast.pl"
 		$(MAKEINDEX)
 
 html-install::

@@ -168,7 +168,6 @@ uid.tex:	uid.pl
 		$(PLTOTEX) 'library(uid)'
 udpbroadcast.tex:	udp_broadcast.pl
 		$(PLTOTEX) 'library(udp_broadcast)'
-		$(MV) udp_broadcast.tex udpbroadcast.tex
 
 ################################################################
 # Clean
