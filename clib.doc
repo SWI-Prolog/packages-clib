@@ -725,7 +725,9 @@ desirable for computational processing.
     \predicate{sha_hash}{3}{+Data, -Hash, +Options}
 Hash is the SHA hash of Data. \arg{Data} is either an atom, packed
 string or list of character codes. \arg{Hash} is unified with a list of
-integers representing the hash. The conversion is controlled by Options:
+bytes (integers in the range 0..255) representing the hash. See
+hash_atom/2 to convert this into the more commonly seen hexadecimal
+representation. The conversion is controlled by Options:
 
     \begin{description}
         \termitem{algorithm}{+Algorithm}
@@ -751,6 +753,17 @@ character  codes.  \arg{HMAC}  is  unified  with   a  list  of  integers
 representing the authentication code. \arg{Options} is   the same as for
 sha_hash/3, but currently only \const{sha1} and \const{sha256} are
 supported.
+
+    \predicate{hash_atom}{2}{+Hash, -HexAtom}
+True when \arg{HexAtom} is the commonly used hexadecimal encoding of
+the hash code.  E.g.,
+
+\begin{code}
+?- sha_hash('SWI-Prolog', Hash, []),
+   hash_atom(Hash, Hex).
+Hash = [61, 128, 252, 38, 121, 69, 229, 85, 199|...],
+Hex = '3d80fc267945e555c730403bd0ab0716e2a68c68'.
+\end{code}
 \end{description}
 
 \subsection{License terms}

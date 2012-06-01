@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        wielemak@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2007, University of Amsterdam
+    Copyright (C): 2007-2012, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -33,7 +32,8 @@
 	  [ sha_hash/3,			% +Data, -Hash, +Options
 	    sha_new_ctx/2,		% -NewContext, +Options
 	    sha_hash_ctx/4,		% +OldCtx, +Data, -NewCtx, -Hash
-	    hmac_sha/4			% +Key, +Data, -Hash, +Options
+	    hmac_sha/4,			% +Key, +Data, -Hash, +Options
+	    hash_atom/2			% +Hash, -HexAtom
 	  ]).
 :- use_module(library(shlib)).
 
@@ -73,3 +73,29 @@
 %%	hmac_sha(+Key, +Data, -Hash, +Options) is det
 %
 %	For Options, see sha_hash/3.
+
+%%	hash_atom(+HashCodes, -HexAtom) is det.
+%
+%	Convert a list of bytes (integers 0..255) into the usual
+%	hexadecimal notation.  E.g.
+%
+%	  ==
+%	  ?- sha_hash('SWI-Prolog', Hash, []),
+%	     hash_atom(Hash, Hex).
+%	  Hash = [61, 128, 252, 38, 121, 69, 229, 85, 199|...],
+%	  Hex = '3d80fc267945e555c730403bd0ab0716e2a68c68'.
+%	  ==
+
+hash_atom(Codes, Hash) :-
+	phrase(bytes_hex(Codes), HexCodes),
+	atom_codes(Hash, HexCodes).
+
+bytes_hex([]) --> [].
+bytes_hex([H|T]) -->
+	{ High is H>>4,
+	  Low is H /\ 0xf,
+	  code_type(C0, xdigit(High)),
+	  code_type(C1, xdigit(Low))
+	},
+	[C0,C1],
+	bytes_hex(T).
