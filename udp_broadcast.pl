@@ -267,11 +267,18 @@ safely(Predicate) :-
 
 :- meta_predicate make_thread(0, +).
 
+% You can't thread_signal a thread that isn't running.
+
+join_thread(Id) :-
+       catch(thread_signal(Id, abort),
+	     error(existence_error(thread, Id), _Context),
+	     true),
+
+       thread_join(Id, exception('$aborted')).
+
 make_thread(Goal, Options) :-
-	thread_create(catch(Goal,
-			    thread_quit,
-			    thread_exit(quit)), Id, [ detached(false) | Options])
-	  ~> (thread_signal(Id, throw(thread_quit)) -> thread_join(Id, exited(quit))).
+	thread_create(safely(Goal), Id, [ detached(false) | Options ])
+	  ~> join_thread(Id).
 
 udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 	IPAddress = ip(A1, A2, A3, A4),
@@ -287,10 +294,15 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 %   provides the UDP broadcast address for a given Domain. At present,
 %   only one domain is supported, =|udp_subnet|=.
 %
-udp_broadcast_service(udp_subnet,	 ip(192,168,1,255):20005).
 
-:- multifile udp_subnet_member/1.
+%  The following are defined at initialization:
+:- dynamic
+	udp_subnet_member/1,      % +IpAddress:Port
+	udp_broadcast_service/2.  % ?Domain, ?BroadcastAddress:Port
 
+:- volatile
+	udp_subnet_member/1,      % +IpAddress:Port
+	udp_broadcast_service/2.  % ?Domain, ?BroadcastAddress:Port
 %
 %  Here's a UDP bridge to Prolog's broadcast library
 %
@@ -511,14 +523,11 @@ udp_host_to_address(Host, Address) :-
 %
 
 udp_broadcast_initialize(IPAddress, Subnet) :-
-	abolish(udp_broadcast_service/2),
-	abolish(udp_subnet_member/1),
+	retractall(udp_broadcast_service(_,_)),
+	retractall(udp_subnet_member(_)),
 
 	udp_broadcast_address(IPAddress, Subnet, BroadcastAddr),
-	assert(udp_broadcast_service(udp_subnet,	 BroadcastAddr:20005)),
+	assert(udp_broadcast_service(udp_subnet, BroadcastAddr:20005)),
 	assert(udp_subnet_member(Address:_Port) :- udp_broadcast_address(Address, Subnet, BroadcastAddr)),
-
-	compile_predicates([udp_broadcast_service/2,
-			    udp_subnet_member/1]),
 
 	start_udp_listener_daemon.
