@@ -113,7 +113,7 @@ following finds the executable for =ls=:
 %	    a stream in text-mode using the encoding of the default
 %	    locale.  The encoding can be changed using set_stream/2.
 %	    The options =stdout= and =stderr= may use the same stream,
-%	    in which case both outpur streams are connected to the same
+%	    in which case both output streams are connected to the same
 %	    Prolog stream.
 %
 %		* std
@@ -204,7 +204,6 @@ following finds the executable for =ls=:
 %		read_lines(Line2, Out, Lines).
 %	==
 %
-%	@tbd	The detach options is a no-op.
 %	@error	process_error(Exe, Status) where Status is one of
 %		exit(Code) or killed(Signal).  Raised if the process
 %		does not exit with status 0.
