@@ -25,10 +25,11 @@ SHAOBJ=		error.obj sha4pl.obj sha1/sha1.obj sha1/sha2.obj \
 		sha1/hmac_sha1.obj sha1/hmac_sha256.obj
 URIOBJ=		uri.obj
 FILESOBJ=	error.obj files.obj
+STREAMINFOOBJ=	error.obj streaminfo.obj
 TIMELIBS=	winmm.lib
 
 all:		socket.dll cgi.dll memfile.dll mime.dll time.dll readutil.dll \
-		crypt.dll sha4pl.dll process.dll uri.dll files.dll
+		crypt.dll sha4pl.dll process.dll uri.dll files.dll streaminfo.dll
 
 readutil.dll:	$(READOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(READOBJ) $(PLLIB) $(LIBS)
@@ -52,6 +53,8 @@ uri.dll:	$(URIOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(URIOBJ) $(PLLIB) $(LIBS)
 files.dll:	$(FILESOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(FILESOBJ) $(PLLIB) $(LIBS)
+streaminfo.dll:	$(STREAMINFOOBJ)
+		$(LD) /dll /out:$@ $(LDFLAGS) $(STREAMINFOOBJ) $(PLLIB) $(LIBS)
 
 sha1/hmac_sha1.obj:	sha1/hmac.c
 		$(CC) -I $(PLHOME)\include $(CFLAGS) /DUSE_SHA1 /Fo$@ sha1/hmac.c
@@ -98,6 +101,7 @@ idll::
 		copy sha4pl.dll "$(BINDIR)"
 		copy uri.dll "$(BINDIR)"
 		copy files.dll "$(BINDIR)"
+		copy streaminfo.dll "$(BINDIR)"
 !IF "$(PDB)" == "true"
 		copy socket.pdb "$(BINDIR)"
 		copy cgi.pdb "$(BINDIR)"
@@ -109,12 +113,14 @@ idll::
 		copy sha4pl.pdb "$(BINDIR)"
 		copy uri.pdb "$(BINDIR)"
 		copy files.pdb "$(BINDIR)"
+		copy streaminfo.pdb "$(BINDIR)"
 !ENDIF
 
 ilib::
 		copy socket.pl "$(PLBASE)\library"
 		copy prolog_server.pl "$(PLBASE)\library"
 		copy streampool.pl "$(PLBASE)\library"
+		copy streaminfo.pl "$(PLBASE)\library"
 		copy cgi.pl "$(PLBASE)\library"
 		copy crypt.pl "$(PLBASE)\library"
 		copy memfile.pl "$(PLBASE)\library"
@@ -130,6 +136,7 @@ ilib::
 uninstall::
 		del "$(BINDIR)\socket.dll"
 		del "$(BINDIR)\streampool.dll"
+		del "$(BINDIR)\streaminfo.dll"
 		del "$(BINDIR)\cgi.dll"
 		del "$(BINDIR)\crypt.dll"
 		del "$(BINDIR)\memfile.dll"
