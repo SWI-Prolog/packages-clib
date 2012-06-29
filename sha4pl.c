@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2009, University of Amsterdam
+    Copyright (C): 1985-2012, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -42,6 +41,9 @@ static atom_t ATOM_sha256;
 static atom_t ATOM_sha384;
 static atom_t ATOM_sha512;
 static atom_t ATOM_algorithm;
+static atom_t ATOM_utf8;
+static atom_t ATOM_octet;
+static atom_t ATOM_encoding;
 
 typedef enum
 { ALGORITHM_SHA1,
@@ -56,6 +58,7 @@ typedef struct
 { sha_algorithm algorithm;
   size_t	digest_size;
   term_t	algorithm_term;
+  unsigned int  encoding;
 } optval;
 
 #define CONTEXT_MAGIC (~ 0x53484163L)
@@ -78,6 +81,7 @@ sha_options(term_t options, optval *result)
   memset(result, 0, sizeof(*result));
   result->algorithm   = ALGORITHM_SHA1;
   result->digest_size = SHA1_DIGEST_SIZE;
+  result->encoding    = REP_UTF8;
 
   while(PL_get_list(opts, opt, opts))
   { atom_t aname;
@@ -92,8 +96,8 @@ sha_options(term_t options, optval *result)
       { atom_t a_algorithm;
 
 	result->algorithm_term = a;
-	if ( !PL_get_atom(a, &a_algorithm) )
-	  return pl_error(NULL, 0, NULL, ERR_TYPE, a, "algorithm");
+	if ( !PL_get_atom_ex(a, &a_algorithm) )
+	  return FALSE;
 	if ( a_algorithm == ATOM_sha1 )
 	{ result->algorithm   = ALGORITHM_SHA1;
 	  result->digest_size = SHA1_DIGEST_SIZE;
@@ -111,6 +115,17 @@ sha_options(term_t options, optval *result)
 	  result->digest_size = SHA512_DIGEST_SIZE;
 	} else
 	  return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "algorithm");
+      } else if ( aname == ATOM_encoding )
+      { atom_t a_enc;
+
+	if ( !PL_get_atom_ex(a, &a_enc) )
+	  return FALSE;
+	if ( a_enc == ATOM_utf8 )
+	  result->encoding = REP_UTF8;
+	else if ( a_enc == ATOM_octet )
+	  result->encoding = REP_ISO_LATIN_1;
+	else
+	  return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "encoding");
       }
     } else
     { return pl_error(NULL, 0, NULL, ERR_TYPE, opt, "option");
@@ -137,7 +152,7 @@ pl_sha_hash(term_t from, term_t hash, term_t options)
     return FALSE;
 
   if ( !PL_get_nchars(from, &datalen, &data,
-		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION) )
+		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|opts.encoding) )
     return FALSE;
 
   if ( opts.algorithm == ALGORITHM_SHA1 )
@@ -184,10 +199,6 @@ pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
   size_t clen;
   unsigned char hval[SHA2_MAX_DIGEST_SIZE];
 
-  if ( !PL_get_nchars(from, &datalen, &data,
-		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION) )
-    return FALSE;
-
   if ( !PL_get_string_chars(old_ctx, (char **)&cp, &clen) )
     return FALSE;
 
@@ -196,6 +207,11 @@ pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
     return pl_error(NULL, 0, "Invalid OldContext passed",
 		    ERR_DOMAIN, old_ctx, "algorithm");
   }
+
+  if ( !PL_get_nchars(
+	    from, &datalen, &data,
+	    CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|cp->opts.encoding) )
+    return FALSE;
 
   if ( cp->opts.algorithm == ALGORITHM_SHA1 )
   { sha1_ctx *c1p = &(cp->context.sha1);
@@ -263,6 +279,9 @@ install_sha4pl()
   MKATOM(sha384);
   MKATOM(sha512);
   MKATOM(algorithm);
+  MKATOM(utf8);
+  MKATOM(octet);
+  MKATOM(encoding);
 
   PL_register_foreign("sha_hash", 3, pl_sha_hash, 0);
   PL_register_foreign("sha_new_ctx", 2, pl_sha_new_ctx, 0);

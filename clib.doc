@@ -733,6 +733,15 @@ representation. The conversion is controlled by Options:
         \termitem{algorithm}{+Algorithm}
 One of \const{sha1} (default), \const{sha224}, \const{sha256},
 \const{sha384} or \const{sha512}
+	\termitem{encoding}{+Encoding}
+This option defines the mapping from Prolog (Unicode) text to bytes on
+which the SHA algorithm is performed.  It has two values.  The defualt
+is \const{utf8}, which implies that Unicode text is encoded as UTF-8
+bytes. This option can deal with any atom. The alternative is
+\const{octet}, which implies that the text is considered as a sequence
+of bytes.  This is suitable for e.g., atoms that represent binary data.
+An error is raised if the text contains code-points outside the range
+0..255.
     \end{description}
 
     \predicate{hmac_sha}{4}{+Key, +Data, -HMAC, +Options}
