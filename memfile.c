@@ -77,9 +77,15 @@ typedef struct
 
 static int
 unify_memfile(term_t handle, memfile *f)
-{ return PL_unify_term(handle,
-		       PL_FUNCTOR, FUNCTOR_memory_file1,
-		         PL_POINTER, f);
+{ if ( PL_unify_term(handle,
+		     PL_FUNCTOR, FUNCTOR_memory_file1,
+		       PL_POINTER, f) )
+    return TRUE;
+
+  if ( !PL_is_variable(handle) )
+    return PL_uninstantiation_error(handle);
+
+  return FALSE;					/* (resource) error */
 }
 
 
