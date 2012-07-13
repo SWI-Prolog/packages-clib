@@ -63,7 +63,6 @@ static atom_t ATOM_infinite;
 static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_type_error2;
 static functor_t FUNCTOR_domain_error2;
-static functor_t FUNCTOR_resource_error1;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
@@ -138,22 +137,6 @@ domain_error(term_t actual, const char *expected)
 		       PL_FUNCTOR, FUNCTOR_domain_error2,
 		         PL_CHARS, expected,
 		         PL_TERM, actual,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
-
-static int
-resource_error(const char *resource)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_resource_error1,
-		         PL_CHARS, resource,
 		       PL_VARIABLE) )
     return PL_raise_exception(ex);
 
@@ -299,10 +282,11 @@ parse_environment(term_t t, p_options *info)
   term_t head = PL_new_term_ref();
   term_t tmp  = PL_new_term_ref();
   ecbuf *eb   = &info->envbuf;
-  int count = 0, c = 0;
+  int count = 0;
 #ifndef __WINDOWS__
   echar *q;
   char **ep;
+  int c = 0;
 #endif
 
   assert(eb->size == 0);
@@ -732,7 +716,7 @@ win_command_line(term_t t, int arity, const wchar_t *exe, wchar_t **cline)
     cmdlen = av[0].len+(av[0].quote?2:0)+1;
 
     for( i=1; i<=arity; i++)
-    { PL_get_arg(i, t, arg);
+    { _PL_get_arg(i, t, arg);
 
       if ( !PL_get_wchars(arg, &av[i].len, &av[i].text,
 			  CVT_ATOMIC|CVT_EXCEPTION|BUF_MALLOC) )
@@ -834,9 +818,8 @@ find_process_from_pid(DWORD pid, const char *pred)
   if ( pred )
   { term_t ex = PL_new_term_ref();
 
-    PL_put_integer(ex, pid);
-    pl_error(NULL, 2, NULL, ERR_EXISTENCE,
-	     "process", ex);
+    if ( PL_put_integer(ex, pid) )
+      PL_existence_error("process", ex);
   }
 
   return (HANDLE)0;
@@ -937,17 +920,17 @@ win_wait_success(atom_t exe, HANDLE process)
     return FALSE;
 
   if ( rc != 0 )
-  { term_t code = PL_new_term_ref();
-    term_t ex = PL_new_term_ref();
+  { term_t ex = PL_new_term_ref();
 
-    PL_unify_term(ex,
-		  PL_FUNCTOR, FUNCTOR_error2,
-		    PL_FUNCTOR, FUNCTOR_process_error2,
-		      PL_ATOM, exe,
-		      PL_FUNCTOR, FUNCTOR_exit1,
-		        PL_LONG, rc,
-		    PL_VARIABLE);
-    return PL_raise_exception(ex);
+    if ( PL_unify_term(ex,
+		       PL_FUNCTOR, FUNCTOR_error2,
+		         PL_FUNCTOR, FUNCTOR_process_error2,
+		           PL_ATOM, exe,
+		           PL_FUNCTOR, FUNCTOR_exit1,
+		             PL_LONG, rc,
+		         PL_VARIABLE) )
+      return PL_raise_exception(ex);
+    return FALSE;
   }
 
   return TRUE;
@@ -1179,7 +1162,7 @@ create_pipes(p_options *info)
       } else
       { if ( pipe(s->fd) )
 	{ assert(errno = EMFILE);
-	  return resource_error("open_files");
+	  return PL_resource_error("open_files");
 	}
       }
     }
@@ -1595,7 +1578,6 @@ install_process()
   MKFUNCTOR(domain_error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);
-  MKFUNCTOR(resource_error, 1);
   MKFUNCTOR(exit, 1);
   MKFUNCTOR(killed, 1);
 

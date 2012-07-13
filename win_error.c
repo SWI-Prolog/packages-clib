@@ -57,11 +57,12 @@ win_error(const char *op)
 { atom_t msg = WinError();
   term_t ex = PL_new_term_ref();
 
-  PL_unify_term(ex, PL_FUNCTOR, FUNCTOR_error2,
-		      PL_FUNCTOR, FUNCTOR_system_error2,
-		        PL_CHARS, op,
-		        PL_ATOM, msg,
-		      PL_VARIABLE);
+  if ( PL_unify_term(ex, PL_FUNCTOR, FUNCTOR_error2,
+			   PL_FUNCTOR, FUNCTOR_system_error2,
+			     PL_CHARS, op,
+			     PL_ATOM, msg,
+			   PL_VARIABLE) )
+    return PL_raise_exception(ex);
 
-  return PL_raise_exception(ex);
+  return FALSE;
 }
