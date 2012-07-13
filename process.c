@@ -1042,6 +1042,8 @@ do_create_process(p_options *info)
 
   if ( info->detached )
     flags |= CREATE_BREAKAWAY_FROM_JOB;
+  if ( info->envbuf.buffer )
+    flags |= CREATE_UNICODE_ENVIRONMENT;
 
   memset(&si, 0, sizeof(si));
   si.cb = sizeof(si);
