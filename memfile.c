@@ -1,11 +1,9 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@cs.vu.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2011, University of Amsterdam
+    Copyright (C): 1985-2012, University of Amsterdam
 			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
@@ -300,7 +298,12 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
   fd->encoding = encoding;
   m->stream = fd;
 
-  return PL_unify_stream(stream, fd);
+  if ( PL_unify_stream(stream, fd) )
+  { return TRUE;
+  } else
+  { Sclose(fd);
+    return FALSE;
+  }
 }
 
 
