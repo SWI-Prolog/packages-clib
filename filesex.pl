@@ -219,7 +219,10 @@ make_directory_path_2(Dir) :-
 %	From is created.
 
 copy_directory(From, To) :-
-	make_directory(To),
+	(   exists_directory(To)
+	->  true
+	;   make_directory(To)
+	),
 	directory_files(From, Entries),
 	maplist(copy_directory_content(From, To), Entries).
 
