@@ -182,6 +182,5 @@ clean:
 distclean:	clean
 		rm -f $(TARGETS) config.cache config.h config.status Makefile
 		rm -f clib.aux clib.log clib.out clib.toc
-		rm -rf html
 		-(cd maildrop/rfc822 && $(MAKE) distclean)
 		-(cd maildrop/rfc2045 && $(MAKE) distclean)
