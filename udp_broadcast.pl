@@ -486,6 +486,9 @@ udp_br_send_timeout(Port) :-
 udp_br_collect_replies(S, Port, Timeout, Term:From) :-
 	alarm(Timeout, udp_br_send_timeout(Port), Id, [remove(false)])
 	  ~> remove_alarm(Id),
+
+	tcp_setopt(S, dispatch(false)),
+
 	repeat,
         udp_receive(S, Atom, From1, [as(atom)]),
         (   (Atom \== '$udp_br_timeout')
