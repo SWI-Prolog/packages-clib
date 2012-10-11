@@ -477,11 +477,12 @@ pl_gethostname(term_t name)
       hints.ai_flags = AI_CANONNAME;
 
       if ( getaddrinfo(buf, NULL, &hints, &res) == 0 )
-	hname = PL_new_atom(res->ai_canonname);
+      { hname = PL_new_atom(res->ai_canonname);
+        freeaddrinfo(res);
+      }
       else
 	hname = PL_new_atom(buf);
 
-      freeaddrinfo(res);
     } else
     { return nbio_error(h_errno, TCP_HERRNO);
     }
