@@ -689,6 +689,7 @@ implies the password will be available from the Prolog heap as a
 defined atom.
 \end{description}
 
+\input{uuid.tex}
 
 \section{SHA1 and SHA2 Secure Hash Algorithms}
 \label{sec:sha}

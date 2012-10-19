@@ -9,6 +9,7 @@ AC_SUBST(PLTARGETS)
 AC_SUBST(NETLIBS)
 AC_SUBST(CRYPTLIBS)
 AC_SUBST(CRYPTOBJ)
+AC_SUBST(LIBUUID)
 
 m4_include([../ac_swi_c.m4])
 
@@ -127,7 +128,24 @@ AC_ARG_WITH(time, [  --without-time		  Exclude alarm library],
 if test "$ac_cv_func_getrlimit" = "yes"; then
   TARGETS="$TARGETS rlimit.$SO"
 else
-  "WARNING: no getrlimit(); dropping rlimit.pl from targets"
+  AC_MSG_WARN([Cannot find getrlimit"()" -- dropping rlimit.pl])
+fi
+
+config_uuid=true
+AC_CHECK_HEADER(ossp/uuid.h,
+		[ AC_DEFINE([HAVE_OSSP_UUID_H], 1,
+			    [Define to 1 if you have ossp/uuid.h])
+		],
+		[ AC_MSG_WARN([Cannot find ossp/uuid.h -- dropping uuid.pl])
+		  config_uuid=false
+		])
+if test "$config_uuid" = true; then
+AC_CHECK_LIB(ossp-uuid, uuid_create,
+	     [ LIBUUID=-lossp-uuid
+	       TARGETS="$TARGETS uuid.$SO"
+	     ],
+	     [ AC_MSG_WARN([ Cannot find libossp-uuid -- dropping uuid.pl])
+	     ])
 fi
 
 PLTARGETS=`echo $TARGETS | sed -e "s/\.$SO/.pl/g" -e "s/files.pl/filesex.pl/"`
