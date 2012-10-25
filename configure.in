@@ -131,21 +131,39 @@ else
   AC_MSG_WARN([Cannot find getrlimit"()" -- dropping rlimit.pl])
 fi
 
-config_uuid=true
-AC_CHECK_HEADER(ossp/uuid.h,
-		[ AC_DEFINE([HAVE_OSSP_UUID_H], 1,
-			    [Define to 1 if you have ossp/uuid.h])
-		],
-		[ AC_MSG_WARN([Cannot find ossp/uuid.h -- dropping uuid.pl])
-		  config_uuid=false
-		])
-if test "$config_uuid" = true; then
+dnl Configure UUID library.  We use the OSSP UUID library, but it seems
+dnl to be installed in various places.
+
+if test x"$LIBUUID" = "x"; then
 AC_CHECK_LIB(ossp-uuid, uuid_create,
 	     [ LIBUUID=-lossp-uuid
-	       TARGETS="$TARGETS uuid.$SO"
-	     ],
-	     [ AC_MSG_WARN([ Cannot find libossp-uuid -- dropping uuid.pl])
 	     ])
+fi
+if test x"$LIBUUID" = "x"; then
+AC_CHECK_LIB(uuid, uuid_create,
+	     [ LIBUUID=-luuid
+	     ])
+fi
+if test x"$LIBUUID" = "x"; then
+  AC_MSG_WARN([ Cannot find libossp-uuid or libuuid -- dropping uuid.pl])
+else
+  if test x"$UUID_H" = "x"; then
+  AC_CHECK_HEADER(ossp/uuid.h,
+		  [ UUID_H=ossp/uuid.h
+		  ])
+  fi
+  if test x"$UUID_H" = "x"; then
+  AC_CHECK_HEADER(uuid.h,
+		  [ UUID_H=uuid.h
+		  ])
+  fi
+  if test x"$UUID_H" = "x"; then
+    AC_MSG_WARN([ Cannot find uuid.h -- dropping uuid.pl])
+  else
+    AC_DEFINE_UNQUOTED([UUID_H], [<$UUID_H>],
+	      [ Define to name of the UUID header file. ])
+    TARGETS="$TARGETS uuid.$SO"
+  fi
 fi
 
 PLTARGETS=`echo $TARGETS | sed -e "s/\.$SO/.pl/g" -e "s/files.pl/filesex.pl/"`
