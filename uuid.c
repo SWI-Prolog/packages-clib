@@ -20,6 +20,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#include <config.h>
 #ifdef UUID_H
 #include UUID_H
 #else
@@ -29,7 +30,6 @@
 #include <SWI-Prolog.h>
 #include <SWI-Stream.h>
 #include <assert.h>
-#include <config.h>
 
 static atom_t ATOM_version;
 static atom_t ATOM_format;
