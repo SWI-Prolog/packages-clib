@@ -997,7 +997,7 @@ HiddenFrameClass()
   if ( !name )
   { char buf[50];
 
-    sprintf(buf, "PlSocketWin%d", (int)hinstance);
+    sprintf(buf, "PlSocketWin%d", (int)(uintptr_t)hinstance);
     name = strdup(buf);
 
     wndClass.style		= 0;
@@ -1039,7 +1039,7 @@ SocketHiddenWindow()
 
 DWORD WINAPI
 socket_thread(LPVOID arg)
-{ DWORD parent = (DWORD)arg;
+{ DWORD parent = (DWORD)(uintptr_t)arg;
 
   SocketHiddenWindow();
   PostThreadMessage(parent, WM_READY, (WPARAM)0, (LPARAM)0);
@@ -1064,7 +1064,7 @@ startSocketThread()
 
   CreateThread(NULL,			/* security */
 	       2048,			/* stack */
-	       socket_thread, (LPVOID)me,	/* proc+arg */
+	       socket_thread, (LPVOID)(uintptr_t)me,	/* proc+arg */
 	       0,			/* flags */
 	       &State()->tid);
 
@@ -1539,10 +1539,14 @@ int
 nbio_error(int code, nbio_error_map mapid)
 { const char *msg;
   term_t except = PL_new_term_ref();
+#ifdef HAVE_H_ERRNO
   error_codes *map;
+#endif
 
   if ( code == EPLEXCEPTION )
     return FALSE;
+
+#ifdef HAVE_H_ERRNO
   switch( mapid )
   { case TCP_HERRNO:
       map = h_errno_codes;
@@ -1550,6 +1554,8 @@ nbio_error(int code, nbio_error_map mapid)
     default:
       map = NULL;
   }
+#endif
+
   {
 #ifdef __WINDOWS__
   msg = WinSockError(code);
