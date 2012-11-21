@@ -1654,6 +1654,7 @@ nbio_cleanup(void)
   {
 #ifdef __WINDOWS__
     WSACleanup();
+    SendMessage(State()->hwnd, WM_QUIT, 0, NULL);
 #endif
   }
 
