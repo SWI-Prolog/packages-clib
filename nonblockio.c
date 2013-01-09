@@ -342,19 +342,31 @@ request_name(nbio_request request)
 }
 
 static char *
+sepstrcatskip(char *buf, char *dest, char *src)
+{ if ( dest != buf )
+  { *dest++ = '|';
+    *dest = '\0';
+  }
+  strcat(dest, src);
+  dest += strlen(dest);
+
+  return dest;
+}
+
+static char *
 event_name(int ev)
 { char buf[256];
   char *o = buf;
 
   o[0] = '\0';
-  if ( (ev & FD_READ) )    strcat(o, "|FD_READ");
-  if ( (ev & FD_WRITE) )   strcat(o, "|FD_WRITE");
-  if ( (ev & FD_ACCEPT) )  strcat(o, "|FD_ACCEPT");
-  if ( (ev & FD_CONNECT) ) strcat(o, "|FD_CONNECT");
-  if ( (ev & FD_CLOSE) )   strcat(o, "|FD_CLOSE");
-  if ( (ev & FD_OOB) )	   strcat(o, "|FD_OOB");
+  if ( (ev & FD_READ) )    o=sepstrcatskip(buf, o, "FD_READ");
+  if ( (ev & FD_WRITE) )   o=sepstrcatskip(buf, o, "FD_WRITE");
+  if ( (ev & FD_ACCEPT) )  o=sepstrcatskip(buf, o, "FD_ACCEPT");
+  if ( (ev & FD_CONNECT) ) o=sepstrcatskip(buf, o, "FD_CONNECT");
+  if ( (ev & FD_CLOSE) )   o=sepstrcatskip(buf, o, "FD_CLOSE");
+  if ( (ev & FD_OOB) )	   o=sepstrcatskip(buf, o, "FD_OOB");
   if ( (ev & ~(FD_READ|FD_WRITE|FD_ACCEPT|FD_CONNECT|FD_CLOSE)) )
-    strcat(o, "|FD_???");
+    sepstrcatskip(buf, o, "FD_???");
 
   return strdup(buf);
 }
@@ -426,7 +438,7 @@ doneRequest(plsocket *s)
   }
 
   if ( s->thread )
-  { DEBUG(2, Sdprintf("doneRequest(): posting %d\n", s->thread));
+  { DEBUG(2, Sdprintf("doneRequest(%d): posting %d\n", s->id, s->thread));
     PostThreadMessage(s->thread, WM_DONE, 0, (WPARAM)s);
   }
 
@@ -487,7 +499,7 @@ nbio_wait(nbio_sock_t socket, nbio_request request)
 
   SendMessage(State()->hwnd, WM_REQUEST, 1, (LPARAM)&s);
 
-  DEBUG(2, Sdprintf("[%d] (%ld): Waiting ...",
+  DEBUG(2, Sdprintf("[%d] (%ld): Waiting ... ",
 		    PL_thread_self(), s->thread));
 
   for(;;)
@@ -641,7 +653,7 @@ placeRequest(plsocket *s, nbio_request request)
   UNLOCK_SOCKET(s);
 
   SendMessage(State()->hwnd, WM_REQUEST, 1, (LPARAM)&s);
-  DEBUG(2, Sdprintf("%d (%ld): Placed %s request for %d\n",
+  DEBUG(2, Sdprintf("[%d] (%ld): Placed %s request for %d\n",
 		    PL_thread_self(), s->thread,
 		    request_name(request), (int)s->socket));
 
@@ -926,7 +938,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
       { DEBUG(1,
 	      { char *nm = event_name(evt);
 		Sdprintf("Got event %s (err=%s) on closed socket %d=%d\n",
-			 nm, WinSockError(err), s->id, sock);
+			 nm, err ? WinSockError(err) : "none", s->id, sock);
 		free(nm);
 	      })
       }
@@ -1284,8 +1296,8 @@ allocSocket(SOCKET socket)
   DWORD now = GetTickCount();
 
   if ( (p=lookupOSSocket(socket)) )
-  { DEBUG(1, Sdprintf("WinSock %d already registered on %d\n",
-		      (int)socket, p->id));
+  { DEBUG(1, Sdprintf("WinSock %d already registered on %d; tmo=%ld, now=%ld\n",
+		      (int)socket, p->id, (long)p->close_timeout, (long)now));
     p->socket = (SOCKET)-1;
   }
 #endif
@@ -1345,8 +1357,8 @@ allocSocket(SOCKET socket)
 #endif
   p->input = p->output = (IOSTREAM*)NULL;
 
-  DEBUG(2, Sdprintf("[%d]: allocSocket(%d): bound to %p\n",
-		    PL_thread_self(), socket, p));
+  DEBUG(2, Sdprintf("[%d]: allocSocket(%d): bound to %d\n",
+		    PL_thread_self(), socket, p->id));
 
   return p;
 }
@@ -1653,7 +1665,7 @@ nbio_cleanup(void)
   {
 #ifdef __WINDOWS__
     WSACleanup();
-    SendMessage(State()->hwnd, WM_QUIT, 0, NULL);
+    SendMessage(State()->hwnd, WM_QUIT, 0, 0);
 #endif
   }
 
@@ -1673,7 +1685,8 @@ static int
 socketIsPendingClose(plsocket *s)
 { s->close_timeout = GetTickCount() + 30 * 1000;
   shutdown(s->socket, SD_BOTH);
-  DEBUG(3, Sdprintf("Setting timeout for FD_CLOSE on socket %d...\n", s->id));
+  DEBUG(2, Sdprintf("Setting close_timeout on socket %d... to %ld\n",
+		    s->id, (long)s->close_timeout));
 
   return 0;
 }

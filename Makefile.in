@@ -6,7 +6,7 @@
 #
 # License: LGPL
 #
-# Author: Jan Wielemaker (wielemak@science.uva.nl)
+# Author: Jan Wielemaker (J.Wielemaker@vu.nl)
 ################################################################
 
 PACKAGE=clib
