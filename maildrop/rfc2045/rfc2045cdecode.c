@@ -65,7 +65,6 @@ static int do_decode_base64(struct rfc2045 *p)
 size_t	i, j;
 char	a,b,c;
 size_t	k;
-int	rc;
 
 	if (!decode64tab_init)
 	{
@@ -106,7 +105,7 @@ int	rc;
 		if ( p->workbuf[j+3] != '=')
 			p->workbuf[k++]=c;
 	}
-	rc=(*p->udecode_func)(p->workbuf, k, p->misc_decode_ptr);
+	(*p->udecode_func)(p->workbuf, k, p->misc_decode_ptr);
 
 	/* Anything left?  Move it to the start of the buffer */
 
