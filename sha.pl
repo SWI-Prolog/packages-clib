@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2007-2012, University of Amsterdam
+    Copyright (C): 2007-2013, University of Amsterdam
 			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -33,6 +33,7 @@
 	    sha_new_ctx/2,		% -NewContext, +Options
 	    sha_hash_ctx/4,		% +OldCtx, +Data, -NewCtx, -Hash
 	    hmac_sha/4,			% +Key, +Data, -Hash, +Options
+	    file_sha1/2,		% +File, -SHA1
 	    hash_atom/2			% +Hash, -HexAtom
 	  ]).
 :- use_module(library(shlib)).
@@ -55,9 +56,10 @@
 %
 %	NewContext is unified with the empty SHA computation context
 %	(which includes the Options.)  It could later be passed to
-%	sha_hash_ctx/4.
+%	sha_hash_ctx/4.	For Options, see sha_hash/3.
 %
-%	For Options, see sha_hash/3.
+%	@param	NewContext is an opaque pure Prolog term that is
+%		subject to garbage collection.
 
 %%	sha_hash_ctx(+OldContext, +Data, -NewContext, -Hash) is det
 %
@@ -73,6 +75,35 @@
 %%	hmac_sha(+Key, +Data, -Hash, +Options) is det
 %
 %	For Options, see sha_hash/3.
+
+%%	file_sha1(+File, -SHA1:atom) is det.
+%
+%	True when SHA1 is the SHA1 hash for the content of File. Options
+%	is passed to open/4 and typically used to control whether binary
+%	or text encoding must be used. The   output is compatible to the
+%	=sha1sum= program found in many systems.
+
+file_sha1(File, Hash) :-
+	setup_call_cleanup(
+	    open(File, read, In, [type(binary)]),
+	    stream_sha1(In, Hash),
+	    close(In)).
+
+stream_sha1(Stream, Hash) :-
+	sha_new_ctx(Ctx0, [encoding(octet)]),
+	update_hash(Stream, Ctx0, _Ctx, 0, HashCodes),
+	hash_atom(HashCodes, Hash).
+
+update_hash(In, Ctx0, Ctx, Hash0, Hash) :-
+	at_end_of_stream(In), !,
+	Ctx = Ctx0,
+	Hash = Hash0.
+update_hash(In, Ctx0, Ctx, _Hash0, Hash) :-
+	read_pending_input(In, Data, []),
+	sha_hash_ctx(Ctx0, Data, Ctx1, Hash1),
+	update_hash(In, Ctx1, Ctx, Hash1, Hash).
+
+
 
 %%	hash_atom(+HashCodes, -HexAtom) is det.
 %
