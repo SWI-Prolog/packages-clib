@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemak@uva.nl
+    E-mail:        J.Wielemak@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2008-2009, University of Amsterdam
+    Copyright (C): 2008-2013, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -45,6 +44,17 @@
 :- use_module(library(option)).
 
 :- use_foreign_library(foreign(process)).
+
+:- predicate_options(process_create/3, 3,
+		     [ stdin(any),
+		       stdout(any),
+		       stderr(any),
+		       cwd(atom),
+		       env(list(any)),
+		       process(-integer),
+		       detached(+boolean),
+		       window(+boolean)
+		     ]).
 
 /** <module> Create processes and redirect I/O
 
