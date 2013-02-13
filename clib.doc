@@ -17,10 +17,9 @@
 
 \title{SWI-Prolog C-library}
 \author{Jan Wielemaker \\
-	HCS, \\
-	University of Amsterdam \\
+	VU University of Amsterdam \\
 	The Netherlands \\
-	E-mail: \email{J.Wielemaker@cs.vu.nl}}
+	E-mail: \email{J.Wielemaker@vu.nl}}
 
 \maketitle
 
@@ -229,13 +228,19 @@ because there are no stream-handles:
 	  discard the accepted socket immediately using tcp_close_socket/1.
 \end{itemize}
 
+    \predicate{tcp_open_socket}{2}{+Socket, -Stream}
+Create streams to communicate to \arg{Socket}. If \arg{Socket} is a
+master socket (see tcp_bind/2), \arg{Stream} should be used for
+tcp_accept/3. If \arg{Socket} is a connected (see tcp_connect/2) or
+accepted socket (see tcp_accept/3), \arg{Stream} is unified to a stream
+pair (see stream_pair/3) that can be used for reading and writing. The
+stream or pair must be closed with close/1, which also closes
+\arg{Socket}.
+
     \predicate{tcp_open_socket}{3}{+SocketId, -InStream, -OutStream}
-Open two SWI-Prolog I/O-streams, one to deal with input from the socket
-and one with output to the socket.  If tcp_bind/2 has been called on the
-socket, \arg{OutSream} is not created and left unbound. After closing
-the created streams, the socket itself is discarded.  The user should
-\emph{not} call tcp_close_socket/1 on \arg{SocketId} after calling
-tcp_open_socket/3.
+Similar to tcp_open_socket/2, but creates two separate sockets where
+tcp_open_socket/2 would have created a stream pair.  Deprecated because
+closing a stream pair is much easier to perform safely.
 
     \predicate{tcp_bind}{2}{+Socket, ?Port}
 Bind the socket to \arg{Port} on the current machine. This operation,
@@ -264,7 +269,7 @@ Connect \arg{Socket}. After successful completion, tcp_open_socket/3 can
 be used to create I/O-Streams to the remote socket.  New code should use
 tcp_connect/4, which can be hooked to allow for proxy negotiation.
 
-    \predicate{tcp_connect}{4}{+Socket, +Host:+Port, -Read, -Write}
+    \predicate{tcp_connect}{3}{+Socket, +Host:+Port, -StreamPair}
 Client-interface to connect a socket to a given \arg{Port} on a given
 \arg{Host}. \arg{Port} is either an integer or the name of a registered
 service. The fragment below connects to the
@@ -280,18 +285,22 @@ hardcoded number `80'.
 This predicate can be hooked by defining the multifile-predicate
 socket:tcp_connect_hook/4. This hook is specifically intented for proxy
 negotiation.  The code below shows the structure of such a hook. The
-predicates \nopredref{proxy}{1} and \nopredref{proxy_connect}{3} must
+predicates \nopredref{proxy}{1} and \nopredref{proxy_connect}{2} must
 be provided by the user.
 
 \begin{code}
-:- multifile socket:tcp_connect_hook/4.
+:- multifile socket:tcp_connect_hook/3.
 
-socket:tcp_connect_hook(Socket, Address, Read, Write) :-
+socket:tcp_connect_hook(Socket, Address, Stream) :-
     proxy(ProxyAdress),
     tcp_connect(Socket, ProxyAdress),
-    tcp_open_socket(Socket, Read, Write),
-    proxy_connect(Address, Read, Write).
+    tcp_open_socket(Socket, Stream),
+    proxy_connect(Address, Stream).
 \end{code}
+
+    \predicate{tcp_connect}{4}{+Socket, +Host:+Port, -Read, -Write}
+Similar to tcp_connect/3, but providing separate streams. Separate
+streams are hard to close safely and new code should use tcp_connect/3.
 
     \predicate{tcp_setopt}{2}{+Socket, +Option}
 Set options on the socket.  Defined options are:
