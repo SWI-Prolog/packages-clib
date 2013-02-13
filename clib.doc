@@ -220,7 +220,7 @@ open_socket/3.  There are two cases where tcp_close_socket/1 is used
 because there are no stream-handles:
 
 \begin{itemize}
-    \item After tcp_accept/3, the server does a fork/1 to handle the client
+    \item If, after tcp_accept/3, the server uses fork/1 to handle the client
 	  in a sub-process. In this case the accepted socket is not
 	  longer needed from the main server and must be discarded
 	  using tcp_close_socket/1.
@@ -232,8 +232,10 @@ because there are no stream-handles:
     \predicate{tcp_open_socket}{3}{+SocketId, -InStream, -OutStream}
 Open two SWI-Prolog I/O-streams, one to deal with input from the socket
 and one with output to the socket.  If tcp_bind/2 has been called on the
-socket. \arg{OutSream} is useless and will not be created. After closing
-both \arg{InStream} and \arg{OutSream}, the socket itself is discarded.
+socket, \arg{OutSream} is not created and left unbound. After closing
+the created streams, the socket itself is discarded.  The user should
+\emph{not} call tcp_close_socket/1 on \arg{SocketId} after calling
+tcp_open_socket/3.
 
     \predicate{tcp_bind}{2}{+Socket, ?Port}
 Bind the socket to \arg{Port} on the current machine. This operation,
@@ -335,8 +337,8 @@ to deal switch stream to non-blocking mode using:
 	...
 \end{code}
 
-As of SWI-Prolog 3.2.4, handling of non-blocking stream is supported. An
-attempt to read from a non-blocking stream returns -1 (or
+As of SWI-Prolog 3.2.4, handling of non-blocking streams is supported.
+An attempt to read from a non-blocking stream returns -1 (or
 \const{end_of_file} for read/1), but at_end_of_stream/1 fails. On actual
 end-of-input, at_end_of_stream/1 succeeds.
 
@@ -360,8 +362,8 @@ returned by \cfuncref{getaddrinfo}{}.
 
 \subsection{Server applications}
 
-The typical sequence for generating a server application is defined
-below:
+The typical sequence for generating a server application is given
+below.  To close the server, use close/1 on \arg{AcceptFd}.
 
 \begin{code}
 create_server(Port) :-
