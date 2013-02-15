@@ -155,6 +155,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 			 CompoundArg("not_implemented", 2),
 			 AtomArg(op),
 			 PL_TERM, obj);
+      break;
     }
     case ERR_RESOURCE:
     { const char *res = va_arg(args, const char *);
@@ -162,6 +163,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
       rc = PL_unify_term(formal,
 			 CompoundArg("resource_error", 1),
 			 AtomArg(res));
+      break;
     }
     case ERR_SYNTAX:
     { const char *culprit = va_arg(args, const char *);
@@ -169,6 +171,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
       rc = PL_unify_term(formal,
 			 CompoundArg("syntax_error", 1),
 			 AtomArg(culprit));
+      break;
     }
     default:
       assert(0);

@@ -1802,7 +1802,9 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
       break;
     }
 #else
-    rc = -2;				/* not implemented */
+    { rc = -2;				/* not implemented */
+      break;
+    }
 #endif
     case UDP_BROADCAST:
     { int val = va_arg(args, int);
