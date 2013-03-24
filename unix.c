@@ -41,7 +41,7 @@
 #ifdef HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
-#ifdef HAVE_CRT_EXTERNS_H 
+#ifdef HAVE_CRT_EXTERNS_H
 #include <crt_externs.h>
 #endif
 
@@ -352,9 +352,6 @@ pl_detach_IO()
   close_underlying_fd(Serror);
   close_underlying_fd(Soutput);
   close_underlying_fd(Sinput);
-  close_underlying_fd(name_to_stream("user_input"));
-  close_underlying_fd(name_to_stream("user_output"));
-  close_underlying_fd(name_to_stream("user_error"));
 
 #ifdef HAVE_SETSID
   setsid();
