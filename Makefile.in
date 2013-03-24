@@ -157,13 +157,15 @@ check-read::
 ################################################################
 
 TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex \
-	 uuid.tex
+	 uuid.tex unix.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
 		$(PLTOTEX) 'library(uri)'
 process.tex:	process.pl
 		$(PLTOTEX) 'library(process)'
+unix.tex:	unix.pl
+		$(PLTOTEX) 'library(unix)'
 mime.tex:	mime.pl
 		$(PLTOTEX) 'library(mime)'
 filesex.tex:	filesex.pl

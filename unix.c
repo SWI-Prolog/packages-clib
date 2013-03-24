@@ -283,8 +283,7 @@ pl_environ(term_t l)
 		 *	    DEAMON IO		*
 		 *******************************/
 
-static atom_t error_file;		/* file for output */
-static int    error_fd;			/* and its fd */
+static IOSTREAM *log_stream = NULL;		/* Write log output here */
 
 static ssize_t
 read_eof(void *handle, char *buf, size_t count)
@@ -294,12 +293,10 @@ read_eof(void *handle, char *buf, size_t count)
 
 static ssize_t
 write_null(void *handle, char *buf, size_t count)
-{ if ( error_fd )
-  { if ( error_fd >= 0 )
-      return write(error_fd, buf, count);
-  } else if ( error_file )
-  { error_fd = open(PL_atom_chars(error_file), O_WRONLY|O_CREAT|O_TRUNC, 0644);
-    return write_null(handle, buf, count);
+{ if ( log_stream )
+  { Slock(log_stream);
+    Sfwrite(buf, count, sizeof(char), log_stream);
+    Sunlock(log_stream);
   }
 
   return count;
@@ -343,28 +340,37 @@ close_underlying_fd(IOSTREAM *s)
 }
 
 
-static foreign_t
-pl_detach_IO(void)
-{ char buf[100];
-
-  sprintf(buf, "/tmp/pl-out.%d", (int)getpid());
-  error_file = PL_new_atom(buf);
-
-  close_underlying_fd(Serror);
-  close_underlying_fd(Soutput);
-  close_underlying_fd(Sinput);
-
+static void
+detach_process(void)
+{
 #ifdef HAVE_SETSID
   setsid();
 #else
-{ int fd;
+  int fd;
 
   if ( (fd = open("/dev/tty", 2)) )
   { ioctl(fd, TIOCNOTTY, NULL);		/* detach from controlling tty */
     close(fd);
   }
-}
 #endif
+}
+
+static foreign_t
+pl_detach_IO(term_t stream)
+{ if ( !log_stream )
+  { IOSTREAM *s;
+
+    if ( !PL_get_stream_handle(stream, &s) )
+      return FALSE;
+    log_stream = s;
+    PL_release_stream(s);
+
+    close_underlying_fd(Serror);
+    close_underlying_fd(Soutput);
+    close_underlying_fd(Sinput);
+
+    detach_process();
+  }
 
   return TRUE;
 }
@@ -378,7 +384,7 @@ install_unix()
   PL_register_foreign("kill",      2, pl_kill, 0);
   PL_register_foreign("pipe",      2, pl_pipe, 0);
   PL_register_foreign("dup",       2, pl_dup, 0);
-  PL_register_foreign("detach_IO", 0, pl_detach_IO, 0);
+  PL_register_foreign("detach_IO", 1, pl_detach_IO, 0);
   PL_register_foreign("environ",   1, pl_environ, 0);
 }
 
