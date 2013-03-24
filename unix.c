@@ -332,18 +332,19 @@ close_underlying_fd(IOSTREAM *s)
 { if ( s )
   { int fd;
 
-    if ( (fd = Sfileno(s)) >= 0 )
-      close(fd);
+    if ( (fd = Sfileno(s)) >= 0 && (s->flags & SIO_ISATTY) )
+    { close(fd);
 
-    s->functions = &dummy;
-    s->flags &= ~SIO_FILE;		/* no longer a file */
-    s->flags |= SIO_LBUF;		/* do line-buffering */
+      s->functions = &dummy;
+      s->flags &= ~SIO_FILE|SIO_ISATTY;	/* no longer a file */
+      s->flags |= SIO_LBUF;		/* do line-buffering */
+    }
   }
 }
 
 
 static foreign_t
-pl_detach_IO()
+pl_detach_IO(void)
 { char buf[100];
 
   sprintf(buf, "/tmp/pl-out.%d", (int)getpid());
