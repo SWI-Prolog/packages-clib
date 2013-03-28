@@ -84,9 +84,12 @@ pl_fork(term_t a0)
     return PL_warning("fork/1: failed: %s", strerror(errno));
 
   if ( pid > 0 )
-    return PL_unify_integer(a0, pid);
-  else
+  { return PL_unify_integer(a0, pid);
+  } else
+  { PL_set_prolog_flag("pid", PL_INTEGER, (intptr_t)getpid());
+
     return PL_unify_atom_chars(a0, "child");
+  }
 }
 
 
