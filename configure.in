@@ -86,6 +86,10 @@ AC_DEFINE(HAVE_CRYPT, 1,
 	  "Define if you have the crypt function.")
 LIBS="$oldlibs"
 
+AC_CHECK_FUNC(syslog,
+	      [ TARGETS="$TARGETS syslog.$SO" ],
+	      AC_MSG_WARN([Cannot find syslog"()" -- dropping syslog.pl]))
+
 AC_MSG_CHECKING("Configuring MIME libraries")
 case "$CC" in
 	.*) ACC="../../$CC"
@@ -125,7 +129,7 @@ AC_TRY_COMPILE(
    AC_MSG_RESULT(no))
 
 AC_CHECK_HEADERS(malloc.h alloca.h unistd.h sys/time.h fcntl.h utime.h)
-AC_CHECK_HEADERS(execinfo.h sys/resource.h crypt.h)
+AC_CHECK_HEADERS(execinfo.h sys/resource.h crypt.h syslog.h)
 AC_CHECK_HEADERS(sys/types.h sys/wait.h sys/stat.h)
 AC_CHECK_HEADERS(netinet/tcp.h crt_externs.h)
 

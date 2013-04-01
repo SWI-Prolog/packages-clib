@@ -33,6 +33,7 @@ MIMEOBJ=	error.o mime.o
 TIMEOBJ=	error.o time.o
 FILESOBJ=	error.o files.o
 RLIMITOBJ=	error.o rlimit.o
+SYSLOGOBJ=	syslog.o
 URIOBJ=		uri.o
 UIDOBJ=		uid.o
 READUTILOBJ=	readutil.o
@@ -70,6 +71,8 @@ streaminfo.@SO@: $(STREAMINFOOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(STREAMINFOOBJ) $(LIBPLSO)
 sha4pl.@SO@:	$(SHAOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(SHAOBJ) $(LIBPLSO)
+syslog.@SO@:	$(SYSLOGOBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(SYSLOGOBJ) $(LIBS) $(LIBPLSO)
 uri.@SO@:	$(URIOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(URIOBJ) $(LIBS) $(LIBPLSO)
 uid.@SO@:	$(UIDOBJ)
@@ -157,7 +160,7 @@ check-read::
 ################################################################
 
 TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex \
-	 uuid.tex unix.tex
+	 uuid.tex unix.tex syslog.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
@@ -172,6 +175,8 @@ filesex.tex:	filesex.pl
 		$(PLTOTEX) 'library(filesex)'
 uid.tex:	uid.pl
 		$(PLTOTEX) 'library(uid)'
+syslog.tex:	syslog.pl
+		$(PLTOTEX) 'library(syslog)'
 uuid.tex:	uuid.pl
 		$(PLTOTEX) 'library(uuid)'
 udpbroadcast.tex:	udp_broadcast.pl

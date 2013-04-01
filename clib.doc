@@ -64,6 +64,7 @@ verification, \pllib{sha} providing cryptographic hash functions and
 \input{process.tex}
 \input{filesex.tex}
 \input{uid.tex}
+\input{syslog.tex}
 
 \section{Socket library}
 
