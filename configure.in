@@ -56,13 +56,15 @@ if test x"$LIBUUID" = "x"; then
 else
   if test x"$UUID_H" = "x"; then
   AC_CHECK_HEADER(ossp/uuid.h,
-		  [ UUID_H=ossp/uuid.h
-		  ])
+		  [ UUID_H=ossp/uuid.h ],
+		  [],
+		  [/*first*/])
   fi
   if test x"$UUID_H" = "x"; then
   AC_CHECK_HEADER(uuid.h,
-		  [ UUID_H=uuid.h
-		  ])
+		  [ UUID_H=uuid.h ],
+		  [],
+		  [/*first*/])
   fi
   if test x"$UUID_H" = "x"; then
     AC_MSG_WARN([ Cannot find uuid.h -- dropping uuid.pl])
