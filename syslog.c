@@ -44,10 +44,10 @@ get_option(term_t t, int *opt)
   { if ( PL_get_chars(head, &s, CVT_ATOM|CVT_EXCEPTION) )
     { if      ( streq(s, "cons"  ) ) option |= LOG_CONS;
       else if ( streq(s, "ndelay") ) option |= LOG_NDELAY;
-      else if ( streq(s, "nowait") ) option |= LOG_NDELAY;
-      else if ( streq(s, "odelay") ) option |= LOG_NDELAY;
-      else if ( streq(s, "perror") ) option |= LOG_NDELAY;
-      else if ( streq(s, "pid") )    option |= LOG_NDELAY;
+      else if ( streq(s, "nowait") ) option |= LOG_NOWAIT;
+      else if ( streq(s, "odelay") ) option |= LOG_ODELAY;
+      else if ( streq(s, "perror") ) option |= LOG_PERROR;
+      else if ( streq(s, "pid") )    option |= LOG_PID;
       else return PL_domain_error("syslog_option", head);
     } else
       return FALSE;
