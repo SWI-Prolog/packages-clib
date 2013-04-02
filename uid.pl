@@ -162,13 +162,13 @@ set_user_and_group(User) :-
 	user_info(User, Data),
 	user_data(uid, Data, UID),
 	user_data(gid, Data, GID),
-	setuid(UID),
-	getgid(GID).
+	setgid(GID),
+	setuid(UID).
 
 set_user_and_group(User, Group) :-
 	user_info(User, Data),
 	group_info(Group, GData),
 	user_data(uid, Data, UID),
 	group_data(gid, GData, GID),
-	setuid(UID),
-	getgid(GID).
+	setgid(GID),
+	setuid(UID).
