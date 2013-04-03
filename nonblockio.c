@@ -1784,6 +1784,20 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 
       break;
     }
+    case SCK_BINDTODEVICE:
+    { const char *dev = va_arg(args, char*);
+
+#ifdef SO_BINDTODEVICE
+      if ( setsockopt(s->socket, SOL_SOCKET, SO_BINDTODEVICE,
+		      dev, strlen(dev)) == 0 )
+	return 0;
+
+      nbio_error(GET_ERRNO, TCP_ERRNO);
+      return -1;
+#else
+      return -2;
+#endif
+    }
     case TCP_NO_DELAY:
 #ifdef TCP_NODELAY
     { int val = va_arg(args, int);

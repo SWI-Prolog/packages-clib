@@ -188,6 +188,24 @@ Set options on the socket.  Defined options are:
 Allow servers to reuse a port without the system being completely sure
 the port is no longer in use.
 
+    \termitem{bindtodevice}{+Device:atom}
+Bind the socket to the indicated device. For example, the code below
+binds the socket to the \jargon{loopback} device that is typically
+used to realise the \jargon{localhost}.  See the manual pages for
+setsockopt() and the socket interface (e.g., socket(7) on Linux)
+for details.
+
+\begin{code}
+    tcp_socket(Socket),
+    tcp_setopt(Socket, bindtodevice(lo)),
+\end{code}
+
+Note that this call requires root privileges, see library(uid). Also
+note that you can restrict a socket using \exam{tcp_bind(Socket,
+IP:Port)}, where \arg{IP} is the numeric IP address or DNS name of that
+address. For examples, \exam{tcp_bind(Socket, localhost:Port)} also
+restricts access to local connections.
+
     \termitem{nodelay}{}
 Same as \term{nodelay}{true}
 

@@ -62,6 +62,7 @@
 #endif
 
 static atom_t ATOM_reuseaddr;		/* "reuseaddr" */
+static atom_t ATOM_bindtodevice;	/* "bindtodevice" */
 static atom_t ATOM_broadcast;		/* "broadcast" */
 static atom_t ATOM_nodelay;		/* "nodelay" */
 static atom_t ATOM_dispatch;		/* "dispatch" */
@@ -174,6 +175,21 @@ pl_setopt(term_t Socket, term_t opt)
   { if ( a == ATOM_reuseaddr && arity == 0 )
     { if ( nbio_setopt(socket, TCP_REUSEADDR, TRUE) == 0 )
 	return TRUE;
+
+      return FALSE;
+    } else if ( a == ATOM_bindtodevice && arity == 1)
+    { term_t a = PL_new_term_ref();
+      char *dev;
+      int rc;
+
+      _PL_get_arg(1, opt, a);
+      if ( !PL_get_chars(a, &dev, CVT_ATOM|CVT_EXCEPTION) )
+	return FALSE;
+
+      if ( (rc=nbio_setopt(socket, SCK_BINDTODEVICE, dev)) == 0 )
+	return TRUE;
+      if ( rc == -2 )
+	goto not_implemented;
 
       return FALSE;
     } else if ( a == ATOM_nodelay && arity <= 1 )
@@ -664,6 +680,7 @@ install_socket()
 { nbio_init("socket");
 
   ATOM_reuseaddr        = PL_new_atom("reuseaddr");
+  ATOM_bindtodevice     = PL_new_atom("bindtodevice");
   ATOM_broadcast        = PL_new_atom("broadcast");
   ATOM_nodelay	        = PL_new_atom("nodelay");
   ATOM_dispatch	        = PL_new_atom("dispatch");

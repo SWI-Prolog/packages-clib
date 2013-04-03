@@ -94,6 +94,7 @@ typedef enum				/* nbio_setopt() commands */
   TCP_INSTREAM,
   TCP_OUTSTREAM,
   UDP_BROADCAST,
+  SCK_BINDTODEVICE,
   NBIO_END
 } nbio_option;
 
@@ -131,7 +132,7 @@ typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */
 #ifdef HAVE_DECLSPEC
 #define NBIO_EXPORT(type)		__declspec(dllexport) type
 #else
-#define NBIO_EXPORT(type)	 	extern type
+#define NBIO_EXPORT(type)		extern type
 #endif
 
 NBIO_EXPORT(int)	nbio_init(const char *module);
@@ -153,10 +154,10 @@ NBIO_EXPORT(nbio_sock_t)
 			    socklen_t *addrlen);
 
 extern ssize_t	nbio_read(nbio_sock_t socket, char *buf, size_t bufSize);
-extern ssize_t 	nbio_write(nbio_sock_t socket, char *buf, size_t bufSize);
+extern ssize_t	nbio_write(nbio_sock_t socket, char *buf, size_t bufSize);
 NBIO_EXPORT(int) nbio_closesocket(nbio_sock_t socket);
-extern int 	nbio_close_input(nbio_sock_t socket);
-extern int 	nbio_close_output(nbio_sock_t socket);
+extern int	nbio_close_input(nbio_sock_t socket);
+extern int	nbio_close_output(nbio_sock_t socket);
 extern ssize_t	nbio_recvfrom(int socket, void *buf, size_t bufSize, int flags,
 			      struct sockaddr *from, socklen_t *fromlen);
 extern ssize_t	nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
