@@ -144,3 +144,18 @@ syslog_priority(warning).
 syslog_priority(notice).
 syslog_priority(info).
 syslog_priority(debug).
+
+
+		 /*******************************
+		 *	MESSAGE INTEGRATION	*
+		 *******************************/
+
+user:message_hook(Term, Kind, _) :-
+	kind_syslog_priority(Kind, Level),
+	message_to_string(Term, Message),
+	syslog(Level, Message),
+	fail.
+
+kind_syslog_priority(error,	    err).
+kind_syslog_priority(warning,	    warning).
+kind_syslog_priority(informational, info).
