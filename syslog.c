@@ -128,7 +128,7 @@ pl_openlog(term_t Ident, term_t Option, term_t Facility)
   if ( PL_get_chars(Ident, &ident, CVT_ATOM|REP_MB|CVT_EXCEPTION) &&
        get_option(Option, &option) &&
        get_facility(Facility, &facility) )
-  { openlog(ident, option, facility);
+  { openlog(strdup(ident), option, facility);
     return TRUE;
   }
 
