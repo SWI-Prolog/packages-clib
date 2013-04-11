@@ -81,7 +81,7 @@ pl_fork(term_t a0)
   flush_stream("user_output");		/* general call to flush all IO? */
 
   if ( (pid = fork()) < 0 )
-    return PL_warning("fork/1: failed: %s", strerror(errno));
+    return PL_resource_error("memory");
 
   if ( pid > 0 )
   { return PL_unify_integer(a0, pid);
@@ -381,7 +381,7 @@ pl_detach_IO(term_t stream)
 
 install_t
 install_unix()
-{ PL_register_foreign("fork",      1, pl_fork, 0);
+{ PL_register_foreign("fork_",     1, pl_fork, 0);
   PL_register_foreign("exec",      1, pl_exec, 0);
   PL_register_foreign("wait",      2, pl_wait, 0);
   PL_register_foreign("kill",      2, pl_kill, 0);

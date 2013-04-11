@@ -31,6 +31,7 @@
 :- module(unix,
 	  [ fork/1,			% -'client'|pid
 	    exec/1,			% +Command(...Args...)
+	    fork_exec/1,		% +Command(...Args...)
 	    wait/2,			% -Pid, -Reason
 	    kill/2,			% +Pid. +Signal
 	    pipe/2,			% +Read, +Write
@@ -72,10 +73,59 @@ and manage processes.
 %	Unix fork() is the only way to   create new processes and fork/1
 %	is a simple direct interface to it.
 %
-%	@bug	fork/1 does not play well with threads.  One should not
-%		create threads in a Prolog process that intends to use
-%		fork/1.  It is possible to create threads in a forked
-%		Prolog process.
+%	@error	permission_error(fork, process, main) is raised if
+%		the calling thread is not the only thread in the
+%		process.  Forking a Prolog process with threads
+%		will typically deadlock because only the calling
+%		thread is cloned in the fork, while all thread
+%		synchronization are cloned.
+
+fork(Pid) :-
+	fork_warn_threads,
+	fork_(Pid).
+
+%%	fork_warn_threads
+%
+%	See whether we are the  only thread.  If not, we cannot fork
+
+fork_warn_threads :-
+	findall(T, other_thread(T), Others),
+	(   Others == []
+	->  true
+	;   throw(error(permission_error(fork, process, main),
+			context(_, running_threads(Others))))
+	).
+
+other_thread(T) :-
+	thread_self(Me),
+	thread_property(T, status(Status)),
+	T \== Me,
+	(   Status == running
+	->  true
+	;   print_message(warning, fork(join(T, Status))),
+	    thread_join(T, _),
+	    fail
+	).
+
+%%	fork_exec(+Command) is det.
+%
+%	Fork (as fork/1) and exec (using  exec/1) the child immediately.
+%	This behaves as the code below, but   bypasses the check for the
+%	existence of other threads because this is a safe scenario.
+%
+%	  ==
+%	  fork_exec(Command) :-
+%		(   fork(child)
+%		->  exec(Command)
+%		;   true
+%		).
+%	  ==
+
+fork_exec(Command) :-
+	(   fork_(child)
+	->  exec(Command)
+	;   true
+	).
 
 %%	exec(+Command)
 %
@@ -216,3 +266,14 @@ detach_IO :-
 	open(TmpFile, write, Out, [alias(daemon_output)]),
 	set_stream(Out, buffer(line)),
 	detach_IO(Out).
+
+
+		 /*******************************
+		 *	     MESSAGES		*
+		 *******************************/
+
+:- multifile
+	prolog:message//1.
+
+prolog:message(fork(join(T, Status))) -->
+	[ 'Fork: joining thead ~p (status: ~p)'-[T, Status] ].
