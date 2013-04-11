@@ -153,7 +153,9 @@ syslog_priority(debug).
 user:message_hook(Term, Kind, _) :-
 	kind_syslog_priority(Kind, Level),
 	message_to_string(Term, Message),
-	syslog(Level, Message),
+	atomic_list_concat(Lines, '\n', Message),
+	forall(member(Line, Lines),
+	       syslog(Level, Line)),
 	fail.
 
 kind_syslog_priority(error,	    err).
