@@ -86,19 +86,27 @@ openlog(Ident, Options, Facility) :-
 
 %%	syslog(+Priority, +Message) is det.
 %
-%	Send a message to the system log.
+%	Send a message to the system  log. Note that syslog/2 implicitly
+%	opens a connection to the system log   if  such a connection has
+%	not been opened explicitly using openlog/3.
 %
 %	@param	Priority is one of =emerg=, =alert=, =crit=, =err=,
 %		=warning=, =notice=, =info= or =debug=.
 
 %%	syslog(+Priority, +Format, +Args) is det.
 %
-%	Send a formatted message to the system log.  This predicate
-%	combined format/3 with syslog/2.
+%	Send a formatted message to the system  log if system logging is
+%	opened using openlog/3. This predicate   combined  format/3 with
+%	syslog/2. If there is no open  syslog connection, syslog/3 calls
+%	print_message/2.
 
 syslog(Priority, Format, Args) :-
+	syslog(_), !,
 	format(string(Msg), Format, Args),
 	syslog(Priority, Msg).
+syslog(Priority, Format, Args) :-
+	syslog_priority(Priority, Kind),
+	print_message(Kind, format(Format, Args)).
 
 %%	closelog is det.
 %
@@ -131,19 +139,19 @@ prolog:debug_print_hook(Topic, Format, Args) :-
 	syslog(Priority, Format, Args).
 
 debug_priority(Topic, Priority) :-
-	(   syslog_priority(Topic)
+	(   syslog_priority(Topic, _Kind)
 	->  Priority = Topic
 	;   Priority = debug
 	).
 
-syslog_priority(emerg).
-syslog_priority(alert).
-syslog_priority(crit).
-syslog_priority(err).
-syslog_priority(warning).
-syslog_priority(notice).
-syslog_priority(info).
-syslog_priority(debug).
+syslog_priority(emerg,	 error).
+syslog_priority(alert,	 warning).
+syslog_priority(crit,	 error).
+syslog_priority(err,	 error).
+syslog_priority(warning, warning).
+syslog_priority(notice,	 informational).
+syslog_priority(info,	 informational).
+syslog_priority(debug,	 debug).
 
 
 		 /*******************************
@@ -151,6 +159,7 @@ syslog_priority(debug).
 		 *******************************/
 
 user:message_hook(Term, Kind, _) :-
+	syslog(_),
 	kind_syslog_priority(Kind, Level),
 	message_to_string(Term, Message),
 	atomic_list_concat(Lines, '\n', Message),
