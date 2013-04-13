@@ -48,6 +48,12 @@
 %	  * algorithm(+Algorithm)
 %	  One of =sha1= (default), =sha224=, =sha256=, =sha384= or
 %	  =sha512=
+%	  * encoding(+Encoding)
+%	  If Data is a sequence of character _codes_, this must be
+%	  translated into a sequence of _bytes_, because that is what
+%	  the hashing requires.  The default encoding is =utf8=.  The
+%	  other meaningful value is =octet=, claiming that Data contains
+%	  raw bytes.
 %
 %	@param	Data is either an atom, string or code-list
 %	@param  Hash is a packed string
