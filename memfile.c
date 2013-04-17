@@ -467,7 +467,7 @@ memory_file_to_text(term_t handle, term_t atom, term_t encoding, int flags)
     } else
       enc = m->encoding;
 
-    if ( m->stream )
+    if ( m->stream && (m->stream->flags & SIO_OUTPUT))
       return alreadyOpen(handle, "to_atom");
     if ( m->data )
     { switch(enc)
@@ -475,7 +475,9 @@ memory_file_to_text(term_t handle, term_t atom, term_t encoding, int flags)
         case ENC_OCTET:
 	  return PL_unify_chars(atom, flags, m->data_size, m->data);
 	case ENC_WCHAR:
-	  return PL_unify_wchars(atom, flags, m->data_size/sizeof(wchar_t), (pl_wchar_t*)m->data);
+	  return PL_unify_wchars(atom, flags,
+				 m->data_size/sizeof(wchar_t),
+				 (pl_wchar_t*)m->data);
 	case ENC_UTF8:
 	  return PL_unify_chars(atom, flags|REP_UTF8, m->data_size, m->data);
 	default:
