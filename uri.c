@@ -184,8 +184,10 @@ fill_flags()
   }
 }
 
-#define no_escape(c, f) ((c < 128) && (charflags[(int)c] & (f)))
-#define iri_no_escape(c, f) ((c > 128) || (charflags[(int)c] & (f)))
+#define no_escape(c, f) \
+	(((c) < 128) && (charflags[(int)c] & (f)))
+#define iri_no_escape(c, f) \
+	(((c) > 128) || (c) == '%' || (charflags[(int)c] & (f)))
 
 
 /* hex(const pl_wchar_t *in, int digits, int *value)
@@ -1317,7 +1319,7 @@ base_ranges(term_t t)
 
 
 static foreign_t
-resolve(term_t Rel, term_t Base, term_t URI, int normalize, int iri)
+resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
 { pl_wchar_t *s;
   size_t slen;
   uri_component_ranges s_ranges, t_ranges;
@@ -1381,7 +1383,7 @@ resolve(term_t Rel, term_t Base, term_t URI, int normalize, int iri)
   init_charbuf(&out);			/* output buffer */
 
   if ( normalize )
-  { normalize_in_charbuf(&out, &t_ranges, TRUE, iri);
+  { normalize_in_charbuf(&out, &t_ranges, unesc, iri);
   } else
   { init_charbuf_at_size(&path, t_ranges.path.end - t_ranges.path.start);
     len = removed_dot_segments(t_ranges.path.end - t_ranges.path.start,
@@ -1405,7 +1407,7 @@ resolve(term_t Rel, term_t Base, term_t URI, int normalize, int iri)
 
 static foreign_t
 uri_resolve(term_t Rel, term_t Base, term_t URI)
-{ return resolve(Rel, Base, URI, FALSE, FALSE);
+{ return resolve(Rel, Base, URI, TRUE, FALSE, FALSE);
 }
 
 
@@ -1414,7 +1416,15 @@ uri_resolve(term_t Rel, term_t Base, term_t URI)
 
 static foreign_t
 uri_normalized3(term_t Rel, term_t Base, term_t URI)
-{ return resolve(Rel, Base, URI, TRUE, FALSE);
+{ return resolve(Rel, Base, URI, TRUE, TRUE, FALSE);
+}
+
+/** iri_normalized(+Relative, +Base, -Absolute) is det.
+*/
+
+static foreign_t
+iri_normalized3(term_t Rel, term_t Base, term_t IRI)
+{ return resolve(Rel, Base, IRI, FALSE, TRUE, TRUE);
 }
 
 
@@ -1423,7 +1433,7 @@ uri_normalized3(term_t Rel, term_t Base, term_t URI)
 
 static foreign_t
 uri_normalized_iri3(term_t Rel, term_t Base, term_t IRI)
-{ return resolve(Rel, Base, IRI, TRUE, TRUE);
+{ return resolve(Rel, Base, IRI, TRUE, TRUE, TRUE);
 }
 
 
@@ -1604,6 +1614,7 @@ install_uri()
   PL_register_foreign("uri_normalized_iri",   2, uri_normalized_iri,   0);
   PL_register_foreign("uri_resolve",	      3, uri_resolve,	       0);
   PL_register_foreign("uri_normalized",	      3, uri_normalized3,      0);
+  PL_register_foreign("iri_normalized",	      3, iri_normalized3,      0);
   PL_register_foreign("uri_normalized_iri",   3, uri_normalized_iri3,  0);
   PL_register_foreign("uri_query_components", 2, uri_query_components, 0);
   PL_register_foreign("uri_authority_components",

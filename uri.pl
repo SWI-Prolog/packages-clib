@@ -36,6 +36,7 @@
 	    iri_normalized/2,		% +IRI, -NormalizedIRI
 	    uri_normalized_iri/2,	% +URI, -NormalizedIRI
 	    uri_normalized/3,		% +URI, +Base, -NormalizedURI
+	    iri_normalized/3,		% +IRI, +Base, -NormalizedIRI
 	    uri_normalized_iri/3,	% +URI, +Base, -NormalizedIRI
 	    uri_resolve/3,		% +URI, +Base, -AbsURI
 	    uri_is_global/1,		% +URI
@@ -170,6 +171,12 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %		uri_resolve(URI, Base, GlobalURI),
 %		uri_normalized(GlobalURI, NormalizedGlobalURI).
 %	==
+
+%%	iri_normalized(+IRI, +Base, -NormalizedGlobalIRI) is det.
+%
+%	NormalizedGlobalIRI is the normalized  global   version  of IRI.
+%	This is similar to uri_normalized/3, but   does  not do %-escape
+%	normalization.
 
 %%	uri_normalized_iri(+URI, +Base, -NormalizedGlobalIRI) is det.
 %
