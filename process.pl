@@ -51,6 +51,7 @@
 		       stderr(any),
 		       cwd(atom),
 		       env(list(any)),
+		       priority(+integer),
 		       process(-integer),
 		       detached(+boolean),
 		       window(+boolean)
@@ -158,6 +159,13 @@ following finds the executable for =ls=:
 %           PID to a job you create yourself.
 %	    * window(+Bool)
 %	    If =true=, create a window for the process (Windows only)
+%	    * priority(+Priority)
+%	    In Unix: specifies the process priority for the newly
+%	    created process. Priority must be an integer between -20
+%	    and 19. Positive values are nicer to others, and negative
+%	    values are less so. The default is zero. Users are free to
+%	    lower their own priority. Only the super-user may _raise_ it
+%	    to less-than zero.
 %
 %	If the user specifies the process(-PID)   option, he *must* call
 %	process_wait/2 to reclaim the process.  Without this option, the

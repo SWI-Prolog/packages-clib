@@ -56,6 +56,7 @@ static atom_t ATOM_process;
 static atom_t ATOM_detached;
 static atom_t ATOM_cwd;
 static atom_t ATOM_env;
+static atom_t ATOM_priority;
 static atom_t ATOM_window;
 static atom_t ATOM_timeout;
 static atom_t ATOM_release;
@@ -191,6 +192,7 @@ typedef struct p_options
   p_stream streams[3];
   int   detached;			/* create as detached */
   int   window;				/* Show a window? */
+  int   priority;			/* Process priority */
 } p_options;
 
 
@@ -404,6 +406,15 @@ parse_options(term_t options, p_options *info)
     } else if ( name == ATOM_env )
     { if ( !parse_environment(arg, info) )
 	return FALSE;
+    } else if ( name == ATOM_priority )
+    { int tmp;
+
+      if ( !PL_get_integer_ex(arg, &tmp) )
+	return FALSE;
+      if ( tmp < -20 || tmp > 19 )
+	return PL_domain_error("priority_option", tmp);
+
+      info->priority = tmp;
     } else
       return domain_error(head, "process_option");
   }
@@ -1292,6 +1303,11 @@ do_create_process(p_options *info)
 
     PL_cleanup_fork();
 
+#if defined(HAVE_SYS_RESOURCE_H) && defined(PRIO_PROCESS)
+    if ( info->priority != 255 )
+      setpriority(PRIO_PROCESS, pid, info->priority);
+#endif
+
     if ( info->detached )
       setsid();
 
@@ -1434,6 +1450,8 @@ process_create(term_t exe, term_t options)
 
   memset(&info, 0, sizeof(info));
 
+  info.priority = 255;		/* zero is a valid priority */
+
   if ( !get_exe(exe, &info) )
     goto out;
   if ( !parse_options(options, &info) )
@@ -1567,6 +1585,7 @@ install_process()
   MKATOM(detached);
   MKATOM(cwd);
   MKATOM(env);
+  MKATOM(priority);
   MKATOM(window);
   MKATOM(timeout);
   MKATOM(release);
