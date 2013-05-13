@@ -412,7 +412,7 @@ parse_options(term_t options, p_options *info)
       if ( !PL_get_integer_ex(arg, &tmp) )
 	return FALSE;
       if ( tmp < -20 || tmp > 19 )
-	return PL_domain_error("priority_option", tmp);
+	return PL_domain_error("priority_option", arg);
 
       info->priority = tmp;
     } else
