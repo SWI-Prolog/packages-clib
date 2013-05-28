@@ -484,6 +484,7 @@ typedef struct process_context
 #endif
   int   open_mask;			/* Open streams */
   int   pipes[3];			/* stdin/stdout/stderr */
+  atom_t exe_name;			/* exe as atom */
 } process_context;
 
 static int wait_for_process(process_context *pc);
@@ -871,19 +872,6 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
 
 static int
-wait_for_process(process_context *pc)
-{ int rc;
-  ULONG prc;
-
-  rc = wait_process_handle(pc->handle, &prc, INFINITE);
-  CloseHandle(pc->handle);
-  PL_free(pc);
-
-  return rc;
-}
-
-
-static int
 win_wait_success(atom_t exe, HANDLE process)
 { ULONG rc;
 
@@ -905,6 +893,17 @@ win_wait_success(atom_t exe, HANDLE process)
   }
 
   return TRUE;
+}
+
+
+static int
+wait_for_process(process_context *pc)
+{ int rc = win_wait_success(pc->exe_name, pc->handle);
+
+  PL_unregister_atom(pc->exe_name);
+  PL_free(pc);
+
+  return rc;
 }
 
 
@@ -1056,7 +1055,9 @@ do_create_process(p_options *info)
 		      info->cwd,	/* Directory */
 		      &si,		/* Startup info */
 		      &pi) )		/* Process information */
-  { CloseHandle(pi.hThread);
+  { int rc = TRUE;
+
+    CloseHandle(pi.hThread);
 
     if ( info->pipes > 0 && info->pid == 0 )
     { IOSTREAM *s;
@@ -1065,44 +1066,63 @@ do_create_process(p_options *info)
       DEBUG(Sdprintf("Wait on pipes\n"));
 
       memset(pc, 0, sizeof(*pc));
-      pc->magic  = PROCESS_MAGIC;
-      pc->handle = pi.hProcess;
+      pc->magic    = PROCESS_MAGIC;
+      pc->handle   = pi.hProcess;
+      pc->exe_name = info->exe_name;
+      PL_register_atom(pc->exe_name);
 
       if ( info->streams[0].type == std_pipe )
       { CloseHandle(info->streams[0].fd[0]);
-	s = open_process_pipe(pc, 0, info->streams[0].fd[1]);
-	PL_unify_stream(info->streams[0].term, s);
+	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
+	  rc = PL_unify_stream(info->streams[0].term, s);
+	else
+	  CloseHandle(info->streams[0].fd[0]);
       }
       if ( info->streams[1].type == std_pipe )
       { CloseHandle(info->streams[1].fd[1]);
-	s = open_process_pipe(pc, 1, info->streams[1].fd[0]);
-	PL_unify_stream(info->streams[1].term, s);
+	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
+	  PL_unify_stream(info->streams[1].term, s);
+	else
+	  CloseHandle(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
       { CloseHandle(info->streams[2].fd[1]);
-	s = open_process_pipe(pc, 2, info->streams[2].fd[0]);
-	PL_unify_stream(info->streams[2].term, s);
+	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
+	  rc = PL_unify_stream(info->streams[2].term, s);
+	else
+	  CloseHandle(info->streams[2].fd[0]);
       }
 
-      return TRUE;
+      return rc;
     } else if ( info->pipes > 0 )
     { IOSTREAM *s;
 
       if ( info->streams[0].type == std_pipe )
       { CloseHandle(info->streams[0].fd[0]);
-	s = Sopen_handle(info->streams[0].fd[1], "w");
-	PL_unify_stream(info->streams[0].term, s);
+	if ( (s = Sopen_handle(info->streams[0].fd[1], "w")) )
+	  rc = PL_unify_stream(info->streams[0].term, s);
+	else
+	  CloseHandle(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
       { CloseHandle(info->streams[1].fd[1]);
-	s = Sopen_handle(info->streams[1].fd[0], "r");
-	PL_unify_stream(info->streams[1].term, s);
+	if ( rc && (s = Sopen_handle(info->streams[1].fd[0], "r")) )
+	  rc = PL_unify_stream(info->streams[1].term, s);
+	else
+	  CloseHandle(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
       { CloseHandle(info->streams[2].fd[1]);
-	s = Sopen_handle(info->streams[2].fd[0], "r");
-	PL_unify_stream(info->streams[2].term, s);
+	if ( rc && (s = Sopen_handle(info->streams[2].fd[0], "r")) )
+	  rc = PL_unify_stream(info->streams[2].term, s);
+	else
+	  CloseHandle(info->streams[2].fd[0]);
       }
+    }
+
+    if ( !rc )
+    { Sdprintf("FATAL ERROR: create_process/3\n");
+      PL_halt(1);
     }
 
     if ( info->pid )
@@ -1196,26 +1216,6 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
 
 static int
-wait_for_process(process_context *pc)
-{ for(;;)
-  { int status;
-    pid_t p2;
-
-    if ( (p2=waitpid(pc->pid, &status, 0)) == pc->pid )
-    { PL_free(pc);
-      return TRUE;
-    }
-
-    if ( errno == EINTR && PL_handle_signals() >= 0 )
-      continue;
-
-    PL_free(pc);
-    return FALSE;
-  }
-}
-
-
-static int
 wait_success(atom_t name, pid_t pid)
 { pid_t p2;
 
@@ -1247,6 +1247,17 @@ wait_success(atom_t name, pid_t pid)
 	return FALSE;
     }
   }
+}
+
+
+static int
+wait_for_process(process_context *pc)
+{ int rc = wait_success(pc->exe_name, pc->pid);
+
+  PL_unregister_atom(pc->exe_name);
+  PL_free(pc);
+
+  return rc;
 }
 
 
@@ -1342,6 +1353,8 @@ do_create_process(p_options *info)
       memset(pc, 0, sizeof(*pc));
       pc->magic = PROCESS_MAGIC;
       pc->pid = pid;
+      pc->exe_name = info->exe_name;
+      PL_register_atom(pc->exe_name);
 
       if ( info->streams[0].type == std_pipe )
       { close(info->streams[0].fd[0]);
