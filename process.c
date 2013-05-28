@@ -309,6 +309,8 @@ get_stream(term_t t, p_options *info, p_stream *stream)
   } else if ( PL_is_functor(t, FUNCTOR_pipe1) )
   { stream->term = PL_new_term_ref();
     _PL_get_arg(1, t, stream->term);
+    if ( !PL_is_variable(stream->term) )
+      return PL_uninstantiation_error(stream->term);
     stream->type = std_pipe;
     info->pipes++;
     return TRUE;
