@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2008-2009, University of Amsterdam
+    Copyright (C): 2008-2013, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -62,7 +61,6 @@ static atom_t ATOM_timeout;
 static atom_t ATOM_release;
 static atom_t ATOM_infinite;
 static functor_t FUNCTOR_error2;
-static functor_t FUNCTOR_type_error2;
 static functor_t FUNCTOR_domain_error2;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
@@ -110,23 +108,6 @@ ISSUES:
 		 /*******************************
 		 *	      ERRORS		*
 		 *******************************/
-
-static int
-type_error(term_t actual, const char *expected)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_type_error2,
-		         PL_CHARS, expected,
-		         PL_TERM, actual,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
 
 static int
 domain_error(term_t actual, const char *expected)
@@ -300,7 +281,7 @@ parse_environment(term_t t, p_options *info)
     size_t len;
 
     if ( !PL_is_functor(head, FUNCTOR_eq2) )
-      return type_error(head, "environment_variable");
+      return PL_type_error("environment_variable", head);
 
     if ( !get_echars_arg_ex(1, head, tmp, &s, &len) )
       return FALSE;
@@ -314,8 +295,8 @@ parse_environment(term_t t, p_options *info)
     count++;
   }
 
-  if ( !PL_get_nil(tail) )
-    return type_error(tail, "list");
+  if ( !PL_get_nil_ex(tail) )
+    return FALSE;
 
 #ifdef __WINDOWS__
   add_ecbuf(eb, ECHARS("\0"), 1);
@@ -355,7 +336,7 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     info->pipes++;
     return TRUE;
   } else
-    return type_error(t, "process_stream");
+    return PL_type_error("process_stream", t);
 }
 
 
@@ -372,7 +353,7 @@ parse_options(term_t options, p_options *info)
     int arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-      return type_error(head, "option");
+      return PL_type_error("option", head);
     _PL_get_arg(1, head, arg);
 
     if ( name == ATOM_stdin )
@@ -387,8 +368,8 @@ parse_options(term_t options, p_options *info)
     } else if ( name == ATOM_process )
     { info->pid = PL_copy_term_ref(arg);
     } else if ( name == ATOM_detached )
-    { if ( !PL_get_bool(arg, &info->detached) )
-	return type_error(arg, "boolean");
+    { if ( !PL_get_bool_ex(arg, &info->detached) )
+	return FALSE;
     } else if ( name == ATOM_cwd )
     {
 #ifdef __WINDOWS__
@@ -401,8 +382,8 @@ parse_options(term_t options, p_options *info)
 	return FALSE;
 #endif
     } else if ( name == ATOM_window )
-    { if ( !PL_get_bool(arg, &info->window) )
-	return type_error(arg, "boolean");
+    { if ( !PL_get_bool_ex(arg, &info->window) )
+	return FALSE;
     } else if ( name == ATOM_env )
     { if ( !parse_environment(arg, info) )
 	return FALSE;
@@ -419,8 +400,8 @@ parse_options(term_t options, p_options *info)
       return domain_error(head, "process_option");
   }
 
-  if ( !PL_get_nil(tail) )
-    return type_error(tail, "list");
+  if ( !PL_get_nil_ex(tail) )
+    return FALSE;
 
   return TRUE;
 }
@@ -432,7 +413,7 @@ get_exe(term_t exe, p_options *info)
   term_t arg = PL_new_term_ref();
 
   if ( !PL_get_name_arity(exe, &info->exe_name, &arity) )
-    return type_error(exe, "callable");
+    return PL_type_error("callable", exe);
 
   PL_put_atom(arg, info->exe_name);
 
@@ -1472,8 +1453,8 @@ static int
 get_pid(term_t pid, pid_t *p)
 { int n;
 
-  if ( !PL_get_integer(pid, &n) )
-    return type_error(pid, "integer");
+  if ( !PL_get_integer_ex(pid, &n) )
+    return FALSE;
   if ( n < 0 )
     return domain_error(pid, "not_less_than_zero");
 
@@ -1499,26 +1480,26 @@ process_wait(term_t pid, term_t code, term_t options)
     int arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-      return type_error(head, "option");
+      return PL_type_error("option", head);
     _PL_get_arg(1, head, arg);
     if ( name == ATOM_timeout )
     { atom_t a;
 
       if ( !(PL_get_atom(arg, &a) && a == ATOM_infinite) )
       { if ( !PL_get_float(arg, &opts.timeout) )
-	  return type_error(arg, "timeout");
+	  return PL_type_error("timeout", arg);
 	opts.has_timeout = TRUE;
       }
     } else if ( name == ATOM_release )
-    { if ( !PL_get_bool(arg, &opts.release) )
-	return type_error(arg, "boolean");
+    { if ( !PL_get_bool_ex(arg, &opts.release) )
+	return FALSE;
       if ( opts.release == FALSE )
 	return domain_error(arg, "true");
     } else
       return domain_error(head, "process_wait_option");
   }
-  if ( !PL_get_nil(tail) )
-    return type_error(tail, "list");
+  if ( !PL_get_nil_ex(tail) )
+    return FALSE;
 
   return wait_for_pid(p, code, &opts);
 }
@@ -1593,7 +1574,6 @@ install_process()
 
   MKFUNCTOR(pipe, 1);
   MKFUNCTOR(error, 2);
-  MKFUNCTOR(type_error, 2);
   MKFUNCTOR(domain_error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);
