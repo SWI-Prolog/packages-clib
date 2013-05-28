@@ -61,7 +61,6 @@ static atom_t ATOM_timeout;
 static atom_t ATOM_release;
 static atom_t ATOM_infinite;
 static functor_t FUNCTOR_error2;
-static functor_t FUNCTOR_domain_error2;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
@@ -100,30 +99,8 @@ typedef char echar;
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ISSUES:
 	- Deal with child errors (no cwd, cannot execute, etc.)
-	- Windows version
 	- Complete test suite
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-
-		 /*******************************
-		 *	      ERRORS		*
-		 *******************************/
-
-static int
-domain_error(term_t actual, const char *expected)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_domain_error2,
-		         PL_CHARS, expected,
-		         PL_TERM, actual,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
 
 
 		 /*******************************
@@ -247,7 +224,7 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 
   for(s = *sp, e = s+*lenp; s<e; s++)
   { if ( !*s )
-      return domain_error(arg, "text_non_zero_code");
+      return PL_domain_error("text_non_zero_code", arg);
   }
 
   return TRUE;
@@ -327,7 +304,7 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     { stream->type = std_std;
       return TRUE;
     } else
-    { return domain_error(t, "process_stream");
+    { return PL_domain_error("process_stream", t);
     }
   } else if ( PL_is_functor(t, FUNCTOR_pipe1) )
   { stream->term = PL_new_term_ref();
@@ -397,7 +374,7 @@ parse_options(term_t options, p_options *info)
 
       info->priority = tmp;
     } else
-      return domain_error(head, "process_option");
+      return PL_domain_error("process_option", head);
   }
 
   if ( !PL_get_nil_ex(tail) )
@@ -715,10 +692,10 @@ win_command_line(term_t t, int arity, const wchar_t *exe, wchar_t **cline)
 	return FALSE;
 
       if ( wcslen(av[i].text) != av[i].len )
-	return domain_error(arg, "no_zero_code_atom");
+	return PL_domain_error("no_zero_code_atom", arg);
 
       if ( !set_quote(&av[i]) )
-	return domain_error(arg, "dos_quotable_atom");
+	return PL_domain_error("dos_quotable_atom", arg);
 
       cmdlen += av[i].len+(av[i].quote?2:0)+1;
     }
@@ -1456,7 +1433,7 @@ get_pid(term_t pid, pid_t *p)
   if ( !PL_get_integer_ex(pid, &n) )
     return FALSE;
   if ( n < 0 )
-    return domain_error(pid, "not_less_than_zero");
+    return PL_domain_error("not_less_than_zero", pid);
 
   *p = n;
   return TRUE;
@@ -1494,9 +1471,9 @@ process_wait(term_t pid, term_t code, term_t options)
     { if ( !PL_get_bool_ex(arg, &opts.release) )
 	return FALSE;
       if ( opts.release == FALSE )
-	return domain_error(arg, "true");
+	return PL_domain_error("true", arg);
     } else
-      return domain_error(head, "process_wait_option");
+      return PL_domain_error("process_wait_option", head);
   }
   if ( !PL_get_nil_ex(tail) )
     return FALSE;
@@ -1574,7 +1551,6 @@ install_process()
 
   MKFUNCTOR(pipe, 1);
   MKFUNCTOR(error, 2);
-  MKFUNCTOR(domain_error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);
   MKFUNCTOR(exit, 1);
