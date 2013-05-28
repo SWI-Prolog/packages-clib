@@ -1331,8 +1331,10 @@ do_create_process(p_options *info)
 
     return pl_error(NULL, 0, "fork", ERR_ERRNO, errno, "fork", "process", exe);
   } else
-  { if ( info->pipes > 0 && info->pid == 0 )
-    { IOSTREAM *s;
+  { int rc = TRUE;
+
+    if ( info->pipes > 0 && info->pid == 0 )
+    { IOSTREAM *s;			/* no pid(Pid): wait */
       process_context *pc = PL_malloc(sizeof(*pc));
 
       DEBUG(Sdprintf("Wait on pipes\n"));
@@ -1343,40 +1345,54 @@ do_create_process(p_options *info)
 
       if ( info->streams[0].type == std_pipe )
       { close(info->streams[0].fd[0]);
-	s = open_process_pipe(pc, 0, info->streams[0].fd[1]);
-	PL_unify_stream(info->streams[0].term, s);
+	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
+	  rc = PL_unify_stream(info->streams[0].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
       { close(info->streams[1].fd[1]);
-	s = open_process_pipe(pc, 1, info->streams[1].fd[0]);
-	PL_unify_stream(info->streams[1].term, s);
+	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
+	  rc = PL_unify_stream(info->streams[1].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
       if ( info->streams[2].type == std_pipe )
       { close(info->streams[2].fd[1]);
-	s = open_process_pipe(pc, 2, info->streams[2].fd[0]);
-	PL_unify_stream(info->streams[2].term, s);
+	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
+	  rc = PL_unify_stream(info->streams[2].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
 
-      return TRUE;
+      return rc;
     } else if ( info->pipes > 0 )
     { IOSTREAM *s;
 
       if ( info->streams[0].type == std_pipe )
       { close(info->streams[0].fd[0]);
-	s = Sfdopen(info->streams[0].fd[1], "w");
-	PL_unify_stream(info->streams[0].term, s);
+	if ( (s = Sfdopen(info->streams[0].fd[1], "w")) )
+	  rc = PL_unify_stream(info->streams[0].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
       { close(info->streams[1].fd[1]);
-	s = Sfdopen(info->streams[1].fd[0], "r");
-	PL_unify_stream(info->streams[1].term, s);
+	if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
+	  rc = PL_unify_stream(info->streams[1].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
       if ( info->streams[2].type == std_pipe )
       { close(info->streams[2].fd[1]);
-	s = Sfdopen(info->streams[2].fd[0], "r");
-	PL_unify_stream(info->streams[2].term, s);
+	if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
+	  PL_unify_stream(info->streams[2].term, s);
+	else
+	  close(info->streams[0].fd[1]);
       }
     }
+
+    assert(rc);				/* What else? */
 
     if ( info->pid )
       return PL_unify_integer(info->pid, pid);
@@ -1391,6 +1407,35 @@ do_create_process(p_options *info)
 		 /*******************************
 		 *	      BINDING		*
 		 *******************************/
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Running out of resources after we created  the process is really hard to
+handle gracefully, so we first make  a   list  to  ensure we have enough
+resources to bind the return value.
+
+Ideally, we need a call to ask for sufficient resources.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+static int
+ensure_stack_resources(int count)
+{ fid_t fid = PL_open_foreign_frame();
+  term_t list = PL_new_term_ref();
+  term_t tail = PL_copy_term_ref(list);
+
+  while ( count-- > 0 )
+  { term_t head;
+
+    if ( !(head = PL_new_term_ref()) ||
+	 !PL_unify_list(tail, head, tail) )
+    { PL_close_foreign_frame(fid);
+      return FALSE;
+    }
+  }
+
+  PL_discard_foreign_frame(fid);
+  return TRUE;
+}
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Basic process creation interface takes
@@ -1408,9 +1453,12 @@ process_create(term_t exe, term_t options)
 { p_options info;
   int rc = FALSE;
 
+  if ( !ensure_stack_resources(10) )	/* max 3 stream structures */
+    return FALSE;
+
   memset(&info, 0, sizeof(info));
 
-  info.priority = 255;		/* zero is a valid priority */
+  info.priority = 255;			/* zero is a valid priority */
 
   if ( !get_exe(exe, &info) )
     goto out;
