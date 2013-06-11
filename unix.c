@@ -137,7 +137,25 @@ pl_exec(term_t cmd)
 static foreign_t
 pl_wait(term_t Pid, term_t Status)
 { int status;
-  pid_t pid = wait(&status);
+  pid_t pid = -1;
+
+  if ( PL_is_variable(Pid) )
+  { pid = -1;
+  } else if ( PL_get_integer_ex(Pid, &pid) )
+  { if ( pid <= 0 )
+      return PL_domain_error("process_id", Pid);
+  } else
+    return FALSE;
+
+  for(;;)
+  { pid = waitpid(pid, &status, 0);
+    if ( pid == -1 && errno == EINTR )
+    { if ( PL_handle_signals() < 0 )
+	return FALSE;
+    } else
+    { break;
+    }
+  }
 
   if ( pid == -1 )
     return pl_error("wait", 2, NULL, ERR_ERRNO, errno, "wait", "process", Pid);

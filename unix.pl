@@ -157,11 +157,12 @@ fork_exec(Command) :-
 %	child, while detach_IO/0  disconnects  the   child  as  a deamon
 %	process.
 
-
-%%	wait(-Pid, -Status) is det.
+%%	wait(?Pid, -Status) is det.
 %
 %	Wait for a child to change status.   Then  report the child that
-%	changed status as well as  the   reason.  Status is unified with
+%	changed status as well as the reason.   If Pid is bound on entry
+%	then the status of the specified child is reported. If not, then
+%	the status of any child  is   reported.  Status  is unified with
 %	exited(ExitCode) if the child with  pid   Pid  was terminated by
 %	calling exit() (Prolog halt/1). ExitCode   is the return status.
 %	Status is unified with signaled(Signal) if the child died due to
