@@ -131,7 +131,7 @@ Host A Process 2:
 
 ==
 
----++ Caveats:
+## Caveats {#udp-broadcase-caveats}
 
 While the implementation is mostly transparent, there are some important
 and subtle differences that must be taken into consideration:

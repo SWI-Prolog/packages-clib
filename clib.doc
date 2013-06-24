@@ -47,6 +47,7 @@ ported to native Windows.
 \newpage
 
 \section{Introduction}
+\label{sec:clib-intro}
 
 Many useful facilities offered by one or more of the operating systems
 supported by SWI-Prolog are not supported by the SWI-Prolog kernel
@@ -67,6 +68,7 @@ verification, \pllib{sha} providing cryptographic hash functions and
 \input{syslog.tex}
 
 \section{Socket library}
+\label{sec:sockets}
 
 The \pllib{socket} library provides TCP and UDP inet-domain sockets from
 SWI-Prolog, both client and server-side communication. The interface of
@@ -266,6 +268,7 @@ returned by \cfuncref{getaddrinfo}{}.
 
 
 \subsection{Server applications}
+\label{sec:socket-server}
 
 The typical sequence for generating a server application is given
 below.  To close the server, use close/1 on \arg{AcceptFd}.
@@ -315,6 +318,7 @@ handle_service(In, Out) :-
 
 
 \subsection{Client applications}
+\label{sec:socket-client}
 
 The skeleton for client-communication is given below.
 
@@ -341,6 +345,7 @@ non-blocking streams (see tcp_fcntl/3) can be used.
 
 
 \subsection{The stream_pool library}
+\label{sec:stream-pools}
 
 The \pllib{streampool} library dispatches input from multiple streams
 based on wait_for_input/3.  It is part of the clib package as it is used
@@ -413,6 +418,7 @@ client(In, Out, _Peer) :-
 
 
 \subsection{UDP protocol support}
+\label{sec:udp-sockets}
 
 The current library provides limited support for UDP packets. The UDP
 protocol is a \emph{connection-less} and \emph{unreliable} datagram
@@ -484,6 +490,7 @@ indicating further details to establish the communication.
 \input{uri.tex}
 
 \section{CGI Support library}
+\label{sec:cgi}
 
 This is currently a very simple library, providing support for obtaining
 the form-data for a CGI script:
@@ -530,6 +537,7 @@ print_args([A0|T]) :-
 \end{code}
 
 \subsection{Some considerations}
+\label{sec:cgi-considerations}
 
 Printing an HTML document using format/2 is not a neat way of producing
 HTML because it is vulnerable to required escape sequences. A high-level
@@ -684,6 +692,7 @@ Hex = '3d80fc267945e555c730403bd0ab0716e2a68c68'.
 \end{description}
 
 \subsection{License terms}
+\label{sec:sha-license}
 
 The underlying SHA-2 library is an unmodified copy created by Dr Brian
 Gladman, Worcester, UK.  It is distributed under the license conditions
@@ -714,6 +723,7 @@ those given above.
 
 
 \section{Memory files}
+\label{sec:memory-files}
 
 The \pllib{memfile} provides an alternative to temporary files, intended
 for temporary buffering of data. Memory files in general are faster than
@@ -798,6 +808,7 @@ in \arg{Codes}, pretending the data is in the given \arg{Encoding}.
 
 
 \section{Time and alarm library}
+\label{sec:time-and-alarm}
 
 The \pllib{time} provides timing and alarm functions.
 
@@ -874,6 +885,7 @@ can be handled using the timeout option of read_term/3.
 \input{unix.tex}
 
 \section{Limiting process resources}
+\label{sec:limit-process-resources}
 
 The \pllib{rlimit} library provides an interface to the POSIX
 getrlimit()/setrlimit() API that control the maximum resource-usage
