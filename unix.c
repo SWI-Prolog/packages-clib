@@ -138,12 +138,14 @@ static foreign_t
 pl_wait(term_t Pid, term_t Status)
 { int status;
   pid_t pid = -1;
+  int pid_i;
 
   if ( PL_is_variable(Pid) )
   { pid = -1;
-  } else if ( PL_get_integer_ex(Pid, &pid) )
-  { if ( pid <= 0 )
+  } else if ( PL_get_integer_ex(Pid, &pid_i) )
+  { if ( pid_i <= 0 )
       return PL_domain_error("process_id", Pid);
+    pid = pid_i;
   } else
     return FALSE;
 
