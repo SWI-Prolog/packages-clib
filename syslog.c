@@ -46,7 +46,9 @@ get_option(term_t t, int *opt)
       else if ( streq(s, "ndelay") ) option |= LOG_NDELAY;
       else if ( streq(s, "nowait") ) option |= LOG_NOWAIT;
       else if ( streq(s, "odelay") ) option |= LOG_ODELAY;
+#ifdef LOG_PERROR
       else if ( streq(s, "perror") ) option |= LOG_PERROR;
+#endif
       else if ( streq(s, "pid") )    option |= LOG_PID;
       else return PL_domain_error("syslog_option", head);
     } else
@@ -68,10 +70,14 @@ get_facility(term_t t, int *fac)
 
   if ( PL_get_chars(t, &s, CVT_ATOM|CVT_EXCEPTION) )
   { if      ( streq(s, "auth"  ) )   facility = LOG_AUTH;
+#ifdef LOG_AUTHPRIV
     else if ( streq(s, "authpriv") ) facility = LOG_AUTHPRIV;
+#endif
     else if ( streq(s, "cron") )     facility = LOG_CRON;
     else if ( streq(s, "daemon") )   facility = LOG_DAEMON;
+#ifdef LOG_FTP
     else if ( streq(s, "ftp") )      facility = LOG_FTP;
+#endif
     else if ( streq(s, "kern") )     facility = LOG_KERN;
     else if ( streq(s, "local0") )   facility = LOG_LOCAL0;
     else if ( streq(s, "local1") )   facility = LOG_LOCAL1;
