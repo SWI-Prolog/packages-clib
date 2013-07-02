@@ -33,6 +33,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
