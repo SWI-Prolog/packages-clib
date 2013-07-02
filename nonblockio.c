@@ -1795,6 +1795,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
       nbio_error(GET_ERRNO, TCP_ERRNO);
       return -1;
 #else
+      (void)dev;
       return -2;
 #endif
     }
