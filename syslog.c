@@ -115,7 +115,10 @@ get_priority(term_t t, int *pri)
     else if ( streq(s, "notice") )  priority = LOG_NOTICE;
     else if ( streq(s, "info") )    priority = LOG_INFO;
     else if ( streq(s, "debug") )   priority = LOG_DEBUG;
-    else return PL_domain_error("syslog_priority", t);
+    else
+    { PL_domain_error("syslog_priority", t);
+      return FALSE;
+    }
   } else
     return FALSE;
 

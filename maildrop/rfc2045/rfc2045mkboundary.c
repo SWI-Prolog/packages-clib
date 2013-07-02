@@ -56,7 +56,7 @@ int	rc;
 	if (gethostname(hostnamebuf, sizeof(hostnamebuf)-1))
 		hostnamebuf[0]=0;
 	mypid=getpid();
-	sprintf(pidbuf, "%d", mypid);
+	sprintf(pidbuf, "%d", (int)mypid);
 	sprintf(timebuf, "%ld", mytime);
 #endif
 
