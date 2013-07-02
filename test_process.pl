@@ -48,7 +48,7 @@ test(echo, X == 'hello\n') :-
 		       ]),
 	read_process(Out, X).
 test(lwr, X == 'HELLO') :-
-	process_create(path(tr), ['a-z', 'A-Z'],
+	process_create(path(tr), [hello, 'HELLO'], % a-z A-Z is non-portable
 		       [ stdin(pipe(In)),
 			 stdout(pipe(Out))
 		       ]),
