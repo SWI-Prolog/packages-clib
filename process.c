@@ -1267,6 +1267,21 @@ wait_for_process(process_context *pc)
 #endif
 
 static int
+close_ok(int fd)
+{ int rc;
+
+  do
+  { rc = close(fd);
+  } while ( rc == -1 && errno == EINTR );
+
+  DEBUG(if ( rc == -1 )
+	  perror("close"));
+
+  return rc;
+}
+
+
+static int
 do_create_process(p_options *info)
 { int pid;
 
@@ -1294,7 +1309,7 @@ do_create_process(p_options *info)
     switch( info->streams[0].type )
     { case std_pipe:
 	dup2(info->streams[0].fd[0], 0);
-	close(info->streams[0].fd[1]);
+	close_ok(info->streams[0].fd[1]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
@@ -1307,7 +1322,7 @@ do_create_process(p_options *info)
     switch( info->streams[1].type )
     { case std_pipe:
 	dup2(info->streams[1].fd[1], 1);
-        close(info->streams[1].fd[0]);
+        close_ok(info->streams[1].fd[0]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1320,7 +1335,7 @@ do_create_process(p_options *info)
     switch( info->streams[2].type )
     { case std_pipe:
 	dup2(info->streams[2].fd[1], 2);
-        close(info->streams[2].fd[0]);
+        close_ok(info->streams[2].fd[0]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1358,25 +1373,25 @@ do_create_process(p_options *info)
       PL_register_atom(pc->exe_name);
 
       if ( info->streams[0].type == std_pipe )
-      { close(info->streams[0].fd[0]);
+      { close_ok(info->streams[0].fd[0]);
 	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
 	  rc = PL_unify_stream(info->streams[0].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close_ok(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
-      { close(info->streams[1].fd[1]);
+      { close_ok(info->streams[1].fd[1]);
 	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
 	  rc = PL_unify_stream(info->streams[1].term, s);
 	else
-	  close(info->streams[1].fd[0]);
+	  close_ok(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
-      { close(info->streams[2].fd[1]);
+      { close_ok(info->streams[2].fd[1]);
 	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
 	else
-	  close(info->streams[2].fd[0]);
+	  close_ok(info->streams[2].fd[0]);
       }
 
       return rc;
@@ -1384,25 +1399,25 @@ do_create_process(p_options *info)
     { IOSTREAM *s;
 
       if ( info->streams[0].type == std_pipe )
-      { close(info->streams[0].fd[0]);
+      { close_ok(info->streams[0].fd[0]);
 	if ( (s = Sfdopen(info->streams[0].fd[1], "w")) )
 	  rc = PL_unify_stream(info->streams[0].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close_ok(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
-      { close(info->streams[1].fd[1]);
+      { close_ok(info->streams[1].fd[1]);
 	if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
 	  rc = PL_unify_stream(info->streams[1].term, s);
 	else
-	  close(info->streams[1].fd[0]);
+	  close_ok(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
-      { close(info->streams[2].fd[1]);
+      { close_ok(info->streams[2].fd[1]);
 	if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
 	  PL_unify_stream(info->streams[2].term, s);
 	else
-	  close(info->streams[2].fd[0]);
+	  close_ok(info->streams[2].fd[0]);
       }
     }
 
