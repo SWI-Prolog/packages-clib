@@ -1369,14 +1369,14 @@ do_create_process(p_options *info)
 	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
 	  rc = PL_unify_stream(info->streams[1].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
       { close(info->streams[2].fd[1]);
 	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close(info->streams[2].fd[0]);
       }
 
       return rc;
@@ -1395,14 +1395,14 @@ do_create_process(p_options *info)
 	if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
 	  rc = PL_unify_stream(info->streams[1].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close(info->streams[1].fd[0]);
       }
       if ( info->streams[2].type == std_pipe )
       { close(info->streams[2].fd[1]);
 	if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
 	  PL_unify_stream(info->streams[2].term, s);
 	else
-	  close(info->streams[0].fd[1]);
+	  close(info->streams[2].fd[0]);
       }
     }
 
