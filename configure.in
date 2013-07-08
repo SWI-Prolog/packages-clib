@@ -137,6 +137,7 @@ AC_CHECK_SIZEOF(long, 4)
 AC_CHECK_SIZEOF(long long, 8)
 
 AC_CHECK_FUNCS(setsid strerror utime getrlimit strcasestr vfork _NSGetEnviron)
+AC_CHECK_FUNCS(pipe2)
 AC_CHECK_TYPES(socklen_t, [], [],
 [
 #include <sys/types.h>

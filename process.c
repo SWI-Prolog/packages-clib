@@ -26,6 +26,7 @@
 #endif
 
 /*#define O_DEBUG 1*/
+#define _GNU_SOURCE			/* get pipe2() */
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "error.h"
@@ -43,8 +44,12 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 static atom_t ATOM_stdin;
@@ -1139,6 +1144,20 @@ do_create_process(p_options *info)
 
 #else /*__WINDOWS__*/
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Note the descriptors created using pipe()   are  inherited by the child.
+This implies that if two threads  call process_create/3 using pipes, the
+pipe created for one thread may also  end   up  in  the child created by
+another thread. We  can  avoid  this   using  FD_CLOEXEC  on  the pipe's
+descriptor. Note that we can do that on   both  because the flag will be
+cleared on the duplicated  descriptor  after   dup2  (which  is executed
+before the exec, so the descriptors are still valid).
+
+This can be implemented safely on systems   that  have pipe2(). On other
+systems, safety can be enhanced by   reducing  the window using fcntl(),
+but this needs to be synced with fork() in other threads.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 static int
 create_pipes(p_options *info)
 { int i;
@@ -1152,10 +1171,26 @@ create_pipes(p_options *info)
       { s->fd[0] = info->streams[1].fd[0];
 	s->fd[1] = info->streams[1].fd[1];
       } else
-      { if ( pipe(s->fd) )
+      {
+#ifdef HAVE_PIPE2
+	if ( pipe2(s->fd, O_CLOEXEC) )
 	{ assert(errno = EMFILE);
 	  return PL_resource_error("open_files");
 	}
+#define PIPE_CLOSED_ON_EXEC 1
+#else
+	int my_side;
+
+	if ( pipe(s->fd) )
+	{ assert(errno = EMFILE);
+	  return PL_resource_error("open_files");
+	}
+	my_side = (i == 0 ? s->fd[1] : s->fd[0]);
+#ifdef F_SETFD
+        fcntl(my_side, F_SETFD, FD_CLOEXEC);
+#define PIPE_CLOSED_ON_EXEC 1
+#endif
+#endif /*HAVE_PIPE2*/
       }
     }
   }
@@ -1309,7 +1344,9 @@ do_create_process(p_options *info)
     switch( info->streams[0].type )
     { case std_pipe:
 	dup2(info->streams[0].fd[0], 0);
-	close_ok(info->streams[0].fd[1]);
+#ifndef PIPE_CLOSED_ON_EXEC
+	close(info->streams[0].fd[1]);
+#endif
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
@@ -1322,7 +1359,9 @@ do_create_process(p_options *info)
     switch( info->streams[1].type )
     { case std_pipe:
 	dup2(info->streams[1].fd[1], 1);
-        close_ok(info->streams[1].fd[0]);
+#ifndef PIPE_CLOSED_ON_EXEC
+        close(info->streams[1].fd[0]);
+#endif
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1335,7 +1374,9 @@ do_create_process(p_options *info)
     switch( info->streams[2].type )
     { case std_pipe:
 	dup2(info->streams[2].fd[1], 2);
-        close_ok(info->streams[2].fd[0]);
+#ifndef PIPE_CLOSED_ON_EXEC
+        close(info->streams[2].fd[0]);
+#endif
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )

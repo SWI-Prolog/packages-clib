@@ -7,12 +7,15 @@
 :- asserta(user:file_search_path(library, '../plunit')).
 
 :- use_module(library(plunit)).
+:- use_module(library(debug)).
+:- use_module(library(apply)).
 :- use_module(library(readutil)).
 :- use_module(process).
 
 test_process :-
 	run_tests([ process_create,
-		    process_wait
+		    process_wait,
+		    process_threads
 		  ]).
 
 read_process(In, Text) :-
@@ -111,3 +114,41 @@ test(wait_timeout, [ X = timeout ]) :-
 	process_wait(PID, _).
 
 :- end_tests(process_wait).
+
+:- begin_tests(process_threads, [sto(rational_trees)]).
+
+join(Id) :-
+	thread_join(Id, Status),
+	Status == true.
+
+thread_create_and_wait(Id) :-
+	thread_create(create_and_wait, Id, []).
+
+create_and_wait :-
+	process_create(path(cat), [],
+		       [ stdin(pipe(ToDOT)),
+			 stdout(pipe(XDotOut))
+		       ]),
+	Term = hello(world),
+	format(ToDOT, '~q.~n', [Term]),
+	close(ToDOT),
+	read(XDotOut, Term2),
+	assertion(Term2 =@= Term),
+	read(XDotOut, EOF),
+	assertion(EOF == end_of_file),
+	close(XDotOut).
+
+create_and_wait_once :-
+	length(List, 2),
+	maplist(thread_create_and_wait, List),
+	maplist(join, List).
+
+/* See create_pipes() in process.c */
+
+test(concurr, true) :-
+	forall(between(1, 50, _),
+	       create_and_wait_once).
+
+:- end_tests(process_threads).
+
+
