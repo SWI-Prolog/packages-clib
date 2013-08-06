@@ -107,10 +107,6 @@ leave the details to this function.
 #include <config.h>
 #endif
 
-#ifdef __CYGWIN__
-#undef HAVE_H_ERRNO
-#endif
-
 #if defined(__MINGW32__)
 #define __try
 #define __except(_) if (0)
