@@ -364,7 +364,7 @@ installHandler()
 }
 
 
-static void
+static int
 cleanup(int rc, void *arg)
 { Event ev;
   schedule *sched = TheSchedule();
@@ -382,6 +382,8 @@ cleanup(int rc, void *arg)
     pthread_join(scheduler, NULL);
     scheduler_running = FALSE;
   }
+
+  return 0;
 }
 
 
