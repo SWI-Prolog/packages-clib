@@ -301,7 +301,7 @@ parse_environment(term_t t, p_options *info)
 static int
 get_stream(term_t t, p_options *info, p_stream *stream)
 { atom_t a;
-
+  int i;
   if ( PL_get_atom(t, &a) )
   { if ( a == ATOM_null )
     { stream->type = std_null;
@@ -316,7 +316,13 @@ get_stream(term_t t, p_options *info, p_stream *stream)
   { stream->term = PL_new_term_ref();
     _PL_get_arg(1, t, stream->term);
     if ( !PL_is_variable(stream->term) )
-      return PL_uninstantiation_error(stream->term);
+    { for (i = 0; i < info->pipes; i++)
+      { if (PL_compare(info->streams[i].term, t) == 0)
+          break;
+      }
+      if (i == info->pipes)
+        return PL_uninstantiation_error(stream->term);
+    }
     stream->type = std_pipe;
     info->pipes++;
     return TRUE;
@@ -1041,7 +1047,7 @@ do_create_process(p_options *info)
   { case std_pipe:
       si.hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
-			   HANDLE_FLAG_INHERIT, FALSE);
+                           HANDLE_FLAG_INHERIT, FALSE);
       break;
     case std_null:
       si.hStdError = open_null_stream(GENERIC_WRITE);
@@ -1091,7 +1097,8 @@ do_create_process(p_options *info)
 	else
 	  CloseHandle(info->streams[1].fd[0]);
       }
-      if ( info->streams[2].type == std_pipe )
+      if ( info->streams[2].type == std_pipe &&
+           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
       { CloseHandle(info->streams[2].fd[1]);
 	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
@@ -1117,7 +1124,8 @@ do_create_process(p_options *info)
 	else
 	  CloseHandle(info->streams[1].fd[0]);
       }
-      if ( info->streams[2].type == std_pipe )
+      if ( info->streams[2].type == std_pipe &&
+           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
       { CloseHandle(info->streams[2].fd[1]);
 	if ( rc && (s = Sopen_handle(info->streams[2].fd[0], "r")) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
@@ -1427,7 +1435,8 @@ do_create_process(p_options *info)
 	else
 	  close_ok(info->streams[1].fd[0]);
       }
-      if ( info->streams[2].type == std_pipe )
+      if ( info->streams[2].type == std_pipe &&
+           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
       { close_ok(info->streams[2].fd[1]);
 	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
@@ -1453,7 +1462,8 @@ do_create_process(p_options *info)
 	else
 	  close_ok(info->streams[1].fd[0]);
       }
-      if ( info->streams[2].type == std_pipe )
+      if ( info->streams[2].type == std_pipe &&
+           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
       { close_ok(info->streams[2].fd[1]);
 	if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
 	  PL_unify_stream(info->streams[2].term, s);
