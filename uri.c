@@ -1301,6 +1301,8 @@ base_ranges(term_t t)
       if ( base->atom )
       { PL_unregister_atom(base->atom);
 	PL_free(base->text);
+	base->atom = 0;
+	base->text = NULL;
       }
       if ( !PL_get_wchars(t, &len, &s, CVT_ATOM|BUF_MALLOC|CVT_EXCEPTION) )
 	return NULL;
