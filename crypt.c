@@ -151,7 +151,10 @@ pl_crypt(term_t passwd, term_t encrypted)
     } else
     { s2 = crypt(pw, salt);
     }
-    rval = (*unify)(encrypted, s2);
+    if ( s2 )
+      rval = (*unify)(encrypted, s2);
+    else
+      rval = PL_domain_error("salt", encrypted);
     UNLOCK();
 
     return rval;
