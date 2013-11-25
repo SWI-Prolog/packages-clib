@@ -20,7 +20,7 @@ test(default, []) :-
 	crypt(Passwd, E).
 test(md5, []) :-
 	Passwd = "My password",
-	append("$1$", _, E),
+	phrase("$1$", E, _),
 	crypt(Passwd, E),
 	ground(E),
 	crypt(Passwd, E).
