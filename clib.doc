@@ -727,7 +727,7 @@ those given above.
 
 The \pllib{memfile} provides an alternative to temporary files, intended
 for temporary buffering of data. Memory files in general are faster than
-temporary files and do not suffer from security riscs or naming
+temporary files and do not suffer from security risks or naming
 conflicts associated with temporary-file management.  They do
 assume proper memory management by the hosting OS and cannot be used
 to pass data to external processes using a file-name.
