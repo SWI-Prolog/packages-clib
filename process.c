@@ -1182,7 +1182,8 @@ create_pipes(p_options *info)
       {
 #ifdef HAVE_PIPE2
 	if ( pipe2(s->fd, O_CLOEXEC) )
-	{ assert(errno = EMFILE);
+	{ if ( errno != EMFILE )
+	    Sdprintf("pipe2(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
 #define PIPE_CLOSED_ON_EXEC 1
@@ -1190,7 +1191,8 @@ create_pipes(p_options *info)
 	int my_side;
 
 	if ( pipe(s->fd) )
-	{ assert(errno = EMFILE);
+	{ if ( errno != EMFILE )
+	    Sdprintf("pipe2(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
 	my_side = (i == 0 ? s->fd[1] : s->fd[0]);
