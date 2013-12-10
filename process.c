@@ -128,6 +128,7 @@ typedef struct p_stream
 #else
   int      fd[2];			/* pipe handles */
 #endif
+  int	   cloexec;			/* close on exec activated */
 } p_stream;
 
 
@@ -1164,6 +1165,10 @@ before the exec, so the descriptors are still valid).
 This can be implemented safely on systems   that  have pipe2(). On other
 systems, safety can be enhanced by   reducing  the window using fcntl(),
 but this needs to be synced with fork() in other threads.
+
+(*) It seems that some systems implement  the function, but the function
+returns ENOSYS to indicate it is not   implemented. Hence, we need to go
+for a runtime solution.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 static int
@@ -1179,28 +1184,28 @@ create_pipes(p_options *info)
       { s->fd[0] = info->streams[1].fd[0];
 	s->fd[1] = info->streams[1].fd[1];
       } else
-      {
+      { int my_side;
+
 #ifdef HAVE_PIPE2
-	if ( pipe2(s->fd, O_CLOEXEC) )
+	if ( pipe2(s->fd, O_CLOEXEC) == 0 )
+	{ s->cloexec = TRUE;
+	  continue;
+	} else if ( errno != ENOSYS )	/* See (*) */
 	{ if ( errno != EMFILE )
 	    Sdprintf("pipe2(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
-#define PIPE_CLOSED_ON_EXEC 1
-#else
-	int my_side;
-
+#endif
 	if ( pipe(s->fd) )
 	{ if ( errno != EMFILE )
-	    Sdprintf("pipe2(): unexpected error: %s\n", strerror(errno));
+	    Sdprintf("pipe(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
 	my_side = (i == 0 ? s->fd[1] : s->fd[0]);
 #ifdef F_SETFD
-        fcntl(my_side, F_SETFD, FD_CLOEXEC);
-#define PIPE_CLOSED_ON_EXEC 1
+        if ( fcntl(my_side, F_SETFD, FD_CLOEXEC) == 0 )
+	  s->cloexec = TRUE;
 #endif
-#endif /*HAVE_PIPE2*/
       }
     }
   }
@@ -1354,9 +1359,8 @@ do_create_process(p_options *info)
     switch( info->streams[0].type )
     { case std_pipe:
 	dup2(info->streams[0].fd[0], 0);
-#ifndef PIPE_CLOSED_ON_EXEC
-	close(info->streams[0].fd[1]);
-#endif
+        if ( !info->streams[0].cloexec )
+	  close(info->streams[0].fd[1]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
@@ -1369,9 +1373,8 @@ do_create_process(p_options *info)
     switch( info->streams[1].type )
     { case std_pipe:
 	dup2(info->streams[1].fd[1], 1);
-#ifndef PIPE_CLOSED_ON_EXEC
-        close(info->streams[1].fd[0]);
-#endif
+        if ( !info->streams[1].cloexec )
+	  close(info->streams[1].fd[0]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1384,9 +1387,8 @@ do_create_process(p_options *info)
     switch( info->streams[2].type )
     { case std_pipe:
 	dup2(info->streams[2].fd[1], 2);
-#ifndef PIPE_CLOSED_ON_EXEC
-        close(info->streams[2].fd[0]);
-#endif
+	if ( !info->streams[2].cloexec )
+	  close(info->streams[2].fd[0]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
