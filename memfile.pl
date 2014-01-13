@@ -44,3 +44,8 @@
 	    utf8_position_memory_file/3 % +Handle, -Here, -Size
 	  ]).
 :- use_foreign_library(foreign(memfile)).
+
+:- predicate_options(open_memory_file/4, 4,
+		     [ encoding(encoding),
+		       free_on_close(boolean)
+		     ]).
