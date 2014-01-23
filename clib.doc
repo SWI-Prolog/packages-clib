@@ -810,7 +810,12 @@ in \arg{Codes}, pretending the data is in the given \arg{Encoding}.
 \section{Time and alarm library}
 \label{sec:time-and-alarm}
 
-The \pllib{time} provides timing and alarm functions.
+The \pllib{time} provides timing and alarm functions. Alarms are
+thread-specific, i.e., creating an alarm causes the alarm goal to be
+called in the thread that created it. The predicate current_alarm/4 only
+reports alarms that are related to the calling thread. If a thread
+terminates, all remaining alarms are silently removed. Most applications
+use call_with_time_limit/2.
 
 \begin{description}
     \predicate{alarm}{4}{+Time, :Callable, -Id, +Options}
