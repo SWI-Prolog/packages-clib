@@ -387,6 +387,30 @@ cleanup(int rc, void *arg)
 }
 
 
+static void
+cleanup_thread(void *data)
+{ Event ev;
+  schedule *sched = TheSchedule();
+  pthread_t self = pthread_self();
+
+  (void)data;
+
+  LOCK();
+  while( (ev=sched->first) )
+  { if ( pthread_equal(self, ev->thread_id) )
+    { DEBUG(1, Sdprintf("[%d] removing alarm %ld at exit\n",
+			PL_thread_self(), (long)(intptr_t)ev));
+      if ( sched->scheduled == ev )
+	ev->flags |= EV_DONE;
+      freeEvent(ev);
+    }
+  }
+  UNLOCK();
+
+  pthread_cond_signal(&cond);
+}
+
+
 static Event
 nextEvent(schedule *sched)
 { Event ev;
@@ -1024,6 +1048,7 @@ install_time()
 
   installHandler();
   PL_on_halt(cleanup, NULL);
+  PL_thread_at_exit(cleanup_thread, NULL, TRUE);
 }
 
 
