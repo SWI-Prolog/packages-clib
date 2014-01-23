@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@cs.vu.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2009, University of Amsterdam
+    Copyright (C): 1985-2014, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -51,12 +50,21 @@
 	alarm_at(+, 0, -, +),
 	current_alarm(?, :, ?, ?).
 
+:- predicate_options(alarm/4, 4,
+		     [ remove(boolean),
+		       install(boolean)
+		     ]).
+
+
+/** <module> Time and alarm library
+*/
+
 %%	alarm(+Time, :Callable, -Id) is det.
 %%	alarm(+Time, :Callable, -Id, +Options) is det.
 %
-%	Set up an alarm to be signaled Time seconds from now. If the
-%	alarm expires, Callable is called asynchronously. Callable can
-%	be used to raise an exception using throw/1 to abort some
+%	Set up an alarm to be  signaled   Time  seconds from now. If the
+%	alarm expires, Callable is called   asynchronously. Callable can
+%	be used to raise  an  exception   using  throw/1  to  abort some
 %	execution.
 %
 %	Options is a list of Name(Value) options.  Currently defined
