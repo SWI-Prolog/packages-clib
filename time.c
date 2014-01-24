@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2009, University of Amsterdam
+    Copyright (C): 1985-2014, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -389,15 +388,17 @@ cleanup(int rc, void *arg)
 
 static void
 cleanup_thread(void *data)
-{ Event ev;
+{ Event ev, next;
   schedule *sched = TheSchedule();
   pthread_t self = pthread_self();
 
   (void)data;
 
   LOCK();
-  while( (ev=sched->first) )
-  { if ( pthread_equal(self, ev->thread_id) )
+  for( ev=sched->first; ev; ev=next )
+  { next = ev->next;
+
+    if ( pthread_equal(self, ev->thread_id) )
     { DEBUG(1, Sdprintf("[%d] removing alarm %ld at exit\n",
 			PL_thread_self(), (long)(intptr_t)ev));
       if ( sched->scheduled == ev )
