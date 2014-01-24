@@ -388,27 +388,30 @@ cleanup(int rc, void *arg)
 
 static void
 cleanup_thread(void *data)
-{ Event ev, next;
-  schedule *sched = TheSchedule();
-  pthread_t self = pthread_self();
+{ schedule *sched = TheSchedule();
 
   (void)data;
 
-  LOCK();
-  for( ev=sched->first; ev; ev=next )
-  { next = ev->next;
+  if ( sched->first )
+  { Event ev, next;
+    pthread_t self = pthread_self();
 
-    if ( pthread_equal(self, ev->thread_id) )
-    { DEBUG(1, Sdprintf("[%d] removing alarm %ld at exit\n",
-			PL_thread_self(), (long)(intptr_t)ev));
-      if ( sched->scheduled == ev )
-	ev->flags |= EV_DONE;
-      freeEvent(ev);
+    LOCK();
+    for( ev=sched->first; ev; ev=next )
+    { next = ev->next;
+
+      if ( pthread_equal(self, ev->thread_id) )
+      { DEBUG(1, Sdprintf("[%d] removing alarm %ld at exit\n",
+			  PL_thread_self(), (long)(intptr_t)ev));
+	if ( sched->scheduled == ev )
+	  ev->flags |= EV_DONE;
+	freeEvent(ev);
+      }
     }
-  }
-  UNLOCK();
+    UNLOCK();
 
-  pthread_cond_signal(&cond);
+    pthread_cond_signal(&cond);
+  }
 }
 
 
