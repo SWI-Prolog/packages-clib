@@ -804,7 +804,7 @@ uri_is_global(term_t URI)
     fill_flags();
 
     e = skip_not(s, end, L":/?#");
-    if ( e > s && e[0] == ':' )
+    if ( e > s+1 && e[0] == ':' )
     { r.start = s;
       r.end = e;
       if ( range_is_unreserved(&r, FALSE, CH_SCHEME) )
