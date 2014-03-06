@@ -248,7 +248,7 @@ fork_exec(Command) :-
 %	The  detach_IO/1  should  be  called   only  once  per  process.
 %	Subsequent calls silently succeed without any side effects.
 %
-%	@see detach_IO/0.
+%	@see detach_IO/0 and library(syslog).
 
 %%	detach_IO is det.
 %
@@ -258,8 +258,8 @@ fork_exec(Command) :-
 %
 %	@compat	Older versions of this predicate only created this file
 %		if there was output.
-%	@tbd	If should be possible to use the syslog facilities for
-%		writing messages.
+%	@see	library(syslog) allows for sending output to the Unix
+%		logging service.
 
 detach_IO :-
 	current_prolog_flag(pid, Pid),
