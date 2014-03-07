@@ -262,7 +262,7 @@ uri_authority_data(port,     uri_authority(_, _, _, P), P).
 uri_file_name(URI, FileName) :-
 	nonvar(URI), !,
 	uri_components(URI, Components),
-	uri_data(scheme, Components, file),
+	uri_data(scheme, Components, File), File == file,
 	(   uri_data(authority, Components, '')
 	->  true
 	;   uri_data(authority, Components, localhost)
