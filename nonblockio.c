@@ -1786,14 +1786,17 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 #ifdef SO_BINDTODEVICE
       if ( setsockopt(s->socket, SOL_SOCKET, SO_BINDTODEVICE,
 		      dev, strlen(dev)) == 0 )
-	return 0;
+      { rc = 0;
+        break;
+      }
 
       nbio_error(GET_ERRNO, TCP_ERRNO);
-      return -1;
+      rc = -1;
 #else
       (void)dev;
-      return -2;
+      rc = -2;
 #endif
+      break;
     }
     case TCP_NO_DELAY:
 #ifdef TCP_NODELAY
