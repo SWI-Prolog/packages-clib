@@ -122,13 +122,22 @@ Similar to tcp_open_socket/2, but creates two separate sockets where
 tcp_open_socket/2 would have created a stream pair.  Deprecated because
 closing a stream pair is much easier to perform safely.
 
-    \predicate{tcp_bind}{2}{+Socket, ?Port}
-Bind the socket to \arg{Port} on the current machine. This operation,
+    \predicate{tcp_bind}{2}{+Socket, ?Address}
+Bind the socket to \arg{Address} on the current machine. This operation,
 together with tcp_listen/2 and tcp_accept/3 implement the {\em
-server}-side of the socket interface. If \arg{Port} is unbound, the
-system picks an arbitrary free port and unifies \arg{Port} with the
-selected port number. \arg{Port} is either an integer or the name of a
-registered service.  See also tcp_connect/4.
+server}-side of the socket interface. \arg{Address} is either a plain
+\arg{Port} or a term \arg{Host}:\arg{Port}. The first form binds the
+socket to the given port on all interfaces, while the second only binds
+to the matching interface. A typical example is below, causing the
+socket to listen only on port 8080 on the local machine's network.
+
+\begin{code}
+    tcp_bind(Socket, localhost:8080)
+\end{code}
+
+If \arg{Port} is unbound, the system picks an arbitrary free port and
+unifies \arg{Port} with the selected port number. \arg{Port} is either
+an integer or the name of a registered service. See also tcp_connect/4.
 
     \predicate{tcp_listen}{2}{+Socket, +Backlog}
 Tells, after tcp_bind/2, the socket to listen for incoming requests for
