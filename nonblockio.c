@@ -1920,13 +1920,13 @@ or the name of a registered port (e.g. 'smtp').
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 int
-nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr)
+nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr, term_t *varport)
 { int port;
 
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = INADDR_ANY;
 
-  if ( PL_is_functor(Address, FUNCTOR_module2) )
+  if ( PL_is_functor(Address, FUNCTOR_module2) )	/* Host:Port */
   { char *hostName;
     term_t arg = PL_new_term_ref();
 
@@ -1949,10 +1949,12 @@ nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr)
     }
 
     _PL_get_arg(2, Address, arg);
-    if ( !nbio_get_port(arg, &port) )
-      return FALSE;
-  } else if ( PL_is_variable(Address) )
+    Address = arg;
+  }
+
+  if ( varport && PL_is_variable(Address) )
   { port = 0;
+    *varport = Address;
   } else if ( !nbio_get_port(Address, &port) )
     return FALSE;
 

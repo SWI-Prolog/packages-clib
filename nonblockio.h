@@ -191,7 +191,8 @@ extern SOCKET	plsocket_handle(plsocket_ptr s);
 		 *******************************/
 
 extern int	nbio_get_sockaddr(term_t Address,
-				  struct sockaddr_in *addr);
+				  struct sockaddr_in *addr,
+				  term_t *varport);
 extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip);
 
 #endif /*H_NONBLOCKIO_INCLUDED*/

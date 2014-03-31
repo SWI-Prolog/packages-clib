@@ -277,6 +277,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   char smallbuf[UDP_DEFAULT_BUFSIZE];
   char *buf = smallbuf;
   int bufsize = UDP_DEFAULT_BUFSIZE;
+  term_t varport = 0;
   ssize_t n;
   int as = PL_STRING;
   int rc;
@@ -321,7 +322,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   }
 
   if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(From, &sockaddr) )
+       !nbio_get_sockaddr(From, &sockaddr, &varport) )
     return FALSE;
 
   if ( bufsize > UDP_DEFAULT_BUFSIZE )
@@ -365,7 +366,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
     return FALSE;
 
   if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(To, &sockaddr) )
+       !nbio_get_sockaddr(To, &sockaddr, NULL) )
     return FALSE;
 
   if ( (n=nbio_sendto(socket, data,
@@ -412,7 +413,7 @@ pl_connect(term_t Socket, term_t Address)
   struct sockaddr_in sockaddr;
 
   if ( !tcp_get_socket(Socket, &sock) ||
-       !nbio_get_sockaddr(Address, &sockaddr) )
+       !nbio_get_sockaddr(Address, &sockaddr, NULL) )
     return FALSE;
 
   if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) == 0 )
@@ -426,17 +427,18 @@ static foreign_t
 pl_bind(term_t Socket, term_t Address)
 { struct sockaddr_in sockaddr;
   int socket;
+  term_t varport = 0;
 
   memset(&sockaddr, 0, sizeof(sockaddr));
 
   if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(Address, &sockaddr) )
+       !nbio_get_sockaddr(Address, &sockaddr, &varport) )
     return FALSE;
 
   if ( nbio_bind(socket, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0 )
     return FALSE;
 
-  if ( PL_is_variable(Address) )
+  if ( varport )
   { SOCKET fd = nbio_fd(socket);
     struct sockaddr_in addr;
 #ifdef __WINDOWS__
@@ -447,7 +449,7 @@ pl_bind(term_t Socket, term_t Address)
 
     if ( getsockname(fd, (struct sockaddr *) &addr, &len) )
       return nbio_error(errno, TCP_ERRNO);
-    return PL_unify_integer(Address, ntohs(addr.sin_port));
+    return PL_unify_integer(varport, ntohs(addr.sin_port));
   }
 
   return TRUE;
