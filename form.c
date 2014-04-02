@@ -154,6 +154,8 @@ break_form_argument(const char *formdata,
 	formdata = end+1;
       else
 	formdata = end;
+    } else
+    { break;
     }
   }
 
