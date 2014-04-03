@@ -187,7 +187,7 @@ fill_flags()
 #define no_escape(c, f) \
 	(((c) < 128) && (charflags[(int)c] & (f)))
 #define iri_no_escape(c, f) \
-	(((c) > 128) || (c) == '%' || (charflags[(int)c] & (f)))
+	(((c) >= 128) || (c) == '%' || (charflags[(int)c] & (f)))
 
 
 /* hex(const pl_wchar_t *in, int digits, int *value)
