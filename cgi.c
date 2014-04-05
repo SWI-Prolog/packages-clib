@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 1985-2014, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -29,41 +28,53 @@
 #include "clib.h"
 #include "form.h"
 
-#ifdef _MSC_VER		/* strtoll is C99, but it is only 2011 ... */
-#define strtoll(s,e,b) _strtoi64(s,e,b)
-#endif
+/* [+-]?\sd*[.\sd*][eE]\sd+
+*/
+
+#define isdigit(c) (c >= '0' && c <= '9')
 
 static int
-isinteger(const char *s, long long *val, size_t len)
-{ char *e;
+isnumber(const char *s, size_t len)
+{ int digits = 0;
+  const char *e = &s[len];
 
-  if ( len == (size_t)-1 )
-    len = strlen(s);
-  if ( len == 0 )
-    return FALSE;
+  if ( s < e && (*s == '+' || *s == '-') )
+    s++;
+  while(s < e && isdigit(*s)) digits++, s++;
+  if ( s < e && *s == '.' )
+  { s++;
+    while(s < e && isdigit(*s)) digits++, s++;
+  }
+  if ( s < e+1 && (*s == 'e' || *s == 'E') && isdigit(s[1]) )
+    while(isdigit(*s)) s++;
 
-  *val = strtoll(s, &e, 10);
-  if ( e == s+len )
-    return TRUE;
-
-  return FALSE;
+  return digits > 0 && s == e;
 }
 
 
 static int
-isfloat(const char *s, double *val, size_t len)
-{ char *e;
+unify_number(term_t t, const char *s, size_t len)
+{ char buf[100];
+  char *a, *o;
+  const char *i;
+  int rc;
 
-  if ( len == (size_t)-1 )
-    len = strlen(s);
-  if ( len == 0 )
-    return FALSE;
+  if ( len+1 > sizeof(buf) )
+  { if ( !(a = malloc(len+1)) )
+      return PL_resource_error("memory");
+  } else
+  { a = buf;
+  }
 
-  *val = strtod(s, &e);
-  if ( e == s+len )
-    return TRUE;
+  for(i=s,o=a; len-- > 0; )
+    *o++ = (char)*i++;
+  *o = '\0';
 
-  return FALSE;
+  rc = PL_chars_to_term(a, t);
+  if ( a != buf )
+    free(a);
+
+  return rc;
 }
 
 
@@ -74,17 +85,14 @@ add_to_form(const char *name, size_t nlen,
 { term_t head = PL_new_term_ref();
   term_t tail = (term_t) closure;
   term_t val  = PL_new_term_ref();
-  long long vl;
-  double vf;
   int rc;
   atom_t aname = 0;
 
-  if ( isinteger(value, &vl, len) )
-    rc = PL_put_int64(val, vl);
-  else if ( isfloat(value, &vf, len) )
-    rc = PL_put_float(val, vf);
-  else
-    rc = PL_unify_chars(val, PL_ATOM|REP_UTF8, len, value);
+  if ( isnumber(value, len) )
+  { rc = unify_number(val, value, len);
+  } else
+  { rc = PL_unify_chars(val, PL_ATOM|REP_UTF8, len, value);
+  }
 
   rc = ( rc &&
 	 PL_unify_list(tail, head, tail) &&
@@ -107,15 +115,11 @@ mp_add_to_form(const char *name, size_t nlen,
 { term_t head = PL_new_term_ref();
   term_t tail = (term_t) closure;
   term_t val  = PL_new_term_ref();
-  long long vl;
-  double vf;
   int rc;
   atom_t aname = 0;
 
-  if ( isinteger(value, &vl, len) )
-    rc = PL_put_int64(val, vl);
-  else if ( isfloat(value, &vf, len) )
-    rc = PL_put_float(val, vf);
+  if ( isnumber(value, len) )
+    rc = unify_number(val, value, len);
   else
     rc = PL_unify_chars(val, PL_ATOM|REP_UTF8, len, value);
 
