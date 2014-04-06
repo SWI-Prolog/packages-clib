@@ -175,6 +175,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
     }
     default:
       assert(0);
+      rc = FALSE;
   }
   va_end(args);
 

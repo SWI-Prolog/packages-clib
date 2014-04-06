@@ -137,6 +137,7 @@ pl_host_to_address(term_t Host, term_t Ip)
 	}
 	default:
 	  assert(0);
+	  rc = FALSE;
       }
 
       freeaddrinfo(res);
