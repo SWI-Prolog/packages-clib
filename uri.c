@@ -879,7 +879,7 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
 
 
 static int
-add_encoded_term_charbuf(charbuf *cb, term_t value, int flags)
+add_encoded_term_charbuf(charbuf *cb, term_t value, int iri, int flags)
 { pl_wchar_t *s;
   range r;
   size_t len;
@@ -889,7 +889,7 @@ add_encoded_term_charbuf(charbuf *cb, term_t value, int flags)
 
   r.start = s;
   r.end = r.start+len;
-  if ( range_is_unreserved(&r, TRUE, flags) )
+  if ( range_is_unreserved(&r, iri, flags) )
   { add_nchars_charbuf(cb, r.end-r.start, r.start);
   } else
   { const pl_wchar_t *s = r.start;
@@ -939,12 +939,12 @@ uri_query_components(term_t string, term_t list)
 
       if ( out.here != out.base )
 	add_charbuf(&out, '&');
-      if ( !add_encoded_term_charbuf(&out, nv+0, ESC_QNAME) )
+      if ( !add_encoded_term_charbuf(&out, nv+0, FALSE, ESC_QNAME) )
       { free_charbuf(&out);
 	return FALSE;
       }
       add_charbuf(&out, '=');
-      if ( !add_encoded_term_charbuf(&out, nv+1, ESC_QVALUE) )
+      if ( !add_encoded_term_charbuf(&out, nv+1, FALSE, ESC_QVALUE) )
       { free_charbuf(&out);
 	return FALSE;
       }
@@ -990,7 +990,7 @@ uri_encoded(term_t what, term_t qv, term_t enc)
     int rc;
 
     init_charbuf(&out);
-    if ( !add_encoded_term_charbuf(&out, qv, flags) )
+    if ( !add_encoded_term_charbuf(&out, qv, FALSE, flags) )
     { free_charbuf(&out);
       return FALSE;
     }

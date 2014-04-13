@@ -131,5 +131,10 @@ test(path, X == '=&') :-
 	uri_encoded(path, '=&', X).
 test(path, X == '/a%20b%3F') :-
 	uri_encoded(path, '/a b?', X).
+test(path, X == '%25') :-
+	uri_encoded(path, '%', X).
+test(path, X == '%C3%B6%C3%A4%C3%BC%C3%B5') :-
+	atom_codes(Path, [246, 228, 252, 245]),
+	uri_encoded(path, Path, X).
 
 :- end_tests(uri_encode).
