@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2002-2010, University of Amsterdam
+    Copyright (C): 2002-2014, University of Amsterdam
 			      Vu University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -81,7 +81,7 @@ implementations from this library is usually faster.
 %	current time.
 %
 %	    ==
-%	    ?- set_time_file(foo, [acess(Access)], []).
+%	    ?- set_time_file(foo, [access(Access)], []).
 %	    ?- set_time_file(foo, [], [modified(now)]).
 %	    ==
 
