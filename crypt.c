@@ -98,8 +98,9 @@ pl_crypt(term_t passwd, term_t encrypted)
       salt[2] = '\0';
 
       LOCK();
-      s2 = crypt(pw, salt);
-      rval = (strcmp(s2, e) == 0 ? TRUE : FALSE);
+      rval = ( (s2 = crypt(pw, salt)) &&
+	       strcmp(s2, e) == 0
+	     );
       UNLOCK();
 
       return rval;
