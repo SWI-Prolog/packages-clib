@@ -918,6 +918,7 @@ should be guarded with catch/3.  The defined resources are:
 
 \begin{quote}
 \begin{tabular}{ll}
+\const{as}	& Max address space \\
 \const{cpu}	& CPU time in seconds \\
 \const{fsize}	& Maximum filesize \\
 \const{data}	& max data size \\

@@ -70,6 +70,10 @@ pl_rlimit(term_t what, term_t old, term_t new)
     else if ( strcmp(s, "rss") == 0 )
       resource = RLIMIT_RSS;
 #endif
+#ifdef RLIMIT_AS
+    else if ( strcmp(s, "as") == 0 )
+      resource = RLIMIT_AS;
+#endif
 #ifdef RLIMIT_MEMLOCK
     else if ( strcmp(s, "memlock") == 0 )
       resource = RLIMIT_MEMLOCK;
