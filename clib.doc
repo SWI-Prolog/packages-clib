@@ -597,15 +597,15 @@ Salt and algorithm can be forced by instantiating the start of
 \arg{Encrypted} with it.  This is typically used to force MD5 hashes:
 
 \begin{code}
-?- append("$1$", _, E),
+?- phrase("$1$", E, _),
    crypt("My password", E),
    format('~s~n', [E]).
 
 $1$qdaDeDZn$ZUxSQEESEHIDCHPNc3fxZ1
 \end{code}
 
-\arg{Encrypted} is always an ASCII string.  \arg{Plain} only supports
-ISO-Latin-1 passwords in the current implementation.
+\arg{Encrypted} is always a list of ASCII character codes. \arg{Plain}
+only supports ISO-Latin-1 passwords in the current implementation.
 
 \arg{Plain} is either an atom, SWI-Prolog string, list of characters
 or list of character-codes.  It is not advised to use atoms, as this
