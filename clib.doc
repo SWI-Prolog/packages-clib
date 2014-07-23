@@ -866,8 +866,8 @@ epoch.  See also date_time_stamp/2.
 Activate an alarm allocated using alarm/4 with the option
 \term{install}{false} or stopped using uninstall_alarm/1.
 
-    \predicate{install_alarm}{1}{+Id, +Time}
-As install_alarm/1, but specifies a new timeout value.
+    \predicate{install_alarm}{2}{+Id, +Time}
+As install_alarm/1, but specifies a new (relative) timeout value.
 
     \predicate{uninstall_alarm}{1}{+Id}
 Deactivate a running alarm, but do not invalidate the alarm identifier.

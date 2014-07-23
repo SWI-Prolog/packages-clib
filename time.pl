@@ -86,12 +86,20 @@
 %	@see date_time_stamp/2.
 
 %%	install_alarm(+Id) is det.
+%%	install_alarm(+Id, +RelTime) is det.
 %
 %	Install an alarm allocated using alarm/4 with the install(false)
-%	option.
+%	option or de-activated using  uninstall_alarm/1.   With  a given
+%	RelTime, the alarm  is  scheduled  at   the  RelTime  from  now.
+%	Otherwise it is scheduled on the   same (absolute) time on which
+%	is was created.
+
+%%	uninstall_alarm(+Id) is det.
 %
-%	@deprecated	With the introduction of setup_call_cleanup/3,
-%			this predicate is probably no longer needed.
+%	De-activate an alarm. This does _not_ invalidate Id, but ensures
+%	that the alarm will not fire. The alarm can be rescheduled to
+%	the original time using install_alarm/1 or to a new time using
+%	install_alarm/2.
 
 %%	remove_alarm(+Id) is det.
 %
@@ -100,10 +108,10 @@
 %%	current_alarm(?Time, :Goal, ?Id, ?Status) is nondet.
 %
 %	Enumerate the alarms in the schedule.  Time is the absolute time
-%	the event is scheduled for (see also get_time/1). Goal is the
-%	goal to execute, Id is the identifier and Status is the
-%	scheduling status. It takes the value =done= if the alarm has
-%	been fired, =next= if the event is the next to be executed and
+%	the event is scheduled for (see   also  get_time/1). Goal is the
+%	goal to execute,  Id  is  the   identifier  and  Status  is  the
+%	scheduling status. It takes the value   =done=  if the alarm has
+%	been fired, =next= if the event is   the next to be executed and
 %	=scheduled= otherwise.
 
 :- use_foreign_library(foreign(time)).
