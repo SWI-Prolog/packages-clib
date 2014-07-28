@@ -195,40 +195,48 @@ static foreign_t
 pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
 { char *data;
   size_t datalen;
-  struct context *cp;
+  struct context c;
   size_t clen;
   unsigned char hval[SHA2_MAX_DIGEST_SIZE];
 
-  if ( !PL_get_string_chars(old_ctx, (char **)&cp, &clen) )
-    return FALSE;
+  { struct context *cp;
 
-  if ( clen != sizeof (*cp)
-       || cp->magic != CONTEXT_MAGIC ) {
-    return pl_error(NULL, 0, "Invalid OldContext passed",
-		    ERR_DOMAIN, old_ctx, "algorithm");
+    if ( !PL_get_string_chars(old_ctx, (char **)&cp, &clen) )
+      return FALSE;
+
+    if ( clen != sizeof (*cp) )
+    { bad_context:
+	return pl_error(NULL, 0, "Invalid OldContext passed",
+			ERR_DOMAIN, old_ctx, "algorithm");
+    }
+
+    memcpy(&c, cp, sizeof(c));
   }
+
+  if ( c.magic != CONTEXT_MAGIC )
+    goto bad_context;
 
   if ( !PL_get_nchars(
 	    from, &datalen, &data,
-	    CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|cp->opts.encoding) )
+	    CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|c.opts.encoding) )
     return FALSE;
 
-  if ( cp->opts.algorithm == ALGORITHM_SHA1 )
-  { sha1_ctx *c1p = &(cp->context.sha1);
+  if ( c.opts.algorithm == ALGORITHM_SHA1 )
+  { sha1_ctx *c1p = &c.context.sha1;
     sha1_hash((unsigned char*)data, (unsigned long)datalen, c1p);
-    if ( !PL_unify_string_nchars(new_ctx, sizeof(*cp), (char*)cp) )
+    if ( !PL_unify_string_nchars(new_ctx, sizeof(c), (char*)&c) )
       return FALSE;
     sha1_end((unsigned char *)hval, c1p);
   } else
-  { sha2_ctx *c1p = &(cp->context.sha2);
+  { sha2_ctx *c1p = &c.context.sha2;
     sha2_hash((unsigned char*)data, (unsigned long)datalen, c1p);
-    if ( !PL_unify_string_nchars(new_ctx, sizeof(*cp), (char*)cp) )
+    if ( !PL_unify_string_nchars(new_ctx, sizeof(c), (char*)&c) )
       return FALSE;
     sha2_end((unsigned char *)hval, c1p);
   }
 
   /* . */
-  return PL_unify_list_ncodes(hash, cp->opts.digest_size, (char*)hval);
+  return PL_unify_list_ncodes(hash, c.opts.digest_size, (char*)hval);
 }
 
 
