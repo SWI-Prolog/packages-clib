@@ -58,6 +58,9 @@
 #define __USE_GNU
 #endif
 
+#ifdef __WINDOWS__
+#undef ETIMEDOUT
+#endif
 #include <pthread.h>
 
 typedef enum
@@ -543,7 +546,8 @@ alarm_loop(void * closure)
 	case EINTR:
 	  goto retry_timed_wait;
 	default:
-	  Sdprintf("alarm/4: pthread_cond_timedwait(): %s\n", strerror(rc));
+	  Sdprintf("alarm/4: pthread_cond_timedwait(): %d (%s)\n",
+		   rc, strerror(rc));
 	  assert(0);
       }
     } else
@@ -558,7 +562,8 @@ alarm_loop(void * closure)
 	case 0:
 	  continue;
 	default:
-	  Sdprintf("alarm/4: pthread_cond_timedwait(): %s\n", strerror(rc));
+	  Sdprintf("alarm/4: pthread_cond_timedwait(): %d (%s)\n",
+		   rc, strerror(rc));
 	  assert(0);
       }
     }
