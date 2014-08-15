@@ -539,6 +539,15 @@ is_socket_stream(IOSTREAM *s)
 }
 
 
+#ifndef SIO_GETPENDING
+static size_t
+Spending(IOSTREAM *s)
+{ if ( s->bufp < s->limitp )
+    return s->limitp - s->bufp;
+  return 0;
+}
+#endif
+
 static foreign_t
 tcp_select(term_t Streams, term_t Available, term_t timeout)
 { fd_set fds;
@@ -578,7 +587,7 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 		      head, "socket_stream");
     }
 					/* check for input in buffer */
-    if ( s->bufp < s->limitp )
+    if ( Spending(s) > 0 )
     { if ( !PL_unify_list(available, ahead, available) ||
 	   !PL_unify(ahead, head) )
 	return FALSE;
