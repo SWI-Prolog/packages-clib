@@ -299,3 +299,24 @@ delete_leading_slash(Path, WinPath) :-
 	is_absolute_file_name(WinPath), !.
 :- endif.
 delete_leading_slash(Path, Path).
+
+
+		 /*******************************
+		 *	      SANDBOX		*
+		 *******************************/
+
+:- multifile sandbox:safe_primitive/1.
+
+sandbox:safe_primitive(uri:uri_components(_,_)).
+sandbox:safe_primitive(uri:uri_normalized(_,_)).
+sandbox:safe_primitive(uri:iri_normalized(_,_)).
+sandbox:safe_primitive(uri:uri_normalized_iri(_,_)).
+sandbox:safe_primitive(uri:uri_normalized(_,_,_)).
+sandbox:safe_primitive(uri:iri_normalized(_,_,_)).
+sandbox:safe_primitive(uri:uri_normalized_iri(_,_,_)).
+sandbox:safe_primitive(uri:uri_resolve(_,_,_)).
+sandbox:safe_primitive(uri:uri_is_global(_)).
+sandbox:safe_primitive(uri:uri_query_components(_,_)).
+sandbox:safe_primitive(uri:uri_authority_components(_,_)).
+sandbox:safe_primitive(uri:uri_encoded(_,_,_)).
+sandbox:safe_primitive(uri:uri_iri(_,_)).
