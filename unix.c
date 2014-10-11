@@ -458,7 +458,6 @@ install_unix()
   PL_register_foreign("detach_IO", 1, pl_detach_IO, 0);
   PL_register_foreign("environ",   1, pl_environ, 0);
 #ifdef HAVE_PRCTL
-Sdprintf("Register\n");
   PL_register_foreign("prctl",     1, pl_prctl, 0);
 #endif
 }
