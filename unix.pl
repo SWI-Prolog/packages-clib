@@ -268,6 +268,22 @@ detach_IO :-
 	set_stream(Out, buffer(line)),
 	detach_IO(Out).
 
+:- if(current_predicate(prctl/1)).
+:- export(prctl/1).
+
+%%	prctl(+Option) is det.
+%
+%	Access to Linux process control operations.  Defines values for
+%	Option are:
+%
+%	  - set_dumpable(+Boolean)
+%	  Control whether the process is allowed to dump core. This
+%	  right is dropped under several uid and gid conditions.
+%	  - get_dumpable(-Boolean)
+%	  Get the value of the dumpable flag.
+
+:- endif.
+
 
 		 /*******************************
 		 *	     MESSAGES		*

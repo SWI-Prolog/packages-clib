@@ -398,6 +398,54 @@ pl_detach_IO(term_t stream)
   return TRUE;
 }
 
+#if defined(HAVE_PRCTL) && defined(HAVE_SYS_PRCTL_H)
+#include <sys/prctl.h>
+
+static foreign_t
+pl_prctl(term_t option)
+{ atom_t name;
+  int arity;
+
+  if ( PL_get_name_arity(option, &name, &arity) )
+  { const char *opt = PL_atom_chars(name);
+    term_t a = PL_new_term_refs(4);
+
+    if ( arity <= 4 )
+    { int i;
+
+      for(i=0; i<arity; i++)
+	_PL_get_arg(i+1, option, a+i);
+
+      if ( strcmp(opt, "set_dumpable") == 0 && arity == 1 )
+      { int i;
+
+	if ( !PL_get_bool_ex(a+0, &i) )
+	  return FALSE;
+	if ( prctl(PR_SET_DUMPABLE, i, 0, 0, 0) >= 0 )
+	  return TRUE;
+	return pl_error("prctl", 1, NULL, ERR_ERRNO,
+			errno, "set_dumpable", "process", a+0);
+      } else if ( strcmp(opt, "get_dumpable") == 0 && arity == 1 )
+      { int rc = prctl(PR_GET_DUMPABLE, 0,0,0,0);
+
+	if ( rc >= 0 )
+	  return PL_unify_bool(a+0, rc);
+	return pl_error("prctl", 1, NULL, ERR_ERRNO,
+			errno, "get_dumpable", "process", a+0);
+      }
+    }
+
+    return PL_domain_error("prctl_option", option);
+  } else
+  { return PL_type_error("compound", option);
+  }
+}
+
+
+#else
+#undef HAVE_PRCTL
+#endif
+
 
 install_t
 install_unix()
@@ -409,6 +457,10 @@ install_unix()
   PL_register_foreign("dup",       2, pl_dup, 0);
   PL_register_foreign("detach_IO", 1, pl_detach_IO, 0);
   PL_register_foreign("environ",   1, pl_environ, 0);
+#ifdef HAVE_PRCTL
+Sdprintf("Register\n");
+  PL_register_foreign("prctl",     1, pl_prctl, 0);
+#endif
 }
 
 
