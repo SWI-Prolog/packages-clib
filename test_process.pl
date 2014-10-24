@@ -103,6 +103,13 @@ test(kill_ok, [ X = exit(_),
 	process_create(path(sleep), [2], [process(PID)]),
 	process_kill(PID, 9),
 	process_wait(PID, X).
+test(kill_gone, [ error(existence_error(process, PID)),
+		  condition(\+current_prolog_flag(windows, true))]) :-
+	process_create(path(sleep), [2], [process(PID)]),
+	process_kill(PID),
+	process_wait(PID, X),
+	assertion(X == killed(15)),
+	process_kill(PID).
 test(wait_timeout, [ X = timeout ]) :-
 	process_create(path(sleep), [2], [process(PID)]),
 	(   current_prolog_flag(windows, true)

@@ -37,7 +37,9 @@
 	    is_process/1,		% +PID
 	    process_release/1,		% +PID
 	    process_kill/1,		% +PID
-	    process_kill/2		% +PID, -Signal
+            process_group_kill/1,	% +PID
+            process_group_kill/2,	% +PID, +Signal
+	    process_kill/2		% +PID, +Signal
 	  ]).
 :- use_module(library(shlib)).
 :- use_module(library(lists)).
@@ -150,6 +152,7 @@ following finds the executable for =ls=:
 %	    * detached(+Bool)
 %	    In Unix: If =true=, detach the process from the terminal
 %	    Currently mapped to setsid();
+%           Also creates a new process group for the child
 %	    In Windows: If =true=, detach the process from the current
 %	    job via the CREATE_BREAKAWAY_FROM_JOB flag. In Vista and beyond,
 %           processes launched from the shell directly have the 'compatibility
@@ -352,6 +355,19 @@ process_wait(PID, Status) :-
 
 process_kill(PID) :-
 	process_kill(PID, term).
+
+
+%%	process_group_kill(+PID) is det.
+%%	process_group_kill(+PID, +Signal) is det.
+%
+%	Send signal to the group containing process PID.  Default   is
+%       =term=.   See process_wait/1  for  a  description  of  signal
+%       handling. In Windows, the same restriction on PID applies: it
+%       must have been created from process_create/3, and the the group
+%       is terminated via the TerminateJobObject API.
+
+process_group_kill(PID) :-
+	process_group_kill(PID, term).
 
 
 		 /*******************************
