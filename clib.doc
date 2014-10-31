@@ -737,17 +737,17 @@ those given above.
 The \pllib{memfile} provides an alternative to temporary files, intended
 for temporary buffering of data. Memory files in general are faster than
 temporary files and do not suffer from security risks or naming
-conflicts associated with temporary-file management.  They do
-assume proper memory management by the hosting OS and cannot be used
-to pass data to external processes using a file-name.
+conflicts associated with temporary-file management.
 
 There is no limit to the number of memory streams, nor the size of them.
-However, memory-streams cannot have multiple streams at the same time
-(i.e.\ cannot be opened for reading and writing at the same time).
+However, a single memory file cannot have multiple streams at the same
+time, i.e., a memory file cannot be opened multiple times, not even for
+reading.  Memory files are thread-safe and subject to (atom) garbage
+collection.
 
 These predicates are first of all intended for building higher-level
-primitives.  See also sformat/3, atom_to_term/3, term_to_atom/2 and
-the XPCE primitive pce_open/3.
+primitives such as open_codes_stream/3. See also format/3,
+atom_to_term/3, term_to_atom/2, term_string/2, etc.
 
 
 \begin{description}
@@ -759,9 +759,15 @@ Discard the memory file and its contents.  If the file is open it
 is first closed.
 
     \predicate{open_memory_file}{3}{+Handle, +Mode, -Stream}
-Open the memory-file.  \arg{Mode} is currently one of \const{read}
-or \const{write}.  The resulting \arg{Stream} must be closed
-using close/1.
+Open the memory-file. \arg{Mode} is one of \const{read}, \const{write},
+\const{append}, \const{update} or \const{insert}. The resulting
+\arg{Stream} must be closed using close/1. When opened for
+\const{update} or \const{insert}, the current location is initialized
+at the start of the data and can be modified using seek/2 or
+set_stream_position/2.  In \const{update} mode, existing content is
+replaced, while the size is enlarged after hitting the end of the
+data.  In \const{insert} mode, the new data is inserted at the
+current point.
 
     \predicate{open_memory_file}{4}{+Handle, +Mode, -Stream, +Options}
 Open a memory-file as open_memory_file/3.  Options:
@@ -782,7 +788,7 @@ library(charsio).
 \end{description}
 
     \predicate{size_memory_file}{2}{+Handle, -Size}
-Return the content-length of the memory-file it characters in the
+Return the content-length of the memory-file in characters in the
 current encoding of the memory file. The file should be closed and
 contain data.
 
@@ -794,6 +800,20 @@ Return the content-length of the memory-file it characters in the given
 Turn an atom into a read-only memory-file containing the (shared)
 characters of the atom.  Opening this memory-file in mode \const{write}
 yields a permission error.
+
+    \predicate{insert_memory_file}{3}{+Handle, +Offset, +Data}
+Insert \arg{Data} into the memory file at location \arg{Offset}. The
+offset is specified in characters.  \arg{Data} can be an atom, string,
+code or character list. Other terms are first serialized using writeq/1.
+This predicate raises a domain_error exception if \arg{Offset} is out
+of range and a permission_error if the memory file is read-only or
+opened.
+
+    \predicate{delete_memory_file}{3}{+Handle, +Offset, +Length}
+Delete a \arg{Length} characters from the memory file, starting at
+\arg{Offset}. This predicate raises a domain_error exception if
+\arg{Offset} or \arg{Offset+Length} is out of range and a
+permission_error if the memory file is read-only or opened.
 
     \predicate{memory_file_to_atom}{2}{+Handle, -Atom}
 Return the content of the memory-file in \arg{Atom}.
@@ -813,6 +833,28 @@ in \arg{Codes}.
     \predicate{memory_file_to_codes}{3}{+Handle, -Codes, +Encoding}
 Return the content of the memory-file as a list of character-codes
 in \arg{Codes}, pretending the data is in the given \arg{Encoding}.
+
+    \predicate{memory_file_to_string}{2}{+Handle, -String}
+Return the content of the memory-file as a string in \arg{-String}.
+
+    \predicate{memory_file_to_string}{3}{+Handle, -String, +Encoding}
+Return the content of the memory-file as a string in \arg{String},
+pretending the data is in the given \arg{Encoding}.
+
+    \predicate{memory_file_substring}{5}{+Handle, ?Before, ?Length, ?After, -SubString}
+\arg{SubString} is a substring of the memory file. There are
+\arg{Before} characters in the memory file before \arg{SubString},
+\arg{SubString} contains \arg{Length} character and is followed by
+\arg{After} characters in the memory file. The signature is the same as
+sub_string/5 and sub_atom/5, but currently at least two of the 3
+position arguments must be specified. Future versions might implement
+the full functionality of sub_string/5.
+
+    \predicate{memory_file_line_position}{+MF, ?Line, ?LinePos, ?Offset}
+True if the character offset \arg{Offset} corresponds with the
+\arg{LinePos} character on line \arg{Line}. Lines are counted from one
+(1). Note that \arg{LinePos} is \emph{not} the \jargon{column} as each
+character counts for one, including backspace and tab.
 \end{description}
 
 
