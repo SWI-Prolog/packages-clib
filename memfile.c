@@ -256,6 +256,69 @@ free_memory_file(term_t handle)
   return FALSE;
 }
 
+		 /*******************************
+		 *	     CHECKING		*
+		 *******************************/
+
+#define ISUTF8_CB(c)  (((c)&0xc0) == 0x80) /* Is continuation byte */
+
+#ifdef O_SECURE
+
+#define CONT(in,i)   (assert(ISUTF8_CB(in[i])),1)
+#define IS_UTF8_2BYTE(in) \
+	((in[0]&0xe0) == 0xc0 && CONT(in,1))
+#define IS_UTF8_3BYTE(in) \
+	((in[0]&0xf0) == 0xe0 && CONT(in,1)&&CONT(in,2))
+#define IS_UTF8_4BYTE(in) \
+	((in[0]&0xf8) == 0xf0 && CONT(in,1)&&CONT(in,2)&&CONT(in,3))
+#define IS_UTF8_5BYTE(in) \
+	((in[0]&0xfc) == 0xf8 && CONT(in,1)&&CONT(in,2)&&CONT(in,3)&&CONT(in,4))
+#define IS_UTF8_6BYTE(in) \
+	((in[0]&0xfe) == 0xfc && CONT(in,1)&&CONT(in,2)&&CONT(in,3)&&CONT(in,4)&&CONT(in,5))
+
+static size_t
+check_utf8_seq(char *s, size_t len)
+{ size_t count = 0;
+  size_t skip;
+
+  while(len > 0)
+  { if ( (*s&0x80) )
+    {      if ( IS_UTF8_2BYTE(s) ) skip = 2;
+      else if ( IS_UTF8_3BYTE(s) ) skip = 3;
+      else if ( IS_UTF8_4BYTE(s) ) skip = 4;
+      else if ( IS_UTF8_5BYTE(s) ) skip = 5;
+      else if ( IS_UTF8_6BYTE(s) ) skip = 6;
+      else assert(0);
+    } else
+      skip = 1;
+
+    assert(len >= skip);
+    len -= skip;
+    s   += skip;
+
+    count++;
+  }
+
+  return count;
+}
+
+
+static void
+check_memfile(memfile *mf)
+{ size_t count = 0;
+
+  count += check_utf8_seq(&mf->data[0],                          mf->gap_start);
+  count += check_utf8_seq(&mf->data[mf->gap_start+mf->gap_size],
+			  mf->end-(mf->gap_size+mf->gap_start));
+
+  assert(mf->char_count == NOSIZE || mf->char_count == count);
+}
+
+#else /*O_SECURE*/
+
+#define check_memfile(mf) (void)0
+
+#endif /*O_SECURE*/
 
 		 /*******************************
 		 *	 STREAM FUNCTIONS	*
@@ -835,15 +898,13 @@ can_modify_memory_file(term_t handle, memfile *mf)
 /* Get the byte offset for a character
 */
 
-#define ISUTF8_CB(c)  (((c)&0xc0) == 0x80) /* Is continuation byte */
-
 static char *
-utf8_skip_char(const char *in)
+utf8_skip_char(const char *in, const char *e)
 { if ( !(in[0]&0x80) )
   { return (char*)in+1;
   } else
   { in++;
-    while ( ISUTF8_CB(in[0]) )
+    while ( in < e && ISUTF8_CB(in[0]) )
       in++;
     return (char*)in;
   }
@@ -888,7 +949,7 @@ mf_skip(memfile *mf, IOENC encoding, size_t from, size_t chars, size_t *end)
 
 	while(chars>0 && s<e)
 	{ chars--;
-	  s = utf8_skip_char(s);
+	  s = utf8_skip_char(s, e);
 	}
 	from += s - start;
 	if ( chars == 0 )
@@ -901,13 +962,14 @@ mf_skip(memfile *mf, IOENC encoding, size_t from, size_t chars, size_t *end)
 	  *end = from;
 	  return TRUE;
 	}
+	assert(s == e);
       }
 
       start = s = &mf->data[mf->gap_size+from];
       e = &mf->data[mf->end];
       while(chars>0 && s<e)
       { chars--;
-	s = utf8_skip_char(s);
+	s = utf8_skip_char(s, e);
       }
       from += s - start;
       if ( chars == 0 )
@@ -981,6 +1043,7 @@ insert_memory_file(term_t handle, term_t where, term_t data)
 	  if ( (rc=PL_get_nchars(data, &len, &buf, flags|rep)) )
 	  { if ( write_memfile(m, buf, len) < 0 )
 	      rc = PL_resource_error("memory");
+	    check_memfile(m);
 	  }
 	  break;
 	}
@@ -1251,7 +1314,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
 	    return TRUE;
 	  }
 	}
-	s = utf8_skip_char(s);
+	s = utf8_skip_char(s, e);
       }
       break;
     case ENC_WCHAR:
