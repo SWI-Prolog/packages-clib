@@ -636,16 +636,21 @@ CRITICAL_SECTION process_lock;
 #define UNLOCK() LeaveCriticalSection(&process_lock);
 
 static void
-win_init()
-{ InitializeCriticalSection(&process_lock);
+win_init(void)
+{ HANDLE rootJob;
+
+  InitializeCriticalSection(&process_lock);
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+
   rootJob = CreateJobObject(NULL, NULL);
   if (rootJob == NULL) /* Already in a job */
     return;
+
   memset(&jeli, 0, sizeof(jeli));
   jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   /* This will fail (silently) if we dont have permission to manage processes */
-  SetInformationJobObject(rootJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
+  SetInformationJobObject(rootJob, JobObjectExtendedLimitInformation,
+			  &jeli, sizeof(jeli));
 }
 
 
