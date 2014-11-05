@@ -635,11 +635,12 @@ CRITICAL_SECTION process_lock;
 #define LOCK()   EnterCriticalSection(&process_lock);
 #define UNLOCK() LeaveCriticalSection(&process_lock);
 
+/* We need a root job to put non-detached processes into */
+static HANDLE rootJob = (HANDLE)0;
+
 static void
 win_init(void)
-{ HANDLE rootJob;
-
-  InitializeCriticalSection(&process_lock);
+{ InitializeCriticalSection(&process_lock);
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
 
   rootJob = CreateJobObject(NULL, NULL);
@@ -763,9 +764,6 @@ win_command_line(term_t t, int arity, const wchar_t *exe, wchar_t **cline)
 
   return TRUE;
 }
-
-/* We need a root job to put non-detached processes into */
-HANDLE rootJob = (HANDLE)0;
 
 typedef struct win_process
 { DWORD pid;
