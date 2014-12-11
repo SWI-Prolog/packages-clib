@@ -850,7 +850,7 @@ sub_string/5 and sub_atom/5, but currently at least two of the 3
 position arguments must be specified. Future versions might implement
 the full functionality of sub_string/5.
 
-    \predicate{memory_file_line_position}{+MF, ?Line, ?LinePos, ?Offset}
+    \predicate{memory_file_line_position}{4}{+MF, ?Line, ?LinePos, ?Offset}
 True if the character offset \arg{Offset} corresponds with the
 \arg{LinePos} character on line \arg{Line}. Lines are counted from one
 (1). Note that \arg{LinePos} is \emph{not} the \jargon{column} as each
