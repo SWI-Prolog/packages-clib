@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2009-2012, VU University Amsterdam
+    Copyright (C): 2009-2015, VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -173,7 +173,7 @@ fill_flags()
     set_flags("!$&'()+*,;=", CH_SUBDELIM);
     set_flags("!$&'()*,;=",  CH_PSUBDELIM); /* = CH_SUBDELIM - "+"  */
     set_flags("!$'()*,",     CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
-    set_flags(":@",          CH_EX_PCHAR);
+    set_flags("@",           CH_EX_PCHAR);
     set_flags("/",           CH_EX_PATH);
     set_flags("/?",          CH_EX_QF);
     set_flags("+-.",	     CH_EX_SCHEME);

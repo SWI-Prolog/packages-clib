@@ -127,6 +127,8 @@ test(path, X == 'a+b') :-
 	uri_encoded(path, 'a+b', X).
 test(path, X == 'a+b') :-
 	uri_encoded(path, X, 'a+b').
+test(path, X == 'a%3Ab') :-
+	uri_encoded(path, 'a:b', X).
 test(path, X == '=&') :-
 	uri_encoded(path, '=&', X).
 test(path, X == '/a%20b%3F') :-
