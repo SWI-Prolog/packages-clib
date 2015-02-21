@@ -77,6 +77,8 @@ test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2#aap') :-
 	uri_normalized_iri('http://a.b/a?x=1&y=2#aap', NormalIRI).
 test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2#aap%20noot') :-
 	uri_normalized_iri('http://a.b/a?x=1&y=2#aap+noot', NormalIRI).
+test(normalise_iri, NormalIRI == 'http://a.b:3020/') :-
+	uri_normalized_iri('http://a.b:3020/', NormalIRI).
 
 :- end_tests(iri).
 
