@@ -48,7 +48,9 @@
 
 	    udp_socket/1,		% -Socket
 	    udp_receive/4,		% +Socket, -Data, -Sender, +Options
-	    udp_send/4			% +Socket, +Data, +Sender, +Options
+	    udp_send/4,			% +Socket, +Data, +Sender, +Options
+
+            negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
 	  ]).
 :- use_module(library(shlib)).
 
@@ -107,19 +109,62 @@ tcp_open_socket(Socket, Stream) :-
 	tcp_connect_hook/4.
 
 
+
 tcp_connect(Socket, Address, Read, Write) :-
 	tcp_connect_hook(Socket, Address, Read, Write), !.
 tcp_connect(Socket, Address, Read, Write) :-
 	tcp_connect(Socket, Address),
 	tcp_open_socket(Socket, Read, Write).
 
-%%	tcp_connect(+Socket, +Address, -StreamPair) is det.
+
+
+:-multifile
+        network_proxy:find_proxy_for_url/3.
+
+
+
+%%      tcp_connect(+Socket, +Address, -StreamPair) is det.
+%%      tcp_connect(+Address, -StreamPair, +Options) is det.
 %
-%	As tcp_connect/4, but creates a stream pair (see stream_pair/3).
-%	The main advantage of having a single  handle is that it is much
-%	easier to safely close the handles. If   two  handles need to be
+%       This predicate has two modes which actually perform quite
+%       different tasks. The +,+,- mode is deprecated and does not
+%       support proxies. It behaves like tcp_connect/4, but creates
+%       a stream pair (see stream_pair/3). The main advantage of
+%       having a single  handle is that it is much easier to safely close
+%       the handles. If   two  handles need to be
 %	closed, the user must be careful to   close the second handle if
 %	closing the first one raises an exception.
+%
+%       The +,-,+ mode does not return the socket, but does support
+%       communication via proxies. To use a proxy, the hook
+%       network_proxy:find_proxy_for_url/3 must be defined.
+%       Permitted options are:
+%          * bypass_proxy(boolean): Defaults to false. If true, do not
+%            attempt to use any proxies to obtain the connection
+%          * nodelay(boolean): Defaults to false. If true, set
+%            nodelay on the resulting socket.
+
+
+tcp_connect(Address, StreamPair, Options) :-
+        var(StreamPair),
+        !,
+        ( memberchk(bypass_proxy(true), Options)->
+            tcp_connect_direct(Address, Socket, StreamPair)
+        ; format(atom(URL), 'socket://~w', [Address]),
+          ( Address = Host:_ ->
+              true
+          ; Host = Address
+          ),
+          ( network_proxy:find_proxy_for_url(URL, Host, ProxyList) ->
+              try_proxies(ProxyList, Address, Socket, StreamPair)
+          ; tcp_connect_direct(Address, Socket, StreamPair)
+          )
+        ),
+        ( memberchk(nodelay(true), Options)->
+            tcp_setopt(Socket, nodelay)
+        ; true
+        ).
+
 
 tcp_connect(Socket, Address, StreamPair) :-
 	tcp_connect_hook(Socket, Address, StreamPair0), !,
@@ -127,6 +172,49 @@ tcp_connect(Socket, Address, StreamPair) :-
 tcp_connect(Socket, Address, StreamPair) :-
 	tcp_connect(Socket, Address, Read, Write),
 	stream_pair(StreamPair, Read, Write).
+
+
+%%                  Proxy stuff
+
+tcp_connect_direct(Address, Socket, StreamPair):-
+        tcp_socket(Socket),
+        catch(tcp_connect(Socket, Address, StreamPair),
+              Error,
+              ( tcp_close_socket(Socket),
+                throw(Error)
+              )).
+
+
+try_proxies([Last], Address, Socket, StreamPair):-
+        !,
+        debug(proxy, 'Socket connecting via ~w~n', [Last]),
+        try_proxy(Last, Address, Socket, StreamPair).
+
+try_proxies([Proxy|_Proxies], Address, Socket, StreamPair):-
+        debug(proxy, 'Socket connecting via ~w~n', [Proxy]),
+        catch(try_proxy(Proxy, Address, Socket, StreamPair),
+              Error,
+              ( print_message(warning, proxy_failed_to_respond(Proxy, Error)),
+                fail
+              )), !.
+
+try_proxies([_Proxy|Proxies], Address, Socket, StreamPair):-
+        try_proxies(Proxies, Address, Socket, StreamPair).
+
+:-multifile(try_proxy/4).
+try_proxy(direct, Address, Socket, StreamPair):-
+        !,
+        tcp_connect_direct(Address, Socket, StreamPair).
+
+try_proxy(socks(Host, Port), Address, Socket, StreamPair):-
+        !,
+        tcp_connect_direct(Host:Port, Socket, StreamPair),
+        catch(negotiate_socks_connection(Address, StreamPair),
+              Error,
+              ( close(StreamPair, [force(true)]),
+                throw(Error)
+              )).
+
 
 
 		 /*******************************
@@ -154,3 +242,69 @@ is extracted from the operating system.
 
 prolog:message(error(socket_error(Message), _)) -->
 	[ 'Socket error: ~w'-[Message] ].
+
+
+
+		 /*******************************
+		 *	      SOCKS  	        *
+		 *******************************/
+
+%%      negotiate_socks_connection(+DesiredEndpoint, +StreamPair) is det.
+%       Negotiate a connection to DesiredEndpoint over StreamPair.
+%       DesiredEndpoint should be in the form of either:
+%          * hostname : port
+%          * ip/4 : port
+
+negotiate_socks_connection(Host:Port, StreamPair):-
+        format(StreamPair, '~s', [[0x5,   % Version 5
+                                   0x1,   % 1 auth method supported
+                                   0x0]]), % which is 'no auth'
+        flush_output(StreamPair),
+        get_byte(StreamPair, ServerVersion),
+        get_byte(StreamPair, AuthenticationMethod),
+        ( ServerVersion =\= 0x05 ->
+            throw(error(invalid_socks_version(ServerVersion), _))
+        ; AuthenticationMethod =:= 0xff ->
+            throw(error(unsupported_socks_authentication(AuthenticationMethod), _))
+        ; true
+        ),
+        ( Host = ip(A,B,C,D)->
+            AddressType = 0x1, % IPv4 Address
+            format(atom(Address), '~s', [[A, B, C, D]])
+        ; AddressType = 0x3, % Domain
+          atom_length(Host, Length),
+          format(atom(Address), '~s~w', [[Length], Host])
+        ),
+        P1 is Port /\ 0xFF,
+        P2 is Port >> 8,
+        format(StreamPair, '~s~w~s', [[0x5,   % Version 5
+                                       0x1,   % Please establish a connection
+                                       0x0,   % reserved
+                                       AddressType],
+                                      Address,
+                                      [P2, P1]]),
+        flush_output(StreamPair),
+        get_byte(StreamPair, _EchoedServerVersion),
+        get_byte(StreamPair, Status),
+        ( Status =:= 0->
+            % Established!
+            get_byte(StreamPair, _Reserved),
+            get_byte(StreamPair, EchoedAddressType),
+            % We have to read the echoed address back
+            ( EchoedAddressType =:= 0x1 ->
+                get_byte(StreamPair, _),
+                get_byte(StreamPair, _),
+                get_byte(StreamPair, _),
+                get_byte(StreamPair, _)
+            ; otherwise->
+                get_byte(StreamPair, Length),
+                forall(between(1, Length, _),
+                       get_byte(StreamPair, _))
+            ),
+            % Read the port
+            get_byte(StreamPair, _),
+            get_byte(StreamPair, _),
+            % Ready for use!
+            true
+        ; throw(error(socks_negotiation_rejected(Status), _))
+        ).
