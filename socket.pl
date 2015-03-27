@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2013, University of Amsterdam
+    Copyright (C): 1985-2015, University of Amsterdam
 			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -53,15 +53,24 @@
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
 	  ]).
 :- use_module(library(shlib)).
+:- use_module(library(debug)).
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-These predicates are documented in the source-distribution of the package
-`clib'.  See also the SWI-Prolog home-page at http://www.swi-prolog.org
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+/** <module> Network socket (TCP and UDP) library
+
+This library forms the core of SWI-Prolog's support for networking.
+
+@see These predicates are documented in   the source-distribution of the
+package   `clib'.   See    also    the     SWI-Prolog    home-page    at
+http://www.swi-prolog.org
+*/
+
+:- multifile
+	tcp_connect_hook/3,
+	tcp_connect_hook/4,
+	try_proxy/4.
 
 :- use_foreign_library(foreign(socket), install_socket).
 :- public tcp_debug/1.			% set debugging.
-
 
 %%	tcp_open_socket(+Socket, -Stream) is det.
 %
@@ -102,13 +111,8 @@ tcp_open_socket(Socket, Stream) :-
 %		proxy_connect(Address, Read, Write).
 %	    ==
 %
-%	@deprecated New code should use tcp_connect/3.
-
-:- multifile
-	tcp_connect_hook/3,
-	tcp_connect_hook/4.
-
-
+%	@deprecated New code should use tcp_connect/3 called as
+%	tcp_connect(+Address, -StreamPair, +Options).
 
 tcp_connect(Socket, Address, Read, Write) :-
 	tcp_connect_hook(Socket, Address, Read, Write), !.
@@ -126,43 +130,46 @@ tcp_connect(Socket, Address, Read, Write) :-
 %%      tcp_connect(+Socket, +Address, -StreamPair) is det.
 %%      tcp_connect(+Address, -StreamPair, +Options) is det.
 %
-%       This predicate has two modes which actually perform quite
-%       different tasks. The +,+,- mode is deprecated and does not
-%       support proxies. It behaves like tcp_connect/4, but creates
-%       a stream pair (see stream_pair/3). The main advantage of
-%       having a single  handle is that it is much easier to safely close
-%       the handles. If   two  handles need to be
-%	closed, the user must be careful to   close the second handle if
-%	closing the first one raises an exception.
+%	This predicate has  two  modes   which  actually  perform  quite
+%	different tasks. The +,+,-  mode  is   deprecated  and  does not
+%	support proxies. It behaves like   tcp_connect/4,  but creates a
+%	stream pair (see stream_pair/3). The main  advantage of having a
+%	single handle is that it is  much   easier  to  safely close the
+%	handles. If two handles need to  be   closed,  the  user must be
+%	careful to close the second  handle   if  closing  the first one
+%	raises an exception.
 %
-%       The +,-,+ mode does not return the socket, but does support
-%       communication via proxies. To use a proxy, the hook
-%       network_proxy:find_proxy_for_url/3 must be defined.
-%       Permitted options are:
-%          * bypass_proxy(boolean): Defaults to false. If true, do not
-%            attempt to use any proxies to obtain the connection
-%          * nodelay(boolean): Defaults to false. If true, set
-%            nodelay on the resulting socket.
+%	The +,-,+ mode does not  return   the  socket,  but does support
+%	communication  via  proxies.  To   use    a   proxy,   the  hook
+%	network_proxy:find_proxy_for_url/3 must be   defined.  Permitted
+%	options are:
+%
+%          * bypass_proxy(+Boolean)
+%	     Defaults to =false=. If =true=, do not attempt to use any
+%	     proxies to obtain the connection
+%
+%          * nodelay(+Boolean)
+%	     Defaults to =false=. If =true=, set nodelay on the
+%	     resulting socket using tcp_setopt(Socket, nodelay)
 
 
 tcp_connect(Address, StreamPair, Options) :-
-        var(StreamPair),
-        !,
-        ( memberchk(bypass_proxy(true), Options)->
-            tcp_connect_direct(Address, Socket, StreamPair)
-        ; format(atom(URL), 'socket://~w', [Address]),
-          ( Address = Host:_ ->
-              true
-          ; Host = Address
-          ),
-          ( network_proxy:find_proxy_for_url(URL, Host, ProxyList) ->
-              try_proxies(ProxyList, Address, Socket, StreamPair)
-          ; tcp_connect_direct(Address, Socket, StreamPair)
-          )
-        ),
-        ( memberchk(nodelay(true), Options)->
-            tcp_setopt(Socket, nodelay)
-        ; true
+        var(StreamPair), !,
+        (   memberchk(bypass_proxy(true), Options)
+	->  tcp_connect_direct(Address, Socket, StreamPair)
+        ;   format(atom(URL), 'socket://~w', [Address]),
+	    (   Address = Host:_
+	    ->  true
+	    ;   Host = Address
+	    ),
+	    (   network_proxy:find_proxy_for_url(URL, Host, ProxyList)
+	    ->  try_proxies(ProxyList, Address, Socket, StreamPair)
+	    ;   tcp_connect_direct(Address, Socket, StreamPair)
+	    )
+	),
+        (   memberchk(nodelay(true), Options)
+	->  tcp_setopt(Socket, nodelay)
+	;   true
         ).
 
 
@@ -174,8 +181,6 @@ tcp_connect(Socket, Address, StreamPair) :-
 	stream_pair(StreamPair, Read, Write).
 
 
-%%                  Proxy stuff
-
 tcp_connect_direct(Address, Socket, StreamPair):-
         tcp_socket(Socket),
         catch(tcp_connect(Socket, Address, StreamPair),
@@ -184,30 +189,40 @@ tcp_connect_direct(Address, Socket, StreamPair):-
                 throw(Error)
               )).
 
+		 /*******************************
+		 *	  PROXY SUPPORT		*
+		 *******************************/
 
-try_proxies([Last], Address, Socket, StreamPair):-
-        !,
+%%	try_proxies(ProxySpec, +Address, -Socket, -StreamPair)
+%
+%	Try a to establish a proxied connection to Address.  ProxySpec
+%	is one of:
+%
+%	  $ A list of proxies :
+%	  Each proxy is tried by calling the hook try_proxy/4 using
+%	  a member of the list as first argument and passing the
+%	  remaining arguments.  Errors from earlier proxies are
+%	  printed using print_message/3 at level `warning`.  An
+%	  error from the last proxy is passed to the caller.
+%	  $ `direct` :
+%	  $ socks(Host, Port) :
+
+
+try_proxies([Last], Address, Socket, StreamPair) :- !,
         debug(proxy, 'Socket connecting via ~w~n', [Last]),
         try_proxy(Last, Address, Socket, StreamPair).
-
-try_proxies([Proxy|_Proxies], Address, Socket, StreamPair):-
+try_proxies([Proxy|_Proxies], Address, Socket, StreamPair) :-
         debug(proxy, 'Socket connecting via ~w~n', [Proxy]),
         catch(try_proxy(Proxy, Address, Socket, StreamPair),
               Error,
               ( print_message(warning, proxy_failed_to_respond(Proxy, Error)),
                 fail
               )), !.
-
-try_proxies([_Proxy|Proxies], Address, Socket, StreamPair):-
+try_proxies([_Proxy|Proxies], Address, Socket, StreamPair) :-
         try_proxies(Proxies, Address, Socket, StreamPair).
-
-:-multifile(try_proxy/4).
-try_proxy(direct, Address, Socket, StreamPair):-
-        !,
+try_proxy(direct, Address, Socket, StreamPair) :- !,
         tcp_connect_direct(Address, Socket, StreamPair).
-
-try_proxy(socks(Host, Port), Address, Socket, StreamPair):-
-        !,
+try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
         tcp_connect_direct(Host:Port, Socket, StreamPair),
         catch(negotiate_socks_connection(Address, StreamPair),
               Error,
@@ -225,8 +240,74 @@ tcp_fcntl(Socket, setfl, nonblock) :- !,
 	tcp_setopt(Socket, nonblock).
 
 
+
 		 /*******************************
-		 *	  HANDLE MESSAGES	*
+		 *	      SOCKS	        *
+		 *******************************/
+
+%%      negotiate_socks_connection(+DesiredEndpoint, +StreamPair) is det.
+%
+%	Negotiate  a  connection  to  DesiredEndpoint  over  StreamPair.
+%	DesiredEndpoint should be in the form of either:
+%
+%          * hostname : port
+%          * ip/4 : port
+%
+%       @error socks_error(Details) if the SOCKS negotiation failed.
+
+negotiate_socks_connection(Host:Port, StreamPair):-
+        format(StreamPair, '~s', [[0x5,    % Version 5
+                                   0x1,    % 1 auth method supported
+                                   0x0]]), % which is 'no auth'
+        flush_output(StreamPair),
+        get_byte(StreamPair, ServerVersion),
+        get_byte(StreamPair, AuthenticationMethod),
+        (   ServerVersion =\= 0x05
+	->  throw(error(socks_error(invalid_version(5, ServerVersion)), _))
+        ;   AuthenticationMethod =:= 0xff
+	->  throw(error(socks_error(invalid_authentication_method(
+					0xff,
+					AuthenticationMethod)), _))
+        ;   true
+        ),
+        (   Host = ip(A,B,C,D)
+	->  AddressType = 0x1,			% IPv4 Address
+            format(atom(Address), '~s', [[A, B, C, D]])
+        ;   AddressType = 0x3,			% Domain
+	    atom_length(Host, Length),
+	    format(atom(Address), '~s~w', [[Length], Host])
+        ),
+        P1 is Port /\ 0xFF,
+        P2 is Port >> 8,
+        format(StreamPair, '~s~w~s', [[0x5,   % Version 5
+                                       0x1,   % Please establish a connection
+                                       0x0,   % reserved
+                                       AddressType],
+				      Address,
+                                      [P2, P1]]),
+        flush_output(StreamPair),
+        get_byte(StreamPair, _EchoedServerVersion),
+        get_byte(StreamPair, Status),
+        (   Status =:= 0			% Established!
+	->  get_byte(StreamPair, _Reserved),
+            get_byte(StreamPair, EchoedAddressType),
+            (   EchoedAddressType =:= 0x1
+	    ->  get_byte(StreamPair, _),	% read IP4
+                get_byte(StreamPair, _),
+                get_byte(StreamPair, _),
+                get_byte(StreamPair, _)
+            ;   get_byte(StreamPair, Length),	% read host name
+		forall(between(1, Length, _),
+		       get_byte(StreamPair, _))
+            ),
+            get_byte(StreamPair, _),		% read port
+            get_byte(StreamPair, _)
+        ;   throw(error(socks_error(negotiation_rejected(Status)), _))
+        ).
+
+
+		 /*******************************
+		 *	       MESSAGES		*
 		 *******************************/
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -236,75 +317,25 @@ is extracted from the operating system.
 	error(socket_error(Message), _)
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-
 :- multifile
-	prolog:message/3.
+	prolog:message//1,
+	prolog:error_message//1.
 
-prolog:message(error(socket_error(Message), _)) -->
+prolog:message(proxy_failed_to_respond(Proxy, Error)) -->
+	[ 'Network proxy ~p failed to respond: '-[Proxy] ],
+	'$messages':translate_message(Error).
+
+prolog:error_message(socket_error(Message)) -->
 	[ 'Socket error: ~w'-[Message] ].
+prolog:error_message(socks_error(Error)) -->
+	socks_error(Error).
 
+socks_error(invalid_version(Supported, Got)) -->
+	[ 'SOCKS: unsupported version: ~p (supported: ~p)'-
+	  [ Got, Supported ] ].
+socks_error(invalid_authentication_method(Supported, Got)) -->
+	[ 'SOCKS: unsupported authentication method: ~p (supported: ~p)'-
+	  [ Got, Supported ] ].
+socks_error(negotiation_rejected(Status)) -->
+	[ 'SOCKS: connection failed: ~p'-[Status] ].
 
-
-		 /*******************************
-		 *	      SOCKS  	        *
-		 *******************************/
-
-%%      negotiate_socks_connection(+DesiredEndpoint, +StreamPair) is det.
-%       Negotiate a connection to DesiredEndpoint over StreamPair.
-%       DesiredEndpoint should be in the form of either:
-%          * hostname : port
-%          * ip/4 : port
-
-negotiate_socks_connection(Host:Port, StreamPair):-
-        format(StreamPair, '~s', [[0x5,   % Version 5
-                                   0x1,   % 1 auth method supported
-                                   0x0]]), % which is 'no auth'
-        flush_output(StreamPair),
-        get_byte(StreamPair, ServerVersion),
-        get_byte(StreamPair, AuthenticationMethod),
-        ( ServerVersion =\= 0x05 ->
-            throw(error(invalid_socks_version(ServerVersion), _))
-        ; AuthenticationMethod =:= 0xff ->
-            throw(error(unsupported_socks_authentication(AuthenticationMethod), _))
-        ; true
-        ),
-        ( Host = ip(A,B,C,D)->
-            AddressType = 0x1, % IPv4 Address
-            format(atom(Address), '~s', [[A, B, C, D]])
-        ; AddressType = 0x3, % Domain
-          atom_length(Host, Length),
-          format(atom(Address), '~s~w', [[Length], Host])
-        ),
-        P1 is Port /\ 0xFF,
-        P2 is Port >> 8,
-        format(StreamPair, '~s~w~s', [[0x5,   % Version 5
-                                       0x1,   % Please establish a connection
-                                       0x0,   % reserved
-                                       AddressType],
-                                      Address,
-                                      [P2, P1]]),
-        flush_output(StreamPair),
-        get_byte(StreamPair, _EchoedServerVersion),
-        get_byte(StreamPair, Status),
-        ( Status =:= 0->
-            % Established!
-            get_byte(StreamPair, _Reserved),
-            get_byte(StreamPair, EchoedAddressType),
-            % We have to read the echoed address back
-            ( EchoedAddressType =:= 0x1 ->
-                get_byte(StreamPair, _),
-                get_byte(StreamPair, _),
-                get_byte(StreamPair, _),
-                get_byte(StreamPair, _)
-            ; otherwise->
-                get_byte(StreamPair, Length),
-                forall(between(1, Length, _),
-                       get_byte(StreamPair, _))
-            ),
-            % Read the port
-            get_byte(StreamPair, _),
-            get_byte(StreamPair, _),
-            % Ready for use!
-            true
-        ; throw(error(socks_negotiation_rejected(Status), _))
-        ).
