@@ -66,294 +66,79 @@ verification, \pllib{sha} providing cryptographic hash functions and
 \input{filesex.tex}
 \input{uid.tex}
 \input{syslog.tex}
+\input{socket.tex}
 
-\section{Socket library}
-\label{sec:sockets}
+\subsection{UDP protocol support}
+\label{sec:udp-sockets}
 
-The \pllib{socket} library provides TCP and UDP inet-domain sockets from
-SWI-Prolog, both client and server-side communication. The interface of
-this library is very close to the Unix socket interface, also supported
-by the MS-Windows {\em winsock} API.  SWI-Prolog applications that wish
-to communicate with multiple sources have three options:
-
-\begin{enumerate}
-    \item Use I/O multiplexing based on wait_for_input/3.  On Windows
-          systems this can only be used for sockets, not for general
-	  (device-) file handles.
-    \item Use multiple threads, handling either a single blocking socket
-          or a pool using I/O multiplexing as above.
-    \item Using XPCE's class \class{socket} which synchronises socket
-          events in the GUI event-loop.
-\end{enumerate}
+The current library provides limited support for UDP packets. The UDP
+protocol is a \emph{connection-less} and \emph{unreliable} datagram
+based protocol. That means that messages sent may or may not arrive at
+the client side and may arrive in a different order as they are sent.
+UDP messages are often used for streaming media or for service discovery
+using the broadcasting mechanism.
 
 \begin{description}
-    \predicate{tcp_socket}{1}{-SocketId}
-Creates an \const{INET}-domain stream-socket and unifies an identifier
-to it with \arg{SocketId}. On MS-Windows, if the socket library is not
-yet initialised, this will also initialise the library.
+    \predicate{udp_socket}{1}{-Socket}
+Similar to tcp_socket/1, but create a socket using the \const{SOCK_DGRAM}
+protocol, ready for UDP connections.
 
-    \predicate{tcp_close_socket}{1}{+SocketId}
-Closes the indicated socket, making \arg{SocketId} invalid.  Normally,
-sockets are closed by closing both stream handles returned by
-open_socket/3.  There are two cases where tcp_close_socket/1 is used
-because there are no stream-handles:
+    \predicate{udp_receive}{4}{+Socket, -Data, -From, +Options}
+Wait for and return the next datagram. The data is returned as a
+Prolog string object (see string_to_list/2). \arg{From} is a term of the
+format \mbox{ip(\arg{A},\arg{B},\arg{C},\arg{D}):\arg{Port}} indicating
+the sender of the message. \arg{Socket} can be waited for using wait_for_input/3.
+Defined \arg{Options}:
 
-\begin{itemize}
-    \item If, after tcp_accept/3, the server uses fork/1 to handle the client
-	  in a sub-process. In this case the accepted socket is not
-	  longer needed from the main server and must be discarded
-	  using tcp_close_socket/1.
-    \item If, after discovering the connecting client with tcp_accept/3,
-          the server does not want to accept the connection, it should
-	  discard the accepted socket immediately using tcp_close_socket/1.
-\end{itemize}
+    \begin{description}
 
-    \predicate{tcp_open_socket}{2}{+Socket, -Stream}
-Create streams to communicate to \arg{Socket}. If \arg{Socket} is a
-master socket (see tcp_bind/2), \arg{Stream} should be used for
-tcp_accept/3. If \arg{Socket} is a connected (see tcp_connect/2) or
-accepted socket (see tcp_accept/3), \arg{Stream} is unified to a stream
-pair (see stream_pair/3) that can be used for reading and writing. The
-stream or pair must be closed with close/1, which also closes
-\arg{Socket}.
+	\termitem{as}{+Type}
+	Defines the returned term-type.  \arg{Type} is one of
+	\const{atom}, \const{codes} or \const{string} (default).
 
-    \predicate{tcp_open_socket}{3}{+SocketId, -InStream, -OutStream}
-Similar to tcp_open_socket/2, but creates two separate sockets where
-tcp_open_socket/2 would have created a stream pair.  Deprecated because
-closing a stream pair is much easier to perform safely.
+	\termitem{max_message_size}{+Size}
+Specify the maximum number of bytes to read from a UDP datagram. Size
+must be within the range 0-65535. If unspecified, a maximum of 4096
+bytes will be read.
+    \end{description}
 
-    \predicate{tcp_bind}{2}{+Socket, ?Address}
-Bind the socket to \arg{Address} on the current machine. This operation,
-together with tcp_listen/2 and tcp_accept/3 implement the {\em
-server}-side of the socket interface. \arg{Address} is either a plain
-\arg{Port} or a term \arg{Host}:\arg{Port}. The first form binds the
-socket to the given port on all interfaces, while the second only binds
-to the matching interface. A typical example is below, causing the
-socket to listen only on port 8080 on the local machine's network.
+The typical sequence to receive UDP data is:
 
 \begin{code}
-    tcp_bind(Socket, localhost:8080)
+receive(Port) :-
+	udp_socket(S),
+	tcp_bind(S, Port),
+	repeat,
+	    udp_receive(Socket, Data, From, [as(atom)]),
+	    format('Got ~q from ~q~n', [Data, From]),
+	    fail.
 \end{code}
 
-If \arg{Port} is unbound, the system picks an arbitrary free port and
-unifies \arg{Port} with the selected port number. \arg{Port} is either
-an integer or the name of a registered service. See also tcp_connect/4.
+    \predicate{udp_send}{4}{+Socket, +Data, +To, +Options}
+Send a UDP message.  Data is a string, atom or code-list providing the
+data.  \arg{To} is an address of the form \arg{Host}:\arg{Port} where
+Host is either the hostname or a term ip/4.  \arg{Options} is currently unused.
 
-    \predicate{tcp_listen}{2}{+Socket, +Backlog}
-Tells, after tcp_bind/2, the socket to listen for incoming requests for
-connections.  \arg{Backlog} indicates how many pending connection
-requests are allowed.  Pending requests are requests that are not yet
-acknowledged using tcp_accept/3.  If the indicated number is exceeded, the
-requesting client will be signalled that the service is currently not
-available.  A suggested default value is 5.
-
-    \predicate{tcp_accept}{3}{+Socket, -Slave, -Peer}
-This predicate waits on a server socket for a connection request by
-a client.  On success, it creates a new socket for the client and
-binds the identifier to \arg{Slave}.   \arg{Peer} is bound to the
-IP-address of the client.
-
-    \predicate[deprecated]{tcp_connect}{2}{+Socket, +Host:+Port}
-Connect \arg{Socket}. After successful completion, tcp_open_socket/3 can
-be used to create I/O-Streams to the remote socket.  New code should use
-tcp_connect/4, which can be hooked to allow for proxy negotiation.
-
-    \predicate{tcp_connect}{3}{+Socket, +Host:+Port, -StreamPair}
-Client-interface to connect a socket to a given \arg{Port} on a given
-\arg{Host}. \arg{Port} is either an integer or the name of a registered
-service. The fragment below connects to the
-\url{http://www.swi-prolog.org} using the service name instead of the
-hardcoded number `80'.
+A simple example to send UDP data is:
 
 \begin{code}
-    Adress = 'www.swi-prolog.org':http,
-    tcp_socket(Socket),
-    tcp_connect(Socket, Adress, Read, Write),
+send(Host, Port, Message) :-
+	udp_socket(S),
+	udp_send(S, Message, Host:Port, []),
+	tcp_close_socket(S).
 \end{code}
 
-This predicate can be hooked by defining the multifile-predicate
-socket:tcp_connect_hook/4. This hook is specifically intented for proxy
-negotiation.  The code below shows the structure of such a hook. The
-predicates \nopredref{proxy}{1} and \nopredref{proxy_connect}{2} must
-be provided by the user.
-
-\begin{code}
-:- multifile socket:tcp_connect_hook/3.
-
-socket:tcp_connect_hook(Socket, Address, Stream) :-
-    proxy(ProxyAdress),
-    tcp_connect(Socket, ProxyAdress),
-    tcp_open_socket(Socket, Stream),
-    proxy_connect(Address, Stream).
-\end{code}
-
-    \predicate{tcp_connect}{4}{+Socket, +Host:+Port, -Read, -Write}
-Similar to tcp_connect/3, but providing separate streams. Separate
-streams are hard to close safely and new code should use tcp_connect/3.
-
-    \predicate{tcp_setopt}{2}{+Socket, +Option}
-Set options on the socket.  Defined options are:
-
-\begin{description}
-    \termitem{reuseaddr}{}
-Allow servers to reuse a port without the system being completely sure
-the port is no longer in use.
-
-    \termitem{bindtodevice}{+Device:atom}
-Bind the socket to the indicated device. For example, the code below
-binds the socket to the \jargon{loopback} device that is typically
-used to realise the \jargon{localhost}.  See the manual pages for
-setsockopt() and the socket interface (e.g., socket(7) on Linux)
-for details.
-
-\begin{code}
-    tcp_socket(Socket),
-    tcp_setopt(Socket, bindtodevice(lo)),
-\end{code}
-
-Note that this call requires root privileges, see library(uid). Also
-note that you can restrict a socket using \exam{tcp_bind(Socket,
-IP:Port)}, where \arg{IP} is the numeric IP address or DNS name of that
-address. For examples, \exam{tcp_bind(Socket, localhost:Port)} also
-restricts access to local connections.
-
-    \termitem{nodelay}{}
-Same as \term{nodelay}{true}
-
-    \termitem{nodelay}{Bool}
-If \const{true}, disable the Nagle optimization on this socket, which
-is enabled by default on almost all modern TCP/IP stacks.  The Nagle
-optimization joins small packages, which is generally desirable, but
-sometimes not.   Please note that the underlying TCP_NODELAY setting
-to setsockopt() is not available on all platforms and systems
-may require additional privileges to change this option.  If the option
-is not supported, tcp_setopt/2 raises a domain_error exception.
-See \url[Wikipedia]{http://en.wikipedia.org/wiki/Nagle's_algorithm} for
-details.
-
-    \termitem{broadcast}{}
-UDP sockets only: broadcast the package to all addresses matching the
-address.  The address is normally the address of the local subnet
-(i.e. 192.168.1.255).  See udp_send/4.
-
-    \termitem{dispatch}{Bool}
-In GUI environments (using XPCE or the Windows plwin.exe executable)
-this flags defines whether or not any events are dispatched on behalf of
-the user interface. Default is \const{true}. Only very specific
-situations require setting this to \const{false}.
+A broadcast is achieved by using \term{tcp_setopt}{Socket, broadcast}
+prior to sending the datagram and using the local network broadcast
+address as a ip/4 term.
 \end{description}
 
-    \predicate{tcp_fcntl}{3}{+Stream, +Action, ?Argument}
-Interface to the Unix \cfuncref{fcntl}{} call.  Currently only suitable
-to deal switch stream to non-blocking mode using:
+The normal mechanism to discover a service on the local network is for
+the client to send a broadcast message to an agreed port. The server
+receives this message and replies to the client with a message
+indicating further details to establish the communication.
 
-\begin{code}
-	...
-	tcp_fcntl(Stream, setfl, nonblock),
-	...
-\end{code}
-
-As of SWI-Prolog 3.2.4, handling of non-blocking streams is supported.
-An attempt to read from a non-blocking stream returns -1 (or
-\const{end_of_file} for read/1), but at_end_of_stream/1 fails. On actual
-end-of-input, at_end_of_stream/1 succeeds.
-
-    \predicate{tcp_host_to_address}{2}{?HostName, ?Address}
-Translate between a machines host-name and it's (IP-)address. If
-\arg{HostName} is an atom, it is resolved using
-\cfuncref{getaddrinfo}{} and the IP-number is unified to \arg{Address}
-using a term of the format \term{ip}{Byte1, Byte2, Byte3, Byte4}.
-Otherwise, if \arg{Address} is bound to a \functor{ip}{4} term, it
-is resolved by \cfuncref{gethostbyaddr}{} and the canonical hostname
-is unified with \arg{HostName}.\footnote{This function should support
-more functionality provided by \cfuncref{gethostbyaddr}{}, probably
-by adding an option-list.}
-
-    \predicate{gethostname}{1}{-Hostname}
-Return the canonical fully qualified name of this host. This is achieved
-by calling \cfuncref{gethostname}{} and return the canonical name
-returned by \cfuncref{getaddrinfo}{}.
-\end{description}
-
-
-\subsection{Server applications}
-\label{sec:socket-server}
-
-The typical sequence for generating a server application is given
-below.  To close the server, use close/1 on \arg{AcceptFd}.
-
-\begin{code}
-create_server(Port) :-
-	tcp_socket(Socket),
-	tcp_bind(Socket, Port),
-	tcp_listen(Socket, 5),
-	tcp_open_socket(Socket, AcceptFd, _),
-	<dispatch>
-\end{code}
-
-There are various options for <dispatch>. The most commonly used option
-is to start a Prolog thread to handle the connection. Alternatively,
-input from multiple clients can be handled in a single thread by
-listening to these clients using wait_for_input/3. Finally, on Unix
-systems, we can use fork/1 to handle the connection in a new process.
-Note that fork/1 and threads do not cooperate well. Combinations can be
-realised but require good understanding of POSIX thread and
-fork-semantics.
-
-Below is the typical example using a thread. Note the use of
-setup_call_cleanup/3 to guarantee that all resources are reclaimed, also
-in case of failure or exceptions.
-
-\begin{code}
-dispatch(AcceptFd) :-
-	tcp_accept(AcceptFd, Socket, _Peer),
-	thread_create(process_client(Socket, Peer), _,
-		      [ detached(true)
-		      ]),
-	dispatch(AcceptFd).
-
-process_client(Socket, Peer) :-
-	setup_call_cleanup(tcp_open_socket(Socket, In, Out),
-			   handle_service(In, Out),
-			   close_connection(In, Out)).
-
-close_connection(In, Out) :-
-	close(In, [force(true)]),
-	close(Out, [force(true)]).
-
-handle_service(In, Out) :-
-	...
-\end{code}
-
-
-\subsection{Client applications}
-\label{sec:socket-client}
-
-The skeleton for client-communication is given below.
-
-\begin{code}
-create_client(Host, Port) :-
-	setup_call_catcher_cleanup(tcp_socket(Socket),
-				   tcp_connect(Socket, Host:Port),
-				   exception(_),
-				   tcp_close_socket(Socket)),
-	setup_call_cleanup(tcp_open_socket(Socket, In, Out),
-			   chat_to_server(In, Out),
-			   close_connection(In, Out)).
-
-close_connection(In, Out) :-
-	close(In, [force(true)]),
-	close(Out, [force(true)]).
-
-chat_to_server(In, Out) :-
-	...
-\end{code}
-
-To deal with timeouts and multiple connections, wait_for_input/3 and/or
-non-blocking streams (see tcp_fcntl/3) can be used.
-
-
-\subsection{The stream_pool library}
+\section{The stream_pool library}
 \label{sec:stream-pools}
 
 The \pllib{streampool} library dispatches input from multiple streams
@@ -425,76 +210,6 @@ client(In, Out, _Peer) :-
 	delete_stream_from_pool(In).
 \end{code}
 
-
-\subsection{UDP protocol support}
-\label{sec:udp-sockets}
-
-The current library provides limited support for UDP packets. The UDP
-protocol is a \emph{connection-less} and \emph{unreliable} datagram
-based protocol. That means that messages sent may or may not arrive at
-the client side and may arrive in a different order as they are sent.
-UDP messages are often used for streaming media or for service discovery
-using the broadcasting mechanism.
-
-\begin{description}
-    \predicate{udp_socket}{1}{-Socket}
-Similar to tcp_socket/1, but create a socket using the \const{SOCK_DGRAM}
-protocol, ready for UDP connections.
-
-    \predicate{udp_receive}{4}{+Socket, -Data, -From, +Options}
-Wait for and return the next datagram. The data is returned as a
-Prolog string object (see string_to_list/2). \arg{From} is a term of the
-format \mbox{ip(\arg{A},\arg{B},\arg{C},\arg{D}):\arg{Port}} indicating
-the sender of the message. \arg{Socket} can be waited for using wait_for_input/3.
-Defined \arg{Options}:
-
-    \begin{description}
-
-	\termitem{as}{+Type}
-	Defines the returned term-type.  \arg{Type} is one of
-	\const{atom}, \const{codes} or \const{string} (default).
-
-	\termitem{max_message_size}{+Size}
-Specify the maximum number of bytes to read from a UDP datagram. Size
-must be within the range 0-65535. If unspecified, a maximum of 4096
-bytes will be read.
-    \end{description}
-
-The typical sequence to receive UDP data is:
-
-\begin{code}
-receive(Port) :-
-	udp_socket(S),
-	tcp_bind(S, Port),
-	repeat,
-	    udp_receive(Socket, Data, From, [as(atom)]),
-	    format('Got ~q from ~q~n', [Data, From]),
-	    fail.
-\end{code}
-
-    \predicate{udp_send}{4}{+Socket, +Data, +To, +Options}
-Send a UDP message.  Data is a string, atom or code-list providing the
-data.  \arg{To} is an address of the form \arg{Host}:\arg{Port} where
-Host is either the hostname or a term ip/4.  \arg{Options} is currently unused.
-
-A simple example to send UDP data is:
-
-\begin{code}
-send(Host, Port, Message) :-
-	udp_socket(S),
-	udp_send(S, Message, Host:Port, []),
-	tcp_close_socket(S).
-\end{code}
-
-A broadcast is achieved by using \term{tcp_setopt}{Socket, broadcast}
-prior to sending the datagram and using the local network broadcast
-address as a ip/4 term.
-\end{description}
-
-The normal mechanism to discover a service on the local network is for
-the client to send a broadcast message to an agreed port. The server
-receives this message and replies to the client with a message
-indicating further details to establish the communication.
 
 \input{uri.tex}
 

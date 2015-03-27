@@ -57,29 +57,136 @@
 
 /** <module> Network socket (TCP and UDP) library
 
-This library forms the core of SWI-Prolog's support for networking.
+The library(socket) provides  TCP  and   UDP  inet-domain  sockets  from
+SWI-Prolog, both client and server-side  communication. The interface of
+this library is very close to the  Unix socket interface, also supported
+by the MS-Windows _winsock_ API. SWI-Prolog   applications  that wish to
+communicate with multiple sources have three options:
 
-@see These predicates are documented in   the source-distribution of the
-package   `clib'.   See    also    the     SWI-Prolog    home-page    at
-http://www.swi-prolog.org
+  - Use I/O multiplexing based on wait_for_input/3.  On Windows
+    systems this can only be used for sockets, not for general
+    (device-) file handles.
+  - Use multiple threads, handling either a single blocking socket
+    or a pool using I/O multiplexing as above.
+  - Using XPCE's class `socket` which synchronises socket
+    events in the GUI event-loop.
+
+## Client applications	{#socket-server}
+
+Using this library to establish  a  TCP   connection  to  a server is as
+simple as opening a file.  See also http_open/3.
+
+==
+dump_swi_homepage :-
+    setup_call_cleanup(
+	tcp_connect(www.swi-prolog.org:http, Stream, []),
+	( format(Stream,
+		 'GET / HTTP/1.1~n\c
+		  Host: www.swi-prolog.org~n\c
+		  Connection: close~n~n', []),
+	  flush_output(Stream),
+	  copy_stream_data(Stream, current_output)
+	),
+	close(S)).
+==
+
+To   deal   with   timeouts   and     multiple   connections,   threads,
+wait_for_input/3 and/or non-blocking streams (see   tcp_fcntl/3)  can be
+used.
+
+## Server applications	{#socket-client}
+
+The typical sequence for generating a server application is given below.
+To close the server, use close/1 on `AcceptFd`.
+
+  ==
+  create_server(Port) :-
+	tcp_socket(Socket),
+	tcp_bind(Socket, Port),
+	tcp_listen(Socket, 5),
+	tcp_open_socket(Socket, AcceptFd, _),
+	<dispatch>
+  ==
+
+There are various options for <dispatch>.  The most commonly used option
+is to start a Prolog  thread   to  handle the connection. Alternatively,
+input from multiple clients  can  be  handled   in  a  single  thread by
+listening to these clients  using   wait_for_input/3.  Finally,  on Unix
+systems, we can use fork/1 to handle   the  connection in a new process.
+Note that fork/1 and threads do not  cooperate well. Combinations can be
+realised  but  require  good   understanding    of   POSIX   thread  and
+fork-semantics.
+
+Below  is  the  typical  example  using  a   thread.  Note  the  use  of
+setup_call_cleanup/3 to guarantee that all resources are reclaimed, also
+in case of failure or exceptions.
+
+  ==
+  dispatch(AcceptFd) :-
+	  tcp_accept(AcceptFd, Socket, _Peer),
+	  thread_create(process_client(Socket, Peer), _,
+			[ detached(true)
+			]),
+	  dispatch(AcceptFd).
+
+  process_client(Socket, Peer) :-
+	  setup_call_cleanup(
+	      tcp_open_socket(Socket, StreamPair),
+	      handle_service(In, StreamPair),
+	      close(StreamPair)).
+
+  handle_service(StreamPair) :-
+	  ...
+  ==
+
+## TCP socket predicates		{#socket-predicates}
 */
 
 :- multifile
-	tcp_connect_hook/3,
-	tcp_connect_hook/4,
-	try_proxy/4.
+	tcp_connect_hook/3,			% +Socket, +Addr, -In, -Out
+	tcp_connect_hook/4,			% +Socket, +Addr, -Stream
+        network_proxy:find_proxy_for_url/3,	% +URL, +Host, -ProxyList
+	try_proxy/4.				% +Proxy, +Addr, -Socket, -Stream
+
+:- predicate_options(tcp_connect/3, 3,
+		     [ bypass_proxy(boolean),
+		       nodelay(boolean)
+		     ]).
 
 :- use_foreign_library(foreign(socket), install_socket).
 :- public tcp_debug/1.			% set debugging.
 
-%%	tcp_open_socket(+Socket, -Stream) is det.
+%%	tcp_socket(-SocketId) is det.
 %
-%	Create streams to communicate to Socket.   If Socket is a master
-%	socket (see tcp_bind/2), Stream should be used for tcp_accept/3.
-%	If Socket is a connected (see  tcp_connect/2) or accepted socket
-%	(see tcp_accept/3), Stream is unified  to   a  stream  pair (see
-%	stream_pair/3) that can be used  for   reading  and writing. The
-%	pair must be closed with close/1, which also closes the Socket.
+%	Creates an INET-domain stream-socket and   unifies an identifier
+%	to it with SocketId. On MS-Windows, if the socket library is not
+%	yet initialised, this will also initialise the library.
+
+%%	tcp_close_socket(+SocketId) is det.
+%
+%	Closes the indicated socket, making  SocketId invalid. Normally,
+%	sockets are closed by closing both   stream  handles returned by
+%	open_socket/3. There are two cases   where tcp_close_socket/1 is
+%	used because there are no stream-handles:
+%
+%	  - If, after tcp_accept/3, the server uses fork/1 to handle the
+%	    client in a sub-process. In this case the accepted socket is
+%	    not longer needed from the main server and must be discarded
+%	    using tcp_close_socket/1.
+%	  - If, after discovering the connecting client with
+%	    tcp_accept/3, the server does not want to accept the
+%	    connection, it should discard the accepted socket
+%	    immediately using tcp_close_socket/1.
+
+%%	tcp_open_socket(+SocketId, -StreamPair) is det.
+%
+%	Create streams to communicate to  SocketId.   If  SocketId  is a
+%	master socket (see tcp_bind/2), StreamPair   should  be used for
+%	tcp_accept/3. If SocketId is a  connected (see tcp_connect/2) or
+%	accepted socket (see tcp_accept/3), StreamPair   is unified to a
+%	stream pair (see stream_pair/3) that can be used for reading and
+%	writing. The stream or pair must   be closed with close/1, which
+%	also closes SocketId.
 
 tcp_open_socket(Socket, Stream) :-
 	tcp_open_socket(Socket, In, Out),
@@ -87,6 +194,69 @@ tcp_open_socket(Socket, Stream) :-
 	->  Stream = In
 	;   stream_pair(Stream, In, Out)
 	).
+
+%%	tcp_open_socket(+SocketId, -InStream, -OutStream) is det.
+%
+%	Similar to tcp_open_socket/2, but creates   two separate sockets
+%	where tcp_open_socket/2 would have created a stream pair.
+%
+%	@deprecated New code should use tcp_open_socket/2 because
+%	closing a stream pair is much easier to perform safely.
+
+%%	tcp_bind(SocketId, ?Address) is det.
+%
+%	Bind  the  socket  to  Address  on  the  current  machine.  This
+%	operation, together with tcp_listen/2 and tcp_accept/3 implement
+%	the _server-side_ of the socket interface.  Address is either an
+%	plain `Port` or a term HostPort. The first form binds the socket
+%	to the given port on all interfaces, while the second only binds
+%	to the matching interface. A typical   example is below, causing
+%	the socket to listen only on port   8080  on the local machine's
+%	network.
+%
+%	  ==
+%	    tcp_bind(Socket, localhost:8080)
+%	  ==
+%
+%	If `Port` is unbound, the system   picks  an arbitrary free port
+%	and unifies `Port` with the  selected   port  number.  `Port` is
+%	either an integer or the name of  a registered service. See also
+%	tcp_connect/4.
+
+%%	tcp_listen(+SocketId, +BackLog) is det.
+%
+%	Tells, after tcp_bind/2,  the  socket   to  listen  for incoming
+%	requests for connections. Backlog  indicates   how  many pending
+%	connection requests are allowed. Pending   requests are requests
+%	that  are  not  yet  acknowledged  using  tcp_accept/3.  If  the
+%	indicated number is exceeded,  the   requesting  client  will be
+%	signalled  that  the  service  is  currently  not  available.  A
+%	commonly used default value for Backlog is 5.
+
+%%	tcp_connect(+SocketId, +HostAndPort) is det.
+%
+%	Connect SocketId. After successful completion, tcp_open_socket/3
+%	can be used to create  I/O-Streams   to  the remote socket. This
+%	predicate is part of the low level client API. A connection to a
+%	particular host and port is realised using these steps:
+%
+%	  ==
+%	      tcp_socket(Socket),
+%	      tcp_connect(Socket, Host:Port),
+%	      tcp_open_socket(Socket, StreamPair)
+%	  ==
+%
+%	Typical client applications should use  the high level interface
+%	provided by tcp_connect/3 which  avoids   resource  leaking if a
+%	step in the process fails and can  be hooked to support proxies.
+%	For example:
+%
+%	  ==
+%	      setup_cal_cleanup(
+%		  tcp_connect(Host:Port, StreamPair, []),
+%		  talk(StreamPair),
+%		  close(StreamPair))
+%	  ==
 
 
 		 /*******************************
@@ -122,27 +292,14 @@ tcp_connect(Socket, Address, Read, Write) :-
 
 
 
-:-multifile
-        network_proxy:find_proxy_for_url/3.
-
-
-
-%%      tcp_connect(+Socket, +Address, -StreamPair) is det.
 %%      tcp_connect(+Address, -StreamPair, +Options) is det.
+%%      tcp_connect(+Socket, +Address, -StreamPair) is det.
 %
-%	This predicate has  two  modes   which  actually  perform  quite
-%	different tasks. The +,+,-  mode  is   deprecated  and  does not
-%	support proxies. It behaves like   tcp_connect/4,  but creates a
-%	stream pair (see stream_pair/3). The main  advantage of having a
-%	single handle is that it is  much   easier  to  safely close the
-%	handles. If two handles need to  be   closed,  the  user must be
-%	careful to close the second  handle   if  closing  the first one
-%	raises an exception.
-%
-%	The +,-,+ mode does not  return   the  socket,  but does support
-%	communication  via  proxies.  To   use    a   proxy,   the  hook
-%	network_proxy:find_proxy_for_url/3 must be   defined.  Permitted
-%	options are:
+%	Establish a TCP communication as a client. The +,-,+ mode is the
+%	preferred way for a  client  to   establish  a  connection. This
+%	predicate can be hooked to  support   network  proxies. To use a
+%	proxy,  the  hook  network_proxy:find_proxy_for_url/3   must  be
+%	defined. Permitted options are:
 %
 %          * bypass_proxy(+Boolean)
 %	     Defaults to =false=. If =true=, do not attempt to use any
@@ -151,8 +308,12 @@ tcp_connect(Socket, Address, Read, Write) :-
 %          * nodelay(+Boolean)
 %	     Defaults to =false=. If =true=, set nodelay on the
 %	     resulting socket using tcp_setopt(Socket, nodelay)
+%
+%	The +,+,- mode is deprecated and   does  not support proxies. It
+%	behaves like tcp_connect/4,  but  creates   a  stream  pair (see
+%	stream_pair/3).
 
-
+% Main mode: +,-,+
 tcp_connect(Address, StreamPair, Options) :-
         var(StreamPair), !,
         (   memberchk(bypass_proxy(true), Options)
@@ -171,8 +332,7 @@ tcp_connect(Address, StreamPair, Options) :-
 	->  tcp_setopt(Socket, nodelay)
 	;   true
         ).
-
-
+% backward compatibility mode +,+,-
 tcp_connect(Socket, Address, StreamPair) :-
 	tcp_connect_hook(Socket, Address, StreamPair0), !,
 	StreamPair = StreamPair0.
@@ -231,14 +391,90 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
               )).
 
 
-
 		 /*******************************
-		 *	   COMPATIBILITY	*
+		 *	      OPTIONS		*
 		 *******************************/
+
+%%	tcp_setopt(+SocketId, +Option) is det.
+%
+%	Set options on the socket.  Defined options are:
+%
+%	  - reuseaddr
+%	  Allow servers to reuse a port without the system being
+%	  completely sure the port is no longer in use.
+%
+%	  - bindtodevice(+Device)
+%	  Bind the socket to Device (an atom). For example, the code
+%	  below binds the socket to the _loopback_ device that is
+%	  typically used to realise the _localhost_. See the manual
+%	  pages for setsockopt() and the socket interface (e.g.,
+%	  socket(7) on Linux) for details.
+%
+%	    ==
+%	    tcp_socket(Socket),
+%	    tcp_setopt(Socket, bindtodevice(lo))
+%	    ==
+%
+%	  - nodelay
+%	  - nodelay(true)
+%	  If =true=, disable the Nagle optimization on this socket,
+%	  which is enabled by default on almost all modern TCP/IP
+%	  stacks. The Nagle optimization joins small packages, which is
+%	  generally desirable, but sometimes not. Please note that the
+%	  underlying TCP_NODELAY setting to setsockopt() is not
+%	  available on all platforms and systems may require additional
+%	  privileges to change this option. If the option is not
+%	  supported, tcp_setopt/2 raises a domain_error exception. See
+%	  [Wikipedia](http://en.wikipedia.org/wiki/Nagle's_algorithm)
+%	  for details.
+%
+%	  - broadcast
+%	  UDP sockets only: broadcast the package to all addresses
+%	  matching the address. The address is normally the address of
+%	  the local subnet (i.e. 192.168.1.255).  See udp_send/4.
+%
+%	  - dispatch(+Boolean)
+%	  In GUI environments (using XPCE or the Windows =swipl-win.exe=
+%	  executable) this flags defines whether or not any events are
+%	  dispatched on behalf of the user interface. Default is
+%	  =true=. Only very specific situations require setting
+%	  this to =false=.
+
+%%	tcp_fcntl(+Stream, +Action, ?Argument) is det.
+%
+%	Interface to the fcntl() call. Currently   only suitable to deal
+%	switch stream to non-blocking mode using:
+%
+%	  ==
+%	    tcp_fcntl(Stream, setfl, nonblock),
+%	  ==
+%
+%	An attempt to read from a non-blocking  stream while there is no
+%	data available returns -1  (or   =end_of_file=  for read/1), but
+%	at_end_of_stream/1    fails.    On      actual     end-of-input,
+%	at_end_of_stream/1 succeeds.
 
 tcp_fcntl(Socket, setfl, nonblock) :- !,
 	tcp_setopt(Socket, nonblock).
 
+%%	tcp_host_to_address(?HostName, ?Address) is det.
+%
+%	Translate between a machines host-name and it's (IP-)address. If
+%	HostName is an atom, it is  resolved using getaddrinfo() and the
+%	IP-number is unified to  Address  using   a  term  of the format
+%	ip(Byte1,Byte2,Byte3,Byte4). Otherwise, if Address   is bound to
+%	an  ip(Byte1,Byte2,Byte3,Byte4)  term,   it    is   resolved  by
+%	gethostbyaddr() and the  canonical  hostname   is  unified  with
+%	HostName.
+%
+%	@tbd This function should support more functionality provided by
+%	gethostbyaddr, probably by adding an option-list.
+
+%%	gethostname(-Hostname) is det.
+%
+%	Return the canonical fully qualified name  of this host. This is
+%	achieved by calling gethostname() and  return the canonical name
+%	returned by getaddrinfo().
 
 
 		 /*******************************
@@ -251,7 +487,7 @@ tcp_fcntl(Socket, setfl, nonblock) :- !,
 %	DesiredEndpoint should be in the form of either:
 %
 %          * hostname : port
-%          * ip/4 : port
+%          * ip(A,B,C,D) : port
 %
 %       @error socks_error(Details) if the SOCKS negotiation failed.
 
@@ -277,7 +513,7 @@ negotiate_socks_connection(Host:Port, StreamPair):-
 	    atom_length(Host, Length),
 	    format(atom(Address), '~s~w', [[Length], Host])
         ),
-        P1 is Port /\ 0xFF,
+        P1 is Port /\ 0xff,
         P2 is Port >> 8,
         format(StreamPair, '~s~w~s', [[0x5,   % Version 5
                                        0x1,   % Please establish a connection
