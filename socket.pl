@@ -54,6 +54,7 @@
 	  ]).
 :- use_module(library(shlib)).
 :- use_module(library(debug)).
+:- use_module(library(lists)).
 
 /** <module> Network socket (TCP and UDP) library
 
@@ -143,10 +144,10 @@ in case of failure or exceptions.
 */
 
 :- multifile
-	tcp_connect_hook/3,			% +Socket, +Addr, -In, -Out
-	tcp_connect_hook/4,			% +Socket, +Addr, -Stream
-        network_proxy:find_proxy_for_url/3,	% +URL, +Host, -ProxyList
-	try_proxy/4.				% +Proxy, +Addr, -Socket, -Stream
+	tcp_connect_hook/3,		% +Socket, +Addr, -In, -Out
+	tcp_connect_hook/4,		% +Socket, +Addr, -Stream
+        proxy_for_url/3,		% +URL, +Host, -ProxyList
+	try_proxy/4.			% +Proxy, +Addr, -Socket, -Stream
 
 :- predicate_options(tcp_connect/3, 3,
 		     [ bypass_proxy(boolean),
@@ -298,8 +299,8 @@ tcp_connect(Socket, Address, Read, Write) :-
 %	Establish a TCP communication as a client. The +,-,+ mode is the
 %	preferred way for a  client  to   establish  a  connection. This
 %	predicate can be hooked to  support   network  proxies. To use a
-%	proxy,  the  hook  network_proxy:find_proxy_for_url/3   must  be
-%	defined. Permitted options are:
+%	proxy, the hook  proxy_for_url/3  must   be  defined.  Permitted
+%	options are:
 %
 %          * bypass_proxy(+Boolean)
 %	     Defaults to =false=. If =true=, do not attempt to use any
@@ -318,15 +319,15 @@ tcp_connect(Address, StreamPair, Options) :-
         var(StreamPair), !,
         (   memberchk(bypass_proxy(true), Options)
 	->  tcp_connect_direct(Address, Socket, StreamPair)
-        ;   format(atom(URL), 'socket://~w', [Address]),
-	    (   Address = Host:_
-	    ->  true
-	    ;   Host = Address
-	    ),
-	    (   network_proxy:find_proxy_for_url(URL, Host, ProxyList)
-	    ->  try_proxies(ProxyList, Address, Socket, StreamPair)
-	    ;   tcp_connect_direct(Address, Socket, StreamPair)
+        ;   findall(Result,
+		    try_a_proxy(Address, Result),
+		    ResultList),
+	    last(ResultList, Status)
+	->  (   Status = true(_Proxy, Socket, StreamPair)
+	    ->	true
+	    ;	throw(error(proxy_error(tried(ResultList)), _))
 	    )
+	;   tcp_connect_direct(Address, Socket, StreamPair)
 	),
         (   memberchk(nodelay(true), Options)
 	->  tcp_setopt(Socket, nodelay)
@@ -353,33 +354,35 @@ tcp_connect_direct(Address, Socket, StreamPair):-
 		 *	  PROXY SUPPORT		*
 		 *******************************/
 
-%%	try_proxies(ProxySpec, +Address, -Socket, -StreamPair)
-%
-%	Try a to establish a proxied connection to Address.  ProxySpec
-%	is one of:
-%
-%	  $ A list of proxies :
-%	  Each proxy is tried by calling the hook try_proxy/4 using
-%	  a member of the list as first argument and passing the
-%	  remaining arguments.  Errors from earlier proxies are
-%	  printed using print_message/3 at level `warning`.  An
-%	  error from the last proxy is passed to the caller.
-%	  $ `direct` :
-%	  $ socks(Host, Port) :
+try_a_proxy(Address, Result) :-
+	format(atom(URL), 'socket://~w', [Address]),
+	(   Address = Host:_
+	->  true
+	;   Host = Address
+	),
+	proxy_for_url(URL, Host, Proxy),
+	debug(socket(proxy), 'Socket connecting via ~w~n', [Proxy]),
+	(   catch(try_proxy(Proxy, Address, Socket, Stream), E, true)
+	->  (   var(E)
+	    ->	!, Result = true(Proxy, Socket, Stream)
+	    ;	Result = error(Proxy, E)
+	    )
+	;   Result = false(Proxy)
+	),
+	debug(socket(proxy), 'Socket: ~w: ~p', [Proxy, Result]).
 
+%%	try_proxy(+Proxy, +TargetAddress, -Socket, -StreamPair) is semidet.
+%
+%	Attempt  a  socket-level  connection  via  the  given  proxy  to
+%	TargetAddress. Terms for proxy as   returned by proxy_for_url/3.
+%	If this predicate fails,  tcp_connect/3   will  silently try the
+%	next connection. If this predicate throws an error, the error is
+%	printed as a warning by tcp_connect/3 before the next connection
+%	is tried.
 
-try_proxies([Last], Address, Socket, StreamPair) :- !,
-        debug(proxy, 'Socket connecting via ~w~n', [Last]),
-        try_proxy(Last, Address, Socket, StreamPair).
-try_proxies([Proxy|_Proxies], Address, Socket, StreamPair) :-
-        debug(proxy, 'Socket connecting via ~w~n', [Proxy]),
-        catch(try_proxy(Proxy, Address, Socket, StreamPair),
-              Error,
-              ( print_message(warning, proxy_failed_to_respond(Proxy, Error)),
-                fail
-              )), !.
-try_proxies([_Proxy|Proxies], Address, Socket, StreamPair) :-
-        try_proxies(Proxies, Address, Socket, StreamPair).
+:- multifile
+	try_proxy/4.
+
 try_proxy(direct, Address, Socket, StreamPair) :- !,
         tcp_connect_direct(Address, Socket, StreamPair).
 try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
@@ -389,6 +392,28 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
               ( close(StreamPair, [force(true)]),
                 throw(Error)
               )).
+
+%%      proxy_for_url(+URL, +Hostname, Proxy) is nondet.
+%
+%	This hook can be implemented  to  return   a  proxy  to try when
+%	connecting to URL. Pre-defined proxy methods are:
+%
+%          * direct
+%	     connect directly to the resource
+%          * proxy(Host, Port)
+%	     Connect to the resource using an HTTP proxy. If the
+%	     resource is not an HTTP URL, then try to connect using the
+%	     CONNECT verb, otherwise, use the GET verb.
+%          * socks(Host, Port)
+%	     Connect to the resource via a SOCKS5 proxy
+%
+%	These correspond to the proxy  methods   defined  by  PAC [Proxy
+%	auto-config](http://en.wikipedia.org/wiki/Proxy_auto-config).
+%	Additional methods can  be  returned   if  suitable  clauses for
+%	http:http_connection_over_proxy/6 or try_proxy/4 are defined.
+
+:- multifile
+	proxy_for_url/3.
 
 
 		 /*******************************
@@ -554,17 +579,15 @@ is extracted from the operating system.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 :- multifile
-	prolog:message//1,
 	prolog:error_message//1.
-
-prolog:message(proxy_failed_to_respond(Proxy, Error)) -->
-	[ 'Network proxy ~p failed to respond: '-[Proxy] ],
-	'$messages':translate_message(Error).
 
 prolog:error_message(socket_error(Message)) -->
 	[ 'Socket error: ~w'-[Message] ].
 prolog:error_message(socks_error(Error)) -->
 	socks_error(Error).
+prolog:error_message(proxy_error(Tried)) -->
+	[ 'Failed to connect using a proxy.  Tried:'-[], nl],
+	proxy_tried(Tried).
 
 socks_error(invalid_version(Supported, Got)) -->
 	[ 'SOCKS: unsupported version: ~p (supported: ~p)'-
@@ -574,4 +597,10 @@ socks_error(invalid_authentication_method(Supported, Got)) -->
 	  [ Got, Supported ] ].
 socks_error(negotiation_rejected(Status)) -->
 	[ 'SOCKS: connection failed: ~p'-[Status] ].
+
+proxy_tried(error(Proxy, Error)) -->
+	[ '~w: '-[Proxy] ],
+	'$messages':translate_message(Error).
+proxy_tried(false(Proxy)) -->
+	[ '~w: failed with unspecified error'-[Proxy] ].
 
