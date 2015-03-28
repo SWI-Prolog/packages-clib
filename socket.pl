@@ -313,6 +313,15 @@ tcp_connect(Socket, Address, Read, Write) :-
 %	The +,+,- mode is deprecated and   does  not support proxies. It
 %	behaves like tcp_connect/4,  but  creates   a  stream  pair (see
 %	stream_pair/3).
+%
+%	@error proxy_error(tried(ResultList)) is raised  by mode (+,-,+)
+%	if proxies are defines  by  proxy_for_url/3   but  no  proxy can
+%	establsh the connection. `ResultList` contains one or more terms
+%	of the form false(Proxy)  for  a   hook  that  simply  failed or
+%	error(Proxy, ErrorTerm) for a hook that raised an exception.
+%
+%	@see library(http/http_proxy) defines a  hook   that  allows  to
+%	connect through HTTP proxies that support the =CONNECT= method.
 
 % Main mode: +,-,+
 tcp_connect(Address, StreamPair, Options) :-
@@ -374,11 +383,21 @@ try_a_proxy(Address, Result) :-
 %%	try_proxy(+Proxy, +TargetAddress, -Socket, -StreamPair) is semidet.
 %
 %	Attempt  a  socket-level  connection  via  the  given  proxy  to
-%	TargetAddress. Terms for proxy as   returned by proxy_for_url/3.
-%	If this predicate fails,  tcp_connect/3   will  silently try the
-%	next connection. If this predicate throws an error, the error is
-%	printed as a warning by tcp_connect/3 before the next connection
-%	is tried.
+%	TargetAddress. The Proxy argument must match the output argument
+%	of proxy_for_url/3. The predicate tcp_connect/3 (and http_open/3
+%	from the library(http/http_open)) collect the  results of failed
+%	proxies and raise an exception no  proxy is capable of realizing
+%	the connection.
+%
+%	The default implementation  recognises  the   values  for  Proxy
+%	described    below.    The      library(http/http_proxy)    adds
+%	proxy(Host,Port)  which  allows  for  HTTP   proxies  using  the
+%	=CONNECT= method.
+%
+%	  - direct
+%	  Do not use any proxy
+%	  - socks(Host, Port)
+%	  Use a SOCKS5 proxy
 
 :- multifile
 	try_proxy/4.
@@ -396,7 +415,9 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
 %%      proxy_for_url(+URL, +Hostname, Proxy) is nondet.
 %
 %	This hook can be implemented  to  return   a  proxy  to try when
-%	connecting to URL. Pre-defined proxy methods are:
+%	connecting to URL. Returned proxies are   tried  in the order in
+%	which they are  returned  by   the  multifile  hook try_proxy/4.
+%	Pre-defined proxy methods are:
 %
 %          * direct
 %	     connect directly to the resource
