@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2002-2014, University of Amsterdam
+    Copyright (C): 2002-2015, University of Amsterdam
 			      Vu University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -241,11 +241,15 @@ copy_directory_content(From, To, Entry) :-
 special(.).
 special(..).
 
-%%	delete_directory_and_contents(+Dir)
+%%	delete_directory_and_contents(+Dir) is det.
 %
-%	Recursively remove the directory Dir and  its contents. Use with
-%	care!
+%	Recursively remove the directory Dir and its contents. If Dir is
+%	a symbolic link or symbolic links   inside  Dir are encountered,
+%	the links are removed rather than their content. Use with care!
 
+delete_directory_and_contents(Dir) :-
+	read_link(Dir, _, _), !,
+	delete_file(Dir).
 delete_directory_and_contents(Dir) :-
 	directory_files(Dir, Files),
 	maplist(delete_directory_contents(Dir), Files),
@@ -263,7 +267,9 @@ delete_directory_contents(Dir, Entry) :-
 %%	delete_directory_contents(+Dir) is det.
 %
 %	Remove all content from  directory   Dir,  without  removing Dir
-%	itself.
+%	itself. Similar to delete_directory_and_contents/2,  if symbolic
+%	links are encountered in Dir, the  links are removed rather than
+%	their content.
 
 delete_directory_contents(Dir) :-
 	directory_files(Dir, Files),
