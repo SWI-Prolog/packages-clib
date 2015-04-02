@@ -606,7 +606,7 @@ prolog:error_message(socket_error(Message)) -->
 	[ 'Socket error: ~w'-[Message] ].
 prolog:error_message(socks_error(Error)) -->
 	socks_error(Error).
-prolog:error_message(proxy_error(Tried)) -->
+prolog:error_message(proxy_error(tried(Tried))) -->
 	[ 'Failed to connect using a proxy.  Tried:'-[], nl],
 	proxy_tried(Tried).
 
@@ -619,6 +619,10 @@ socks_error(invalid_authentication_method(Supported, Got)) -->
 socks_error(negotiation_rejected(Status)) -->
 	[ 'SOCKS: connection failed: ~p'-[Status] ].
 
+proxy_tried([]) --> [].
+proxy_tried([H|T]) -->
+	proxy_tried(H),
+	proxy_tried(T).
 proxy_tried(error(Proxy, Error)) -->
 	[ '~w: '-[Proxy] ],
 	'$messages':translate_message(Error).
