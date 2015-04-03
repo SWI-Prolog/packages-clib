@@ -54,15 +54,15 @@
 %	?- stream_info(15).
 %	==
 %
-%	@param	Stream	A stream-handle, alias name or (integer) system
-%		file handle.
+%	@param	Stream	A stream-handle, alias name, (integer) system
+%		file handle or `'<stream>(address)'` atom.
 
 stream_info(Stream) :-
 	is_stream(Stream), !,
 	forall(stream_property(Stream, P),
 	       print_property(P)),
 	nl,
-	catch('$stream_info'(Stream), E, true),
+	catch('$stream_info'(current_output, Stream), E, true),
 	(   nonvar(E)
 	->  format('~w:~t~25|~q~n', ['pending exception', E])
 	;   true
@@ -75,6 +75,13 @@ stream_info(FileNo) :-
 	forall(member(Stream, Streams),
 	       (   format('****************~nStream ~p:~n', [Stream]),
 		   stream_info(Stream))).
+stream_info(Atom) :-
+	atom(Atom),
+	(   stream_property(Stream, type(_)),
+	    format(atom(Atom), '~p', [Stream])
+	->  stream_info(Stream)
+	;   existence_error(stream, Atom)
+	).
 
 print_property(P) :-
 	P =.. [Name,Value], !,

@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2009, University of Amsterdam
+    Copyright (C): 2009-2015, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -28,21 +27,21 @@
 #include <ctype.h>
 
 static int
-print_byte(int value)
+print_byte(IOSTREAM *out, int value)
 { if ( isgraph(value) || isspace(value) )
-  { Sdprintf("%c", value);
+  { Sfprintf(out, "%c", value);
   } else
-  { Sdprintf("\\\\%02x", value);
+  { Sfprintf(out, "\\\\u%04x", value);
   }
 
   return 0;
 }
 
 static int
-print_buffer(const char *data, size_t len)
+print_buffer(IOSTREAM *out, const char *data, size_t len)
 { size_t i;
 
-  Sdprintf("----------------\n");
+  Sfprintf(out, "----------------\n");
   for(i=0; i<len; i++)
   { if ( data[i] == 0 )
     { size_t zeros;
@@ -50,60 +49,71 @@ print_buffer(const char *data, size_t len)
       for(zeros = 0; i+zeros < len && data[i+zeros] == 0; zeros++)
 	;
       if ( zeros > 10 )
-      { Sdprintf("<%d 0-bytes>", zeros);
+      { Sfprintf(out, "<%d 0-bytes>", zeros);
       }
       i += zeros;
     } else
-    { print_byte(data[i]&0xff);
+    { print_byte(out, data[i]&0xff);
     }
   }
   if ( data[len-1] != '\n' )
-    Sdprintf("\n");
-  Sdprintf("----------------\n");
+    Sfprintf(out, "\n");
+  Sfprintf(out, "----------------\n");
 
   return 0;
 }
 
 
 static foreign_t
-stream_info(term_t stream)
-{ IOSTREAM *s;
+stream_info(term_t to, term_t stream)
+{ IOSTREAM *s = NULL, *out = NULL;
+  int rc;
 
-  if ( !PL_get_stream_handle(stream, &s) )
-  { return pl_error("stream_info", 2, NULL, ERR_ARGTYPE, 1,
-		    stream, "stream");
+  if ( !(rc=PL_get_stream_handle(to, &out)) )
+  { pl_error("stream_info", 2, NULL, ERR_ARGTYPE, 1,
+	     to, "stream");
+    goto finish;
+  }
+  if ( !(rc=PL_get_stream_handle(stream, &s)) )
+  { pl_error("stream_info", 2, NULL, ERR_ARGTYPE, 2,
+	     stream, "stream");
+    goto finish;
   }
 
   if ( (s->flags & SIO_INPUT) )
   { if ( s->buffer )
     { if ( s->bufp > s->buffer )
-      { Sdprintf("Processed input:\n");
-	print_buffer(s->buffer, s->bufp-s->buffer);
+      { Sfprintf(out, "Processed input:\n");
+	print_buffer(out, s->buffer, s->bufp-s->buffer);
       }
 
       if ( s->bufp < s->limitp )
-      { Sdprintf("Unprocessed input:\n");
-	print_buffer(s->bufp, s->limitp-s->bufp);
+      { Sfprintf(out, "Unprocessed input:\n");
+	print_buffer(out, s->bufp, s->limitp-s->bufp);
       }
     }
   } else if ( (s->flags & SIO_OUTPUT) )
   { if ( s->buffer )
     { if ( s->bufp > s->buffer )
-      { Sdprintf("Buffered output:\n");
-	print_buffer(s->buffer, s->bufp-s->buffer);
+      { Sfprintf(out, "Buffered output:\n");
+	print_buffer(out, s->buffer, s->bufp-s->buffer);
       }
 
       if ( s->bufp < s->limitp )
-      { Sdprintf("Possibly sent output (or junk):\n");
-	print_buffer(s->bufp, s->limitp-s->bufp);
+      { Sfprintf(out, "Possibly sent output (or junk):\n");
+	print_buffer(out, s->bufp, s->limitp-s->bufp);
       }
     }
   }
 
-  return PL_release_stream(s);
+finish:
+  if ( out ) rc = (rc && PL_release_stream(out));
+  if ( s   ) rc = (rc && PL_release_stream(s));
+
+  return rc;
 }
 
 install_t
-install_streaminfo()
-{ PL_register_foreign("$stream_info", 1, stream_info, 0);
+install_streaminfo(void)
+{ PL_register_foreign("$stream_info", 2, stream_info, 0);
 }
