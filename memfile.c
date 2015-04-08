@@ -1404,7 +1404,7 @@ memory_file_line_position(term_t handle,
 	  }
 	  line_count++;
 	  chcount += linelen;
-	} while(chcount < o);
+	} while(chcount < o && rc == TRUE);
 
 	rc = FALSE;
       } else
