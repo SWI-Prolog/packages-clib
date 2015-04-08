@@ -1281,7 +1281,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
   }
 
   if ( from < mf->gap_start )
-  { start = s = mf->data;
+  { start = s = mf->data+from;
     e = &mf->data[mf->gap_start];
   } else
   { after_gap:
