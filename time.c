@@ -816,7 +816,8 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   if ( !PL_get_float(time, &t) )
     return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 1,
 		    time, "number");
-
+  if ( !PL_strip_module(callable, &m, callable) )
+    return FALSE;
 
   if ( !(ev = allocEvent()) )
     return FALSE;
@@ -832,7 +833,6 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   }
 
   ev->flags = flags;
-  PL_strip_module(callable, &m, callable);
   ev->module = m;
   ev->goal = PL_record(callable);
 
