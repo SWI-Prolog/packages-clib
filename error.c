@@ -206,10 +206,10 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 		       PL_TERM, formal,
 		       PL_TERM, swi);
 
-  PL_close_foreign_frame(fid);
-
   if ( rc )
-    return PL_raise_exception(except);
+    rc = PL_raise_exception(except);
+
+  PL_close_foreign_frame(fid);
 
   return rc;
 }
