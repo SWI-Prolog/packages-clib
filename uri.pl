@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2009, VU University Amsterdam
+    Copyright (C): 2009-2015, VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -152,7 +152,7 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %	==
 %	uri_is_global(URI) :-
 %		uri_components(URI, Components),
-%		uri_data(Components, scheme, Scheme),
+%		uri_data(scheme, Components, Scheme),
 %		nonvar(Scheme).
 %	==
 
