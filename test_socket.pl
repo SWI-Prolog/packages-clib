@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 1985-2015, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -80,6 +79,8 @@ accept(Socket) :-
 	tcp_accept(Socket, Slave, Peer),
 	debug(connection, 'connect(~p)', [Peer]),
 	tcp_open_socket(Slave, In, Out),
+	set_stream(In, encoding(utf8)),
+	set_stream(Out, encoding(utf8)),
 	add_stream_to_pool(In, client(In, Out, Peer)).
 
 client(In, Out, Peer) :-
@@ -126,6 +127,8 @@ client(Address) :-
 	tcp_socket(S),
 	tcp_connect(S, Address),
 	tcp_open_socket(S, In, Out),
+	set_stream(In, encoding(utf8)),
+	set_stream(Out, encoding(utf8)),
 	asserta(client(In, Out)),
 	test,
 	retract(client(In, Out)),
