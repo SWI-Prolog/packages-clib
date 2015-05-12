@@ -668,6 +668,9 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
       goto out;
     }
 
+    if ( encoding != ENC_OCTET )
+      flags |= SIO_TEXT;
+
     if ( !(fd = Snew(m, flags, &memfile_functions)) )
     { rc = pl_error("open_memory_file", 3, NULL, ERR_ERRNO, errno,
 		    "create", "memory_file", handle);
