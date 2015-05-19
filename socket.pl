@@ -412,7 +412,7 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :- !,
                 throw(Error)
               )).
 
-%%      proxy_for_url(+URL, +Hostname, Proxy) is nondet.
+%%      proxy_for_url(+URL, +Hostname, -Proxy) is nondet.
 %
 %	This hook can be implemented  to  return   a  proxy  to try when
 %	connecting to URL. Returned proxies are   tried  in the order in
