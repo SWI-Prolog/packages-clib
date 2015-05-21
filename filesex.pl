@@ -31,7 +31,7 @@
 :- module(files_ex,
 	  [ set_time_file/3,		% +File, -OldTimes, +NewTimes
 	    link_file/3,		% +OldPath, +NewPath, +Type
-	    relative_file_name/3,	% +AbsPath, +RelTo, -RelPath
+	    relative_file_name/3,	% ?AbsPath, +RelTo, ?RelPath
 	    directory_file_path/3,	% +Dir, +File, -Path
 	    copy_file/2,		% +From, +To
 	    make_directory_path/1,	% +Directory
@@ -99,15 +99,19 @@ implementations from this library is usually faster.
 %		is unknown or not supported on the target OS.
 
 %%	relative_file_name(+Path:atom, +RelTo:atom, -RelPath:atom) is det.
+%%	relative_file_name(-Path:atom, +RelTo:atom, +RelPath:atom) is det.
 %
 %	True when RelPath is Path, relative to RelTo. Path and RelTo are
 %	first handed to absolute_file_name/2, which   makes the absolute
-%	*and* canonical. Below is an example:
+%	*and* canonical. Below are two examples:
 %
 %	==
 %	?- relative_file_name('/home/janw/nice',
 %			      '/home/janw/deep/dir/file', Path).
 %	Path = '../../nice'.
+%
+%	?- relative_file_name(Path, '/home/janw/deep/dir/file', '../../nice').
+%	Path = '/home/janw/nice'.
 %	==
 %
 %	@param	All paths must be in canonical POSIX notation, i.e.,
@@ -115,7 +119,8 @@ implementations from this library is usually faster.
 %		prolog_to_os_filename/2.
 %	@bug	This predicate is defined as a _syntactical_ operation.
 
-relative_file_name(Path, RelTo, RelPath) :-
+relative_file_name(Path, RelTo, RelPath) :- % +,+,-
+	nonvar(Path), !,
 	absolute_file_name(Path, AbsPath),
 	absolute_file_name(RelTo, AbsRelTo),
         atomic_list_concat(PL, /, AbsPath),
@@ -123,6 +128,13 @@ relative_file_name(Path, RelTo, RelPath) :-
         delete_common_prefix(PL, RL, PL1, PL2),
         to_dot_dot(PL2, DotDot, PL1),
         atomic_list_concat(DotDot, /, RelPath).
+relative_file_name(Path, RelTo, RelPath) :-
+	(   is_absolute_file_name(RelPath)
+	->  Path = RelPath
+	;   file_directory_name(RelTo, RelToDir),
+	    directory_file_path(RelToDir, RelPath, Path0),
+	    absolute_file_name(Path0, Path)
+	).
 
 delete_common_prefix([H|T01], [H|T02], T1, T2) :- !,
         delete_common_prefix(T01, T02, T1, T2).
