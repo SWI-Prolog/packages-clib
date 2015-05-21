@@ -99,15 +99,21 @@ implementations from this library is usually faster.
 %		is unknown or not supported on the target OS.
 
 %%	relative_file_name(+Path:atom, +RelTo:atom, -RelPath:atom) is det.
+%%	relative_file_name(-Path:atom, +RelTo:atom, +RelPath:atom) is det.
 %
 %	True when RelPath is Path, relative to RelTo. Path and RelTo are
 %	first handed to absolute_file_name/2, which   makes the absolute
-%	*and* canonical. Below is an example:
+%	*and* canonical. Below are two examples:
 %
 %	==
 %	?- relative_file_name('/home/janw/nice',
 %			      '/home/janw/deep/dir/file', Path).
 %	Path = '../../nice'.
+%	==
+%
+%	==
+%	?- relative_file_name(Path, '/home/janw/deep/dir/file', '../../nice').
+%	Path = '/home/janw/deep/dir/../../nice'.
 %	==
 %
 %	@param	All paths must be in canonical POSIX notation, i.e.,
@@ -116,6 +122,7 @@ implementations from this library is usually faster.
 %	@bug	This predicate is defined as a _syntactical_ operation.
 
 relative_file_name(Path, RelTo, RelPath) :-
+	atom(Path), atom(RelTo), !,
 	absolute_file_name(Path, AbsPath),
 	absolute_file_name(RelTo, AbsRelTo),
         atomic_list_concat(PL, /, AbsPath),
@@ -123,6 +130,11 @@ relative_file_name(Path, RelTo, RelPath) :-
         delete_common_prefix(PL, RL, PL1, PL2),
         to_dot_dot(PL2, DotDot, PL1),
         atomic_list_concat(DotDot, /, RelPath).
+relative_file_name(Path, RelTo, RelPath) :-
+	atom(RelTo), atom(RelPath), !,
+	file_directory_name(RelTo, RelToDir),
+	start_with_slash(RelPath, RelPathSlash),
+	atomic_concat(RelToDir, RelPathSlash, Path).
 
 delete_common_prefix([H|T01], [H|T02], T1, T2) :- !,
         delete_common_prefix(T01, T02, T1, T2).
@@ -132,6 +144,11 @@ to_dot_dot([], Tail, Tail).
 to_dot_dot([_], Tail, Tail) :- !.
 to_dot_dot([_|T0], ['..'|T], Tail) :-
         to_dot_dot(T0, T, Tail).
+
+start_with_slash(Atom, Atom):-
+	sub_atom(Atom, 0, 1, _, /), !.
+start_with_slash(Atom0, Atom):-
+	atomic_concat(/, Atom0, Atom).
 
 
 %%	directory_file_path(+Directory, +File, -Path) is det.
