@@ -106,6 +106,9 @@ typedef enum
   REQ_WRITE,
   REQ_RECVFROM,
   REQ_SENDTO
+#ifdef __WINDOWS__
+  , REQ_DEALLOCATE
+#endif
 } nbio_request;
 
 					/* nbio_get_flags() mask */
