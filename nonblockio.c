@@ -220,7 +220,6 @@ typedef struct _plsocket
   nbio_request	    request;		/* our request */
   DWORD		    thread;		/* waiting thread */
   DWORD		    error;		/* error while executing request */
-  DWORD             close_timeout;      /* Time to reap socket if FD_CLOSE is not received */
   int		    done;		/* request completed */
   int		    w32_flags;		/* or of received FD_* */
   CRITICAL_SECTION  socket_mutex;       /* synchronization mutex */
@@ -268,9 +267,10 @@ typedef struct _plsocket
 static plsocket *allocSocket(SOCKET socket);
 #ifdef __WINDOWS__
 static plsocket *lookupOSSocket(SOCKET socket);
-static int socketIsPendingClose(plsocket *s);
 static const char *WinSockError(unsigned long eno);
+static int releaseSocketWhenPossible(plsocket *s);
 #endif
+static int freeSocket(plsocket *s);
 
 #ifndef __WINDOWS__
 static int
@@ -333,6 +333,7 @@ request_name(nbio_request request)
     case REQ_WRITE:   return "req_write";
     case REQ_RECVFROM:return "req_recvfrom";
     case REQ_SENDTO:  return "req_sendto";
+    case REQ_DEALLOCATE:return "req_deallocate";
     default:	      return "req_???";
   }
 }
@@ -873,6 +874,8 @@ doRequest(plsocket *s)
 	doneRequest(s);
       }
       break;
+    case REQ_DEALLOCATE:
+      freeSocket(s);
   }
 
   return TRUE;
@@ -954,7 +957,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
              allow for the case when FD_CLOSE never comes, and then
 	     continue as normal
           */
-          socketIsPendingClose(s);
+          releaseSocketWhenPossible(s);
 	}
 
 	switch(s->request)
@@ -978,6 +981,8 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	  case REQ_SENDTO:
 	    s->rdata.sendto.bytes = -1;
 	    break;
+          case REQ_DEALLOCATE:
+            break;
 	}
 	doneRequest(s);
       } else if ( s->socket >= 0 )
@@ -1289,11 +1294,10 @@ allocSocket(SOCKET socket)
   size_t i;
 
 #ifdef __WINDOWS__
-  DWORD now = GetTickCount();
 
   if ( (p=lookupOSSocket(socket)) )
-  { DEBUG(1, Sdprintf("WinSock %d already registered on %d; tmo=%ld, now=%ld\n",
-		      (int)socket, p->id, (long)p->close_timeout, (long)now));
+  { DEBUG(1, Sdprintf("WinSock %d already registered on %d\n",
+		      (int)socket, p->id));
     p->socket = (SOCKET)-1;
   }
 #endif
@@ -1319,22 +1323,6 @@ allocSocket(SOCKET socket)
     { sockets[i] = p = PL_malloc(sizeof(*p));
       socks_count++;
       break;
-#ifdef __WINDOWS__
-    } else
-    { if ( p->close_timeout && p->close_timeout < now )
-      { SOCKET sock;
-
-	p->close_timeout = 0;
-	if ( (sock=p->socket) )		/* is this ever the case? */
-	{ int rval;
-
-	  do
-	  { rval = closesocket(sock);
-	  } while(rval == SOCKET_ERROR && errno == EINTR);
-	}
-	break;
-      }
-#endif
     }
   }
   UNLOCK();
@@ -1360,7 +1348,6 @@ allocSocket(SOCKET socket)
 }
 
 
-#ifndef __WINDOWS__
 static int
 freeSocket(plsocket *s)
 { int rval;
@@ -1400,7 +1387,6 @@ freeSocket(plsocket *s)
 
   return rval;
 }
-#endif
 
 
 		 /*******************************
@@ -1669,25 +1655,21 @@ nbio_cleanup(void)
 }
 
 #ifdef __WINDOWS__
-
-/* socketIsPendingClose() is called if a Windows socket is closed, but
-   we did not yet see an FD_CLOSE message for it.  We will reuse this
-   socket using lookupTimedOutSocket() if we have not seen the FD_CLOSE
-   after 30 seconds.  This is a random time.  Are we guaranteed to get
-   an FD_CLOSE?
-*/
-
 static int
-socketIsPendingClose(plsocket *s)
-{ s->close_timeout = GetTickCount() + 30 * 1000;
+releaseSocketWhenPossible(plsocket *s)
+{
+  LOCK_SOCKET(s);
   shutdown(s->socket, SD_BOTH);
-  DEBUG(2, Sdprintf("Setting close_timeout on socket %d... to %ld\n",
-		    s->id, (long)s->close_timeout));
-
+  s->flags  |= PLSOCK_WAITING;
+  s->done    = FALSE;
+  s->error   = 0;
+  s->thread  = GetCurrentThreadId();
+  s->request = REQ_DEALLOCATE;
+  UNLOCK_SOCKET(s);
+  SendMessage(State()->hwnd, WM_REQUEST, 1, (LPARAM)&s);
   return 0;
 }
-
-#endif /*__WINDOWS__*/
+#endif
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 socket(-Socket)
@@ -1744,7 +1726,7 @@ nbio_closesocket(nbio_sock_t socket)
   {
   // We cannot free the socket in Windows since we might subsequently get an FD_CLOSE. Instead set the timeout
 #ifdef __WINDOWS__
-  socketIsPendingClose(s);
+  releaseSocketWhenPossible(s);
 #else
   freeSocket(s);
 #endif
@@ -2343,7 +2325,7 @@ nbio_close_input(nbio_sock_t socket)
   s->input = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
 #ifdef __WINDOWS__
-    return socketIsPendingClose(s);
+    return releaseSocketWhenPossible(s);
 #else
     return freeSocket(s);
 #endif
@@ -2381,7 +2363,7 @@ nbio_close_output(nbio_sock_t socket)
   s->output = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
 #ifdef __WINDOWS__
-    return socketIsPendingClose(s);
+    return releaseSocketWhenPossible(s);
 #else
     return freeSocket(s);
 #endif
