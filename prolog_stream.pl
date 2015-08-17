@@ -67,6 +67,8 @@ primary use case.
 %	The current implementation only  deals   with  text streams. The
 %	stream uses the =wchar_t= encoding. The   buffer  size must be a
 %	multiple of =wchar_t=, i.e., a multiple of four for portability.
+%	The _newline_ mode of the stream   is  =posix= on all platforms,
+%	disabling the translation `"\n" --> "\r\n"`.
 %
 %	@arg Options is currently ignored.
 %	@bug	Futher versions might require additional callbacks.  As we

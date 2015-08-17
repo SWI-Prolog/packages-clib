@@ -238,6 +238,7 @@ open_prolog_stream(term_t module, term_t mode, term_t stream, term_t options)
   ctx->stream = s;
   ctx->module = m;
   s->encoding = ENC_WCHAR;
+  s->newline  = SIO_NL_POSIX;
 
   if ( PL_unify_stream(stream, s) )
   { return TRUE;
