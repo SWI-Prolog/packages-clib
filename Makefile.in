@@ -164,7 +164,7 @@ check-read::
 ################################################################
 
 TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex \
-	 uuid.tex unix.tex syslog.tex socket.tex
+	 uuid.tex unix.tex syslog.tex socket.tex prologstream.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
@@ -187,6 +187,8 @@ socket.tex:	socket.pl
 		$(PLTOTEX) 'library(socket)'
 udpbroadcast.tex:	udp_broadcast.pl
 		$(PLTOTEX) 'library(udp_broadcast)'
+prologstream.tex:	prolog_stream.pl
+		$(PLTOTEX) 'library(prolog_stream)'
 
 ################################################################
 # Clean

@@ -709,6 +709,8 @@ cpu_exceeded(_Sig) :-
 \end{description}
 
 \input{udpbroadcast.tex}
+\input{prologstream.tex}
+
 \section*{NetBSD Crypt license}
 
 \begin{code}
