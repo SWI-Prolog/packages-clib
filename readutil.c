@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2005, University of Amsterdam
+    Copyright (C): 1985-2015, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -64,7 +63,7 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
   { int	c = Sgetcode(s);
 
     if ( c == EOF )
-    { if ( (s->flags & SIO_FERR) )
+    { if ( Sferror(s) || PL_exception(0) )
 	goto out;				/* error */
 
       if ( tail == 0 && o == buf )
@@ -129,6 +128,9 @@ read_stream_to_codes3(term_t stream, term_t codes, term_t tail)
     if ( c == EOF )
     { if ( !PL_release_stream(s) )
 	return FALSE;			/* error */
+
+      if ( PL_exception(0) )
+	return FALSE;
 
       if ( tail )
       { if ( PL_unify_wchars_diff(cl, cl, PL_CODE_LIST, o-buf, buf) &&
