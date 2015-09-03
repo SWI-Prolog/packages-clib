@@ -155,3 +155,10 @@ current_alarm(Time, Goal, Id, Status) :-
 prolog:message(time_limit_exceeded) -->
 	[ 'Time limit exceeded' ].
 
+		 /*******************************
+		 *	       ALARM		*
+		 *******************************/
+
+:- multifile sandbox:safe_meta_predicate/1.
+
+sandbox:safe_meta_predicate(time:call_with_time_limit/2).
