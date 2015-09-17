@@ -220,6 +220,10 @@ make_directory_path(Dir) :-
 make_directory_path_2(Dir) :-
 	exists_directory(Dir), !.
 make_directory_path_2(Dir) :-
+        atom_concat(RealDir, '/', Dir),
+        RealDir \== '', !,
+        make_directory_path_2(RealDir).
+make_directory_path_2(Dir) :-
 	Dir \== (/), !,
 	file_directory_name(Dir, Parent),
 	make_directory_path_2(Parent),
