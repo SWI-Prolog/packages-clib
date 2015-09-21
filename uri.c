@@ -119,8 +119,8 @@ domain_error(const char *expected, term_t found)
 		 *******************************/
 
 #define	ESC_PATH       (CH_UNRESERVED|CH_SUBDELIM|CH_EX_PATH)
-#define	ESC_QUERY      (CH_UNRESERVED|CH_PSUBDELIM|CH_EX_PCHAR|CH_EX_QF)
-#define	ESC_QVALUE     (CH_UNRESERVED|CH_QSUBDELIM|CH_EX_PCHAR|CH_EX_QF)
+#define	ESC_QUERY      (CH_UNRESERVED|CH_PSUBDELIM|CH_EX_QF)
+#define	ESC_QVALUE     (CH_UNRESERVED|CH_QSUBDELIM|CH_EX_QF)
 #define	ESC_QNAME      (CH_PCHAR)
 #define	ESC_FRAGMENT   (CH_PCHAR|CH_EX_QF)
 #define	ESC_AUTH       (CH_PCHAR)
@@ -175,7 +175,7 @@ fill_flags()
     set_flags("!$'()*,",     CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
     set_flags(":@",          CH_EX_PCHAR);
     set_flags("/@",          CH_EX_PATH);
-    set_flags("/?",          CH_EX_QF);
+    set_flags("/?@",         CH_EX_QF);
     set_flags("+-.",	     CH_EX_SCHEME);
 
     set_flags("/:?#&=", CH_URL);

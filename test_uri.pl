@@ -123,6 +123,8 @@ test(query, X == '%3D%26') :-
 	uri_encoded(query_value, '=&', X).
 test(query, X == 'a%2Bb') :-
 	uri_encoded(query_value, 'a+b', X).
+test(query, X == 'a%3Ab') :-
+	uri_encoded(query_value, 'a:b', X).
 test(query, X == 'a b') :-
 	uri_encoded(query_value, X, 'a+b').
 test(path, X == 'a+b') :-
