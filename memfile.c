@@ -27,11 +27,18 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
+#ifdef O_PLMT
 #include <pthread.h>
+#endif
 #include "error.h"
 
+#ifdef O_PLMT
 #define LOCK(mf)   pthread_mutex_lock(&(mf)->mutex)
 #define UNLOCK(mf) pthread_mutex_unlock(&(mf)->mutex)
+#else
+#define LOCK(mf)
+#define UNLOCK(mf)
+#endif
 
 static atom_t ATOM_encoding;
 static atom_t ATOM_unknown;
@@ -79,7 +86,9 @@ typedef struct
   atom_t	symbol;			/* <memory_file>(%p) */
   atom_t	atom;			/* Created from atom */
   atom_t	mode;			/* current open mode */
+#ifdef O_PLMT
   pthread_mutex_t mutex;		/* Our lock */
+#endif
   int		magic;			/* MEMFILE_MAGIC */
   int		free_on_close;		/* free if it is closed */
   IOENC		encoding;		/* encoding of the data */
@@ -205,7 +214,9 @@ new_memory_file(term_t handle)
 
   m->magic    = MEMFILE_MAGIC;
   m->encoding = ENC_UTF8;
+#ifdef O_PLMT
   pthread_mutex_init(&m->mutex, NULL);
+#endif
 
   if ( unify_memfile(handle, m) )
     return TRUE;
@@ -235,7 +246,9 @@ clean_memory_file(memfile *m)
 static int
 destroy_memory_file(memfile *m)
 { clean_memory_file(m);
+#ifdef O_PLMT
   pthread_mutex_destroy(&m->mutex);
+#endif
   free(m);
 
   return TRUE;
@@ -868,7 +881,9 @@ atom_to_memory_file(term_t atom, term_t handle)
       m->gap_start  = m->end;
     }
 
+#ifdef O_PLMT
     pthread_mutex_init(&m->mutex, NULL);
+#endif
 
     if ( unify_memfile(handle, m) )
     { return TRUE;
