@@ -31,6 +31,13 @@
 #include <SWI-Stream.h>
 #include <assert.h>
 
+/* Seems to be defined in some MinGW installations.  The
+ * ossp-uuid header defines the types using typedef, so
+ * we can safely kill these macros
+ */
+#undef UUID
+#undef uuid_t
+
 static atom_t ATOM_version;
 static atom_t ATOM_format;
 static atom_t ATOM_atom;
