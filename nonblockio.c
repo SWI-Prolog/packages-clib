@@ -950,16 +950,6 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
       { SOCKET sock = s->socket;
 
 	s->error = err;
-	if ( sock )
-	{ /* We cannot close the socket yet, since the late arrival
-             of FD_CLOSE might be delivered to this socket even after
-	     it has been reallocated. Instead, calculate a timeout to
-             allow for the case when FD_CLOSE never comes, and then
-	     continue as normal
-          */
-          releaseSocketWhenPossible(s);
-	}
-
 	switch(s->request)
 	{ case REQ_CONNECT:
 	    break;
@@ -985,6 +975,15 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 	}
 	doneRequest(s);
+	if ( sock )
+	{ /* We cannot close the socket yet, since the late arrival
+             of FD_CLOSE might be delivered to this socket even after
+	     it has been reallocated. Instead, calculate a timeout to
+             allow for the case when FD_CLOSE never comes, and then
+	     continue as normal
+          */
+          releaseSocketWhenPossible(s);
+	}
       } else if ( s->socket >= 0 )
       { doRequest(s);
       } else
@@ -1354,7 +1353,7 @@ freeSocket(plsocket *s)
   nbio_sock_t socket;
   SOCKET sock;
 
-  DEBUG(2, Sdprintf("Closing %d\n", s->id));
+  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->id));
   if ( !s || s->magic != PLSOCK_MAGIC )
   { errno = EINVAL;
     return -1;
