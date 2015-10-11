@@ -139,14 +139,14 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
 
   in  = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF,  &readFunctions);
   in->encoding = ENC_OCTET;
-  if ( !PL_open_stream(Read, in) )
+  if ( !PL_unify_stream(Read, in) )
     return FALSE;
   nbio_setopt(socket, TCP_INSTREAM, in);
 
   if ( !(nbio_get_flags(socket) & PLSOCK_LISTEN) )
   { out = Snew(handle, SIO_OUTPUT|SIO_RECORDPOS|SIO_FBUF, &writeFunctions);
     out->encoding = ENC_OCTET;
-    if ( !PL_open_stream(Write, out) )
+    if ( !PL_unify_stream(Write, out) )
       return FALSE;
     nbio_setopt(socket, TCP_OUTSTREAM, out);
   }
