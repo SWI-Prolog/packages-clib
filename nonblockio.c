@@ -1372,16 +1372,18 @@ freeSocket(plsocket *s)
   PL_free(s);
   UNLOCK_FREE();
 
-  if ( sock >= 0 )
+  if ( sock != (SOCKET)-1 )
   { again:
     if ( (rval=closesocket(sock)) == SOCKET_ERROR )
     { if ( errno == EINTR )
 	goto again;
     }
-    DEBUG(2, Sdprintf("freeSocket(%d=%d) returned %d\n",
+    DEBUG(2, Sdprintf("freeSocket(%d=%d): closesocket() returned %d\n",
 		      socket, (int)sock, rval));
   } else
-  { rval = 0;				/* already closed.  Use s->error? */
+  { DEBUG(2, Sdprintf("freeSocket(%d=%d): already closed\n",
+		      socket, (int)sock));
+    rval = 0;				/* already closed.  Use s->error? */
   }
 
   return rval;
