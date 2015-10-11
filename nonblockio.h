@@ -112,8 +112,8 @@ typedef enum
 } nbio_request;
 
 					/* nbio_get_flags() mask */
-#define PLSOCK_INSTREAM	  0x001
-#define PLSOCK_OUTSTREAM  0x002
+#define PLSOCK_INSTREAM	  0x001		/* tcp_open_socket/3 bound input */
+#define PLSOCK_OUTSTREAM  0x002		/* tcp_open_socket/3 bound output */
 #define PLSOCK_BIND	  0x004		/* What have we done? */
 #define PLSOCK_LISTEN	  0x008
 #define PLSOCK_CONNECT	  0x010
@@ -123,7 +123,7 @@ typedef enum
 #define PLSOCK_CLOSE_SEEN 0x100		/* FD_CLOSE seen */
 #define PLSOCK_EOF_SEEN   0x200		/* Seen end-of-file */
 #define PLSOCK_WAITING	  0x400		/* using nbio_wait() */
-
+#define PLSOCK_VIRGIN	  0x800		/* created, but not opened */
 
 typedef int	nbio_sock_t;		/* socket handle (not a file-descr) */
 typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */

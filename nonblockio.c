@@ -1293,7 +1293,6 @@ allocSocket(SOCKET socket)
   size_t i;
 
 #ifdef __WINDOWS__
-
   if ( (p=lookupOSSocket(socket)) )
   { DEBUG(1, Sdprintf("WinSock %d already registered on %d\n",
 		      (int)socket, p->id));
@@ -1331,7 +1330,7 @@ allocSocket(SOCKET socket)
   memset(p, 0, sizeof(*p));
   p->id     = (int)i;			/* place in the array */
   p->socket = socket;
-  p->flags  = PLSOCK_DISPATCH;		/* by default, dispatch */
+  p->flags  = PLSOCK_DISPATCH|PLSOCK_VIRGIN;	/* by default, dispatch */
   p->magic  = PLSOCK_MAGIC;
 #ifdef __WINDOWS__
   p->w32_flags = 0;
@@ -1660,14 +1659,19 @@ static int
 releaseSocketWhenPossible(plsocket *s)
 {
   LOCK_SOCKET(s);
-  shutdown(s->socket, SD_BOTH);
+  if ( s->socket != (SOCKET)-1 )
+  { DEBUG(2, Sdprintf("shutdown(%d=%d)\n", s->id, (int)s->socket));
+    shutdown(s->socket, SD_BOTH);
+    s->socket = (SOCKET)-1;
+  }
   s->flags  |= PLSOCK_WAITING;
   s->done    = FALSE;
   s->error   = 0;
   s->thread  = GetCurrentThreadId();
   s->request = REQ_DEALLOCATE;
   UNLOCK_SOCKET(s);
-  SendMessage(State()->hwnd, WM_REQUEST, 1, (LPARAM)&s);
+  if ( false(s, (PLSOCK_OUTSTREAM|PLSOCK_INSTREAM|PLSOCK_VIRGIN)) )
+    SendMessage(State()->hwnd, WM_REQUEST, 1, (LPARAM)&s);
   return 0;
 }
 #endif
@@ -1711,6 +1715,8 @@ nbio_closesocket(nbio_sock_t socket)
   { DEBUG(1, Sdprintf("nbio_closesocket(%d): no plsocket\n", socket));
     return -1;
   }
+
+  s->flags &= ~PLSOCK_VIRGIN;
 
   if ( true(s, PLSOCK_OUTSTREAM|PLSOCK_INSTREAM) )
   { int flags = s->flags;		/* may drop out! */
@@ -1831,6 +1837,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     { IOSTREAM *in = va_arg(args, IOSTREAM*);
 
       s->flags |= PLSOCK_INSTREAM;
+      s->flags &= ~PLSOCK_VIRGIN;
       s->input = in;
 
       rc = 0;
@@ -1841,6 +1848,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     { IOSTREAM *out = va_arg(args, IOSTREAM*);
 
       s->flags |= PLSOCK_OUTSTREAM;
+      s->flags &= ~PLSOCK_VIRGIN;
       s->output = out;
 
       rc = 0;
