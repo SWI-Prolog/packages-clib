@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 2008-2015, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -446,6 +445,62 @@ pl_prctl(term_t option)
 #undef HAVE_PRCTL
 #endif
 
+#ifdef HAVE_SYSCONF
+#include <unistd.h>
+
+struct conf
+{ int         code;
+  const char *name;
+};
+
+static const struct conf confs[] =
+{ {_SC_ARG_MAX, "arg_max" },
+  {_SC_CHILD_MAX, "child_max" },
+  {_SC_CLK_TCK, "clk_tck" },
+  {_SC_OPEN_MAX, "open_max" },
+  {_SC_PAGESIZE, "pagesize" },
+#ifdef _SC_PHYS_PAGES
+  {_SC_PHYS_PAGES, "phys_pages" },
+#endif
+#ifdef _SC_AVPHYS_PAGES
+  {_SC_AVPHYS_PAGES, "avphys_pages" },
+#endif
+#ifdef _SC_NPROCESSORS_CONF
+  {_SC_NPROCESSORS_CONF, "nprocessors_conf" },
+#endif
+#ifdef _SC_NPROCESSORS_ONLN
+  {_SC_NPROCESSORS_ONLN, "nprocessors_onln" },
+#endif
+  {0, NULL}
+};
+
+static foreign_t
+pl_sysconf(term_t conf)
+{ atom_t name;
+  int arity;
+
+  if ( PL_get_name_arity(conf, &name, &arity) )
+  { const char *s = PL_atom_chars(name);
+    const struct conf *c = confs;
+
+    for(c=confs; c->name; c++)
+    { if ( strcmp(c->name, s) == 0 )
+      { term_t a;
+
+	return ( (a = PL_new_term_ref()) &&
+		 PL_get_arg(1, conf, a) &&
+		 PL_unify_integer(a, sysconf(c->code))
+	       );
+      }
+    }
+
+    return FALSE;
+  }
+  return PL_type_error("compound", conf);
+}
+#endif
+
+
 
 install_t
 install_unix()
@@ -459,6 +514,9 @@ install_unix()
   PL_register_foreign("environ",   1, pl_environ, 0);
 #ifdef HAVE_PRCTL
   PL_register_foreign("prctl",     1, pl_prctl, 0);
+#endif
+#ifdef HAVE_SYSCONF
+  PL_register_foreign("sysconf",   1, pl_sysconf, 0);
 #endif
 }
 
