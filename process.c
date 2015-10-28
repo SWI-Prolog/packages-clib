@@ -1151,7 +1151,7 @@ do_create_process(p_options *info)
 	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
 	  rc = PL_unify_stream(info->streams[0].term, s);
 	else
-	  CloseHandle(info->streams[0].fd[0]);
+	  CloseHandle(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
       { CloseHandle(info->streams[1].fd[1]);
