@@ -638,6 +638,8 @@ CRITICAL_SECTION process_lock;
 /* We need a root job to put non-detached processes into */
 static HANDLE rootJob = (HANDLE)0;
 
+static IOFUNCTIONS Sprocessfilefunctions = { 0, };
+
 static void
 win_init(void)
 { InitializeCriticalSection(&process_lock);
@@ -652,6 +654,10 @@ win_init(void)
   /* This will fail (silently) if we dont have permission to manage processes */
   SetInformationJobObject(rootJob, JobObjectExtendedLimitInformation,
 			  &jeli, sizeof(jeli));
+
+  memcpy(&Sprocessfilefunctions, &Sfilefunctions, sizeof(IOFUNCTIONS));
+  Sprocessfilefunctions.seek = NULL;
+  Sprocessfilefunctions.seek64 = NULL;
 }
 
 
@@ -999,7 +1005,11 @@ create_pipes(p_options *info)
 
 static IOSTREAM *
 Sopen_handle(HANDLE h, const char *mode)
-{ return Sfdopen(_open_osfhandle((intptr_t)h, _O_BINARY), mode);
+{ IOSTREAM *s = Sfdopen(_open_osfhandle((intptr_t)h, _O_BINARY), mode);
+  if ( s->functions == &Sfilefunctions )
+  { s->functions = &Sprocessfilefunctions;
+  }
+  return s;
 }
 
 
