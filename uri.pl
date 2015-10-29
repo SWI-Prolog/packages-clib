@@ -81,9 +81,10 @@ processing tools.
 %	     12            3  4          5       6  7        8 9
 %	    ==
 %
-%	@param Components is a term uri_components(Scheme, Authority,
-%	Path, Search, Fragment).  See uri_data/3 for accessing this
-%	structure.
+%	@param Components is a   term  uri_components(Scheme, Authority,
+%	Path, Search, Fragment). If a URI  is *parsed*, i.e., using mode
+%	(+,-), components that are not   found are left _uninstantiated_
+%	(variable). See uri_data/3 for accessing this structure.
 
 %%	uri_data(?Field, +Components, ?Data) is semidet.
 %
