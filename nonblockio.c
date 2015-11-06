@@ -973,7 +973,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 	}
 	doneRequest(s);
-	if ( s->socket != (SOCKET)-1 )
+	if ( s->socket != (SOCKET)-1 && false(s, (PLSOCK_VIRGIN)) )
 	{ /* We cannot close the socket yet, since the late arrival
              of FD_CLOSE might be delivered to this socket even after
 	     it has been reallocated. Instead, calculate a timeout to
