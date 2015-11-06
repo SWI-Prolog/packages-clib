@@ -947,9 +947,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
       { s->rdata.read.bytes = 0;
 	doneRequest(s);
       } else if ( err )
-      { SOCKET sock = s->socket;
-
-	s->error = err;
+      { s->error = err;
 	switch(s->request)
 	{ case REQ_CONNECT:
 	    break;
@@ -975,14 +973,15 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 	}
 	doneRequest(s);
-	if ( sock )
+	if ( s->socket != (SOCKET)-1 )
 	{ /* We cannot close the socket yet, since the late arrival
              of FD_CLOSE might be delivered to this socket even after
 	     it has been reallocated. Instead, calculate a timeout to
              allow for the case when FD_CLOSE never comes, and then
 	     continue as normal
           */
-          releaseSocketWhenPossible(s);
+          shutdown(s->socket, SD_BOTH);
+          s->socket = (SOCKET)-1;
 	}
       } else if ( s->socket >= 0 )
       { doRequest(s);
