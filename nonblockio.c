@@ -973,7 +973,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 	}
 	doneRequest(s);
-	if ( s->socket != (SOCKET)-1 && false(s, (PLSOCK_VIRGIN)) )
+	if ( false(s, (PLSOCK_SHUTDOWN|PLSOCK_VIRGIN)) )
 	{ /* We cannot close the socket yet, since the late arrival
              of FD_CLOSE might be delivered to this socket even after
 	     it has been reallocated. Instead, calculate a timeout to
@@ -981,7 +981,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	     continue as normal
           */
           shutdown(s->socket, SD_BOTH);
-          s->socket = (SOCKET)-1;
+          s->flags |= PLSOCK_SHUTDOWN;
 	}
       } else if ( s->socket >= 0 )
       { doRequest(s);
@@ -1658,10 +1658,10 @@ static int
 releaseSocketWhenPossible(plsocket *s)
 {
   LOCK_SOCKET(s);
-  if ( s->socket != (SOCKET)-1 )
+  if ( false(s, (PLSOCK_SHUTDOWN)) )
   { DEBUG(2, Sdprintf("shutdown(%d=%d)\n", s->id, (int)s->socket));
     shutdown(s->socket, SD_BOTH);
-    s->socket = (SOCKET)-1;
+    s->flags |= PLSOCK_SHUTDOWN;
   }
   s->flags  |= PLSOCK_WAITING;
   s->done    = FALSE;

@@ -112,18 +112,19 @@ typedef enum
 } nbio_request;
 
 					/* nbio_get_flags() mask */
-#define PLSOCK_INSTREAM	  0x001		/* tcp_open_socket/3 bound input */
-#define PLSOCK_OUTSTREAM  0x002		/* tcp_open_socket/3 bound output */
-#define PLSOCK_BIND	  0x004		/* What have we done? */
-#define PLSOCK_LISTEN	  0x008
-#define PLSOCK_CONNECT	  0x010
-#define PLSOCK_ACCEPT	  0x020		/* Set on accepted sockets */
-#define PLSOCK_NONBLOCK	  0x040		/* Set to non-blocking mode */
-#define PLSOCK_DISPATCH   0x080		/* do not dispatch events */
-#define PLSOCK_CLOSE_SEEN 0x100		/* FD_CLOSE seen */
-#define PLSOCK_EOF_SEEN   0x200		/* Seen end-of-file */
-#define PLSOCK_WAITING	  0x400		/* using nbio_wait() */
-#define PLSOCK_VIRGIN	  0x800		/* created, but not opened */
+#define PLSOCK_INSTREAM	  0x0001	/* tcp_open_socket/3 bound input */
+#define PLSOCK_OUTSTREAM  0x0002	/* tcp_open_socket/3 bound output */
+#define PLSOCK_BIND	  0x0004	/* What have we done? */
+#define PLSOCK_LISTEN	  0x0008
+#define PLSOCK_CONNECT	  0x0010
+#define PLSOCK_ACCEPT	  0x0020	/* Set on accepted sockets */
+#define PLSOCK_NONBLOCK	  0x0040	/* Set to non-blocking mode */
+#define PLSOCK_DISPATCH   0x0080	/* do not dispatch events */
+#define PLSOCK_CLOSE_SEEN 0x0100	/* FD_CLOSE seen */
+#define PLSOCK_EOF_SEEN   0x0200	/* Seen end-of-file */
+#define PLSOCK_WAITING	  0x0400	/* using nbio_wait() */
+#define PLSOCK_VIRGIN	  0x0800	/* created, but not opened */
+#define PLSOCK_SHUTDOWN	  0x1000	/* shutdown, but not freed */
 
 typedef int	nbio_sock_t;		/* socket handle (not a file-descr) */
 typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */
