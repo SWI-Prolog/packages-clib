@@ -145,6 +145,10 @@ leave the details to this function.
 #define closesocket(n) close((n))	/* same on Unix */
 #endif
 
+#ifndef __WINDOWS__
+#define INVALID_SOCKET -1
+#endif
+
 #ifndef SD_SEND
 #define SD_RECEIVE 0			/* shutdown() parameters */
 #define SD_SEND    1
@@ -429,8 +433,8 @@ doneRequest(plsocket *s)
   UNLOCK_SOCKET(s);
 
   /* If we have FD_CLOSE, then we know we can release the socket to the OS */
-  if ( (s->w32_flags & FD_CLOSE) && (sock=s->socket) >= 0 )
-  { s->socket = -1;
+  if ( (s->w32_flags & FD_CLOSE) && (sock=s->socket) != INVALID_SOCKET )
+  { s->socket = INVALID_SOCKET;
     closesocket(sock);
   }
 
@@ -983,7 +987,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
           shutdown(s->socket, SD_BOTH);
           s->flags |= PLSOCK_SHUTDOWN;
 	}
-      } else if ( s->socket >= 0 )
+      } else if ( s->socket != INVALID_SOCKET )
       { doRequest(s);
       } else
       { doneRequest(s);
@@ -1258,7 +1262,7 @@ nbio_to_plsocket(nbio_sock_t socket)
     return NULL;
 
 #ifdef __WINDOWS__
-  if ( p->socket < 0 )
+  if ( p->socket == INVALID_SOCKET )
   { p->error = WSAECONNRESET;
     return NULL;
   }
@@ -1295,7 +1299,7 @@ allocSocket(SOCKET socket)
   if ( (p=lookupOSSocket(socket)) )
   { DEBUG(1, Sdprintf("WinSock %d already registered on %d\n",
 		      (int)socket, p->id));
-    p->socket = (SOCKET)-1;
+    p->socket = INVALID_SOCKET;
   }
 #endif
 
@@ -1370,7 +1374,7 @@ freeSocket(plsocket *s)
   PL_free(s);
   UNLOCK_FREE();
 
-  if ( sock != (SOCKET)-1 )
+  if ( sock != INVALID_SOCKET )
   { again:
     if ( (rval=closesocket(sock)) == SOCKET_ERROR )
     { if ( errno == EINTR )
@@ -1688,7 +1692,7 @@ nbio_socket(int domain, int type, int protocol)
 
   assert(initialised);
 
-  if ( (sock = socket(domain, type , protocol)) < 0)
+  if ( (sock = socket(domain, type , protocol)) == INVALID_SOCKET )
   { nbio_error(GET_ERRNO, TCP_ERRNO);
     return -1;
   }
@@ -2323,7 +2327,7 @@ nbio_close_input(nbio_sock_t socket)
   if ( false(s, PLSOCK_LISTEN) )
   { SOCKET sock;
 
-    if ( (sock=s->socket) < 0 )
+    if ( (sock=s->socket) == INVALID_SOCKET )
     { s->error = WSAECONNRESET;
       rc = -1;
     }
@@ -2360,7 +2364,7 @@ nbio_close_output(nbio_sock_t socket)
 
     s->flags &= ~PLSOCK_OUTSTREAM;
 #if __WINDOWS__
-    if ( (sock=s->socket) < 0 )
+    if ( (sock=s->socket) == INVALID_SOCKET )
     { s->error = WSAECONNRESET;
       rc = -1;
     }
