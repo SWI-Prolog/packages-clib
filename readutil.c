@@ -28,6 +28,7 @@
     the GNU General Public License.
 */
 
+#include <config.h>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 

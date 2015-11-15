@@ -25,6 +25,7 @@
 #ifndef CLIB_H_INCLUDED
 #define CLIB_H_INCLUDED
 
+#include <config.h>
 #include <SWI-Prolog.h>
 #include "error.h"
 

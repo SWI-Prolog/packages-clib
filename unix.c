@@ -101,13 +101,13 @@ pl_fork(term_t a0)
 
 static foreign_t
 pl_exec(term_t cmd)
-{ int argc;
+{ size_t argc;
   atom_t name;
 
   if ( PL_get_name_arity(cmd, &name, &argc) )
   { term_t a = PL_new_term_ref();
     char **argv = malloc(sizeof(char*) * (argc + 2));
-    int i;
+    size_t i;
 
     argv[0] = (char *)PL_atom_chars(name);
 
@@ -403,14 +403,14 @@ pl_detach_IO(term_t stream)
 static foreign_t
 pl_prctl(term_t option)
 { atom_t name;
-  int arity;
+  size_t arity;
 
   if ( PL_get_name_arity(option, &name, &arity) )
   { const char *opt = PL_atom_chars(name);
     term_t a = PL_new_term_refs(4);
 
     if ( arity <= 4 )
-    { int i;
+    { size_t i;
 
       for(i=0; i<arity; i++)
 	_PL_get_arg(i+1, option, a+i);
@@ -477,7 +477,7 @@ static const struct conf confs[] =
 static foreign_t
 pl_sysconf(term_t conf)
 { atom_t name;
-  int arity;
+  size_t arity;
 
   if ( PL_get_name_arity(conf, &name, &arity) )
   { const char *s = PL_atom_chars(name);

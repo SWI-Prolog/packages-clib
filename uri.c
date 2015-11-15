@@ -923,7 +923,7 @@ uri_query_components(term_t string, term_t list)
     init_charbuf(&out);
     while( PL_get_list(tail, head, tail) )
     { atom_t fname;
-      int arity;
+      size_t arity;
 
       if ( PL_is_functor(head, FUNCTOR_equal2) ||
 	   PL_is_functor(head, FUNCTOR_pair2) )

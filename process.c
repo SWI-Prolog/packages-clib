@@ -350,7 +350,7 @@ parse_options(term_t options, p_options *info)
 
   while(PL_get_list(tail, head, tail))
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
       return PL_type_error("option", head);
@@ -409,7 +409,7 @@ parse_options(term_t options, p_options *info)
 
 static int
 get_exe(term_t exe, p_options *info)
-{ int arity;
+{ size_t arity;
   term_t arg = PL_new_term_ref();
 
   if ( !PL_get_name_arity(exe, &info->exe_name, &arity) )
@@ -433,7 +433,7 @@ get_exe(term_t exe, p_options *info)
     return PL_resource_error("memory");
   strcpy(info->argv[0], info->exe);
 
-  { int i;
+  { size_t i;
 
     for(i=1; i<=arity; i++)
     { _PL_get_arg(i, exe, arg);
@@ -1743,7 +1743,7 @@ process_wait(term_t pid, term_t code, term_t options)
   memset(&opts, 0, sizeof(opts));
   while(PL_get_list(tail, head, tail))
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
       return PL_type_error("option", head);

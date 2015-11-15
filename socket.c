@@ -162,7 +162,7 @@ static foreign_t
 pl_setopt(term_t Socket, term_t opt)
 { int socket;
   atom_t a;
-  int arity;
+  size_t arity;
 
   if ( !tcp_get_socket(Socket, &socket) )
     return FALSE;
@@ -289,7 +289,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 
     while(PL_get_list(tail, head, tail))
     { atom_t name;
-      int arity;
+      size_t arity;
 
       if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
       { _PL_get_arg(1, head, arg);

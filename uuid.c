@@ -64,7 +64,7 @@ pl_uuid(term_t UUID, term_t options)
 
     while( PL_get_list(tail, head, tail) )
     { atom_t name;
-      int arity;
+      size_t arity;
 
       if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
 	return PL_type_error("option", head);

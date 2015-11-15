@@ -783,7 +783,7 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
 
     while( PL_get_list(tail, head, tail) )
     { atom_t name;
-      int arity;
+      size_t arity;
 
       if ( PL_get_name_arity(head, &name, &arity) )
       { if ( arity == 1 )

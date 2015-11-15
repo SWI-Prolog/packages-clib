@@ -27,6 +27,7 @@
     the GNU General Public License.
 */
 
+#include <config.h>
 #include <SWI-Prolog.h>
 #include <syslog.h>
 #include <string.h>

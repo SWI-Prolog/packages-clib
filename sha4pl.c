@@ -85,7 +85,7 @@ sha_options(term_t options, optval *result)
 
   while(PL_get_list(opts, opt, opts))
   { atom_t aname;
-    int arity;
+    size_t arity;
 
     if ( PL_get_name_arity(opt, &aname, &arity) && arity == 1 )
     { term_t a = PL_new_term_ref();

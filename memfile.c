@@ -617,7 +617,7 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
       term_t head = PL_new_term_ref();
 
       while(PL_get_list(tail, head, tail))
-      { int arity;
+      { size_t arity;
 	atom_t name;
 
 	if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
