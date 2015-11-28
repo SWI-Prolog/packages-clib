@@ -59,6 +59,7 @@ static atom_t ATOM_insert;
 static atom_t ATOM_free_on_close;
 
 #define MEMFILE_MAGIC	0x5624a6b3L
+#define MEMFILE_CMAGIC	0x5624a6b7L
 #define NOSIZE ((size_t)-1)
 
 #define	V_CHARCOUNT	0x01
@@ -215,6 +216,10 @@ new_memory_file(term_t handle)
 
   m->magic    = MEMFILE_MAGIC;
   m->encoding = ENC_UTF8;
+  m->data     = NULL;
+  m->atom     = 0;
+  m->symbol   = 0;
+  m->stream   = NULL;
 #ifdef O_PLMT
   pthread_mutex_init(&m->mutex, NULL);
 #endif
@@ -250,6 +255,7 @@ destroy_memory_file(memfile *m)
 #ifdef O_PLMT
   pthread_mutex_destroy(&m->mutex);
 #endif
+  m->magic = MEMFILE_CMAGIC;
   free(m);
 
   return TRUE;
