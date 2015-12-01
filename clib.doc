@@ -446,6 +446,8 @@ License (GPL), in which case the provisions of the GPL apply INSTEAD OF
 those given above.
 
 
+\input{md5.tex}
+
 \section{Memory files}
 \label{sec:memory-files}
 

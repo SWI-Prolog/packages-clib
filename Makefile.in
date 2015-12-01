@@ -21,9 +21,9 @@ LIBS=@LIBS@
 MIMELIBS=maildrop/rfc2045/librfc2045.a maildrop/rfc822/librfc822.a
 
 LIBPL=		@PLTARGETS@ streaminfo.pl process.pl prolog_server.pl sha.pl \
-		uri.pl udp_broadcast.pl prolog_stream.pl
+		uri.pl udp_broadcast.pl prolog_stream.pl md5.pl
 TARGETS=	@TARGETS@ readutil.@SO@ streaminfo.@SO@ process.@SO@ \
-		sha4pl.@SO@ uri.@SO@ prolog_stream.@SO@
+		sha4pl.@SO@ uri.@SO@ prolog_stream.@SO@ md54pl.@SO@
 
 UNXOBJ=		error.o unix.o
 SOCKOBJ=	error.o socket.o nonblockio.o
@@ -44,6 +44,7 @@ PROLOGSTREAMOBJ=prolog_stream.o
 SHAOBJ=		error.o sha4pl.o sha1/sha1.o sha1/sha2.o \
 		sha1/hmac_sha1.o sha1/hmac_sha256.o
 UUIDOBJ=	uuid.o
+MD5OBJ=		md54pl.o md5.o
 
 all:		$(TARGETS)
 
@@ -83,6 +84,8 @@ uid.@SO@:	$(UIDOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(UIDOBJ) $(LIBPLSO)
 uuid.@SO@:	$(UUIDOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(UUIDOBJ) @LIBUUID@ $(LIBPLSO)
+md54pl.@SO@:	$(MD5OBJ)
+		$(LD) $(LDSOFLAGS) -o $@ $(MD5OBJ) $(LIBPLSO)
 
 socket.o:	socket.c sockcommon.c
 
@@ -164,7 +167,7 @@ check-read::
 ################################################################
 
 TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex \
-	 uuid.tex unix.tex syslog.tex socket.tex prologstream.tex
+	 uuid.tex unix.tex syslog.tex socket.tex prologstream.tex md5.tex
 $(TEX):		$(TEXEXTRA)
 
 uri.tex:	uri.pl
@@ -189,6 +192,8 @@ udpbroadcast.tex:	udp_broadcast.pl
 		$(PLTOTEX) 'library(udp_broadcast)'
 prologstream.tex:	prolog_stream.pl
 		$(PLTOTEX) 'library(prolog_stream)'
+md5.tex:	md5.pl
+		$(PLTOTEX) 'library(md5)'
 
 ################################################################
 # Clean
