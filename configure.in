@@ -138,6 +138,8 @@ AC_CHECK_SIZEOF(long long, 8)
 
 AC_CHECK_FUNCS(setsid strerror utime getrlimit strcasestr vfork _NSGetEnviron)
 AC_CHECK_FUNCS(pipe2 prctl sysconf)
+AC_CHECK_FUNCS(mallinfo malloc_info open_memstream)
+
 AC_CHECK_TYPES(socklen_t, [], [],
 [
 #include <sys/types.h>
@@ -174,6 +176,11 @@ else
   AC_MSG_WARN([Cannot find getrlimit"()" -- dropping rlimit.pl])
 fi
 
+if test "$ac_cv_func_mallinfo" = "yes" -o \
+        \( "$ac_cv_func_malloc_info" = "yes" -a  \
+           "$ac_cv_func_open_memstream" = "yes" \) ; then
+  TARGETS="$TARGETS mallocinfo.$SO"
+fi
 
 PLTARGETS=`echo $TARGETS | sed -e "s/\.$SO/.pl/g" -e "s/files.pl/filesex.pl/"`
 if echo "$PLTARGETS" | grep socket.pl 2>&1 >/dev/null; then
