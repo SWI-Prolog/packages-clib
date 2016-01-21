@@ -56,3 +56,6 @@ of OpenSSL.
 %	@arg Hash is an atom holding 32 characters, representing the
 %	hash in hexadecimal notation
 
+:- multifile sandbox:safe_primitive/1.
+
+sandbox:safe_primitive(md5:md5_hash(_,_,_)).
