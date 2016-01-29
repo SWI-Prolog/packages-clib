@@ -249,11 +249,11 @@ tcp_open_socket(Socket, Stream) :-
 %
 %	Typical client applications should use  the high level interface
 %	provided by tcp_connect/3 which  avoids   resource  leaking if a
-%	step in the process fails and can  be hooked to support proxies.
+%	step in the process fails, and can  be hooked to support proxies.
 %	For example:
 %
 %	  ==
-%	      setup_cal_cleanup(
+%	      setup_call_cleanup(
 %		  tcp_connect(Host:Port, StreamPair, []),
 %		  talk(StreamPair),
 %		  close(StreamPair))
