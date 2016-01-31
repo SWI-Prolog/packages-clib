@@ -109,8 +109,8 @@ esac
 ( CC=$ACC; LD=$ALD; CPP=$ACPP; CFLAGS=$CFLAGS; LDFLAGS=$LDFLAGS;
   export CC LD CFLAGS LDFLAGS
 
-  (cd maildrop/rfc822 && $SHELL configure --host=$host)
-  (cd maildrop/rfc2045 && $SHELL configure --host=$host)
+  (cd maildrop/rfc822 && $SHELL ./configure --host=$host)
+  (cd maildrop/rfc2045 && $SHELL ./configure --host=$host)
 )
 AC_MSG_RESULT("Done")
 
