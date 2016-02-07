@@ -76,7 +76,7 @@ stream_read(void *handle, char *buf, size_t size)
     if ( (fid = PL_open_foreign_frame()) &&
 	 (av = PL_new_term_refs(2)) &&
 	 PL_unify_stream(av+0, ctx->stream) &&
-	 PL_call_predicate(ctx->module, PL_Q_NORMAL, ctx->pred_read, av) &&
+	 PL_call_predicate(ctx->module, PL_Q_PASS_EXCEPTION, ctx->pred_read, av) &&
 	 PL_get_wchars(av+1, &len, &ws,
 		       CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION|BUF_MALLOC) )
     { if ( len == 0 )
@@ -130,7 +130,7 @@ stream_write(void *handle, char *buf, size_t size)
        (av = PL_new_term_refs(2)) &&
        PL_unify_stream(av+0, ctx->stream) &&
        PL_unify_wchars(av+1, PL_STRING, size/sizeof(wchar_t), (wchar_t*)buf) &&
-       PL_call_predicate(ctx->module, PL_Q_NORMAL, ctx->pred_write, av) )
+       PL_call_predicate(ctx->module, PL_Q_PASS_EXCEPTION, ctx->pred_write, av) )
   { rc = size;
   } else
   { term_t ex;
@@ -183,7 +183,7 @@ stream_close(void *handle)
   if ( (fid = PL_open_foreign_frame()) &&
        (av = PL_new_term_refs(1)) &&
        PL_unify_stream(av+0, ctx->stream) &&
-       PL_call_predicate(ctx->module, PL_Q_NORMAL, pred_close, av) )
+       PL_call_predicate(ctx->module, PL_Q_PASS_EXCEPTION, pred_close, av) )
   { rc = 0;
   } else
   { term_t ex;
