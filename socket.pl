@@ -234,6 +234,13 @@ tcp_open_socket(Socket, Stream) :-
 %	signalled  that  the  service  is  currently  not  available.  A
 %	commonly used default value for Backlog is 5.
 
+%%	tcp_accept(+Socket, -Slave, -Peer) is det.
+%
+%	This predicate waits on a server socket for a connection request
+%	by a client. On success, it creates  a new socket for the client
+%	and binds the identifier to \arg{Slave}.  \arg{Peer} is bound to
+%	the IP-address of the client.
+
 %%	tcp_connect(+SocketId, +HostAndPort) is det.
 %
 %	Connect SocketId. After successful completion, tcp_open_socket/3
