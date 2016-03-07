@@ -136,7 +136,7 @@ uninstall::
 # Testing
 ################################################################
 
-check:		check-socket check-memfile check-unit check-process \
+check:		check-socket check-memfile check-crypt check-process \
 		check-read check-uri check-cgi
 
 torture:	torture-socket
@@ -150,8 +150,8 @@ torture-socket::
 check-memfile::
 		$(PL) -q -f test_memfile.pl -F none -g test_memfile,halt -t 'halt(1)'
 
-check-unit::
-		$(PL) -q -f test.pl -g run_tests,halt -t 'halt(1)'
+check-crypt::
+		$(PL) -q -f test_crypt.pl -g test_crypt,halt -t 'halt(1)'
 
 check-uri::
 		$(PL) -q -f test_uri.pl -g true -t test_uri
