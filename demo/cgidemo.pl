@@ -1,12 +1,13 @@
-#!/usr/bin/pl -q -g main -s
-/*  $Id$
+#!/usr/bin/env swipl
+/*  Part of SWI-Prolog
 
-    Part of SWI-Prolog
-
+    Author:  Jan Wielemaker
     This example code is in the public domain
 */
 
 :- use_module(library(cgi)).
+
+:- initialization main.
 
 main :-
 	cgi_get_form(Arguments),

@@ -1,7 +1,6 @@
-/*  $Id$
+/*  Part of SWI-Prolog
 
-    Part of SWI-Prolog
-
+    Author:  Jan Wielemaker
     This example code is in the public domain
 */
 
