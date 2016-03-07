@@ -39,7 +39,6 @@
 :- use_module(library(shlib)).
 
 :- use_foreign_library(foreign(mime), install_mime).
-:- license(gpl).
 
 /** <module> Parse MIME documents
 
@@ -47,9 +46,6 @@ This module defines an interface to   the rfc2045 (MIME) parsing library
 by Double Precision, Inc, part of the   maildrop system. This library is
 distributed under the GPL and  therefore   all  code  using this library
 should comply to the GPL.
-
-
-@license GPL
 */
 
 %%	mime_parse(+Data, -Parsed) is det.

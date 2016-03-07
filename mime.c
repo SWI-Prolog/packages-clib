@@ -492,9 +492,11 @@ rfc2045_error(const char *errmsg)
 
 
 install_t
-install_mime()
+install_mime(void)
 { ATOM_			     = PL_new_atom("");
   ATOM_stream		     = PL_new_atom("stream");
+
+  PL_license("lgpl", "library(mime) maildrop library");
 
   FUNCTOR_type1		     = mkfunctor("type", 1);
   FUNCTOR_transfer_encoding1 = mkfunctor("transfer_encoding", 1);
