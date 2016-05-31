@@ -12,8 +12,6 @@
 #include	"rfc822.h"
 #include	"rfc2047.h"
 
-static const char rcsid[]="$Id$";
-
 static const char xdigit[]="0123456789ABCDEF";
 
 static char *rfc2047_search_quote(const char **ptr)
