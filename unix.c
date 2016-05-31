@@ -278,7 +278,7 @@ static foreign_t
 pl_environ(term_t l)
 {
 #ifdef HAVE__NSGETENVIRON
-  char **environ = _NSGetEnviron();
+  char **environ = *_NSGetEnviron();
 #else
   extern char **environ;
 #endif
