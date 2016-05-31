@@ -119,7 +119,7 @@ pl_rlimit(term_t what, term_t old, term_t new)
       set:
 	if ( rlim.rlim_cur != (rlim_t) n )
 	{ rlim.rlim_cur = n;
-	  if ( !setrlimit(resource, &rlim) == 0 )
+	  if ( setrlimit(resource, &rlim) != 0 )
 	    return pl_error("rlimit", 3, NULL, ERR_ERRNO, errno, "set", "resource_limit", what);
 	}
 	return TRUE;
