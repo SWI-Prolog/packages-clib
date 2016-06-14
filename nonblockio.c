@@ -1181,20 +1181,6 @@ nbio_fcntl(nbio_sock_t socket, int op, int arg)
   return rc;
 }
 
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-NOTE: when called through wait_for_input/3, the  descriptors in the sets
-are real underlying Unix socket descriptors   and  *not* the nbio_sock_t
-psuedo descriptors.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-int
-nbio_select(int n,
-	    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-	    struct timeval *timeout)
-{ return select(n, readfds, writefds, exceptfds, timeout);
-}
-
 #endif /*__WINDOWS__*/
 
 

@@ -518,6 +518,8 @@ pl_gethostname(term_t name)
 }
 
 
+#ifdef __WINDOWS__
+
 		 /*******************************
 		 *	       SELECT		*
 		 *******************************/
@@ -576,21 +578,13 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
   FD_ZERO(&fds);
   while( PL_get_list(streams, head, streams) )
   { IOSTREAM *s;
-#ifdef __WINDOWS__
     nbio_sock_t fd;
-#else
-    int fd;
-#endif
     fdentry *e;
 
     if ( !PL_get_stream_handle(head, &s) )
       return FALSE;
 
-#ifdef __WINDOWS__
     fd = fdFromHandle(s->handle);
-#else
-    fd = Sfileno(s);
-#endif
 
     PL_release_stream(s);
     if ( fd < 0 || !is_socket_stream(s) )
@@ -611,11 +605,9 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     e->next   = map;
     map       = e;
 
-#ifdef __WINDOWS__
+    if ( fd >= FD_SETSIZE )
+      return PL_representation_error("FD_SETSIZE");
     FD_SET((SOCKET)fd, &fds);
-#else
-    FD_SET(fd, &fds);
-#endif
 
     if ( fd > max )
       max = fd;
@@ -660,7 +652,8 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 
   switch(ret)
   { case -1:
-      return pl_error("tcp_select", 3, NULL, ERR_ERRNO, errno, "select", "streams", Streams);
+      return pl_error("tcp_select", 3, NULL, ERR_ERRNO, errno,
+		      "select", "streams", Streams);
 
     case 0: /* Timeout */
       break;
@@ -678,6 +671,7 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 
   return PL_unify_nil(available);
 }
+#endif /*__WINDOWS__*/
 
 
 #ifdef O_DEBUG
@@ -695,7 +689,7 @@ pl_debug(term_t val)
 #endif
 
 install_t
-install_socket()
+install_socket(void)
 { nbio_init("socket");
 
   ATOM_reuseaddr        = PL_new_atom("reuseaddr");
@@ -723,7 +717,9 @@ install_socket()
   PL_register_foreign("tcp_setopt",           2, pl_setopt,           0);
   PL_register_foreign("tcp_host_to_address",  2, pl_host_to_address,  0);
   PL_register_foreign("gethostname",          1, pl_gethostname,      0);
+#ifdef __WINDOWS__
   PL_register_foreign("tcp_select",           3, tcp_select,          0);
+#endif
 
   PL_register_foreign("udp_socket",           1, udp_socket,          0);
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
@@ -736,6 +732,6 @@ install_socket()
 
 
 install_t
-uninstall_socket()
+uninstall_socket(void)
 { nbio_cleanup();
 }

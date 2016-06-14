@@ -371,6 +371,19 @@ tcp_connect_direct(Address, Socket, StreamPair):-
                 throw(Error)
               )).
 
+%%	tcp_select(+ListOfStreams, -ReadyList, +TimeOut)
+%
+%	Same as the built-in  wait_for_input/3,   but  integrates better
+%	with event processing and the  various   options  of sockets for
+%	Windows.   On   non-windows   systems     this    simply   calls
+%	wait_for_input/3.
+
+:- if(\+predicate_property(tcp_select(_,_,_), defined)).
+tcp_select(ListOfStreams, ReadyList, TimeOut) :-
+	wait_for_input(ListOfStreams, ReadyList, TimeOut).
+:- endif.
+
+
 		 /*******************************
 		 *	  PROXY SUPPORT		*
 		 *******************************/
