@@ -144,6 +144,9 @@ leave the details to this function.
 #ifdef __WINDOWS__
 #include <malloc.h>
 #endif
+#if defined(HAVE_POLL_H)
+#include <poll.h>
+#endif
 
 #ifdef __WINDOWS__
 #define GET_ERRNO WSAGetLastError()
@@ -1116,16 +1119,29 @@ wait_socket(plsocket *s)
   { int fd = s->socket;
 
     if ( true(s, PLSOCK_NONBLOCK) && !PL_dispatch(fd, PL_DISPATCH_INSTALLED) )
-    { fd_set rfds;
-      struct timeval tv;
+    {
+#ifdef HAVE_POLL
+      struct pollfd fds[1];
 
-      FD_ZERO(&rfds);
-      FD_SET(fd, &rfds);
-      tv.tv_sec = 0;
-      tv.tv_usec = 250000;
+      fds[0].fd = fd;
+      fds[0].events = POLLIN;
 
-      select(fd+1, &rfds, NULL, NULL, &tv);
+      poll(fds, 1, 250);
       return TRUE;
+#else
+      if ( fd < FD_SETSIZE )
+      { fd_set rfds;
+	struct timeval tv;
+
+	FD_ZERO(&rfds);
+	FD_SET(fd, &rfds);
+	tv.tv_sec = 0;
+	tv.tv_usec = 250000;
+
+	select(fd+1, &rfds, NULL, NULL, &tv);
+	return TRUE;
+      }
+#endif
     } else
     { return PL_dispatch(fd, PL_DISPATCH_WAIT);
     }
@@ -1167,7 +1183,7 @@ nbio_fcntl(nbio_sock_t socket, int op, int arg)
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-NOTE: when called througb wait_for_input/3, the  descriptors in the sets
+NOTE: when called through wait_for_input/3, the  descriptors in the sets
 are real underlying Unix socket descriptors   and  *not* the nbio_sock_t
 psuedo descriptors.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
