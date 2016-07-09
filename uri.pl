@@ -87,24 +87,27 @@ processing tools.
 %	    ==
 %
 %	@param Components is a   term  uri_components(Scheme, Authority,
-%	Path, Search, Fragment). If a URI  is *parsed*, i.e., using mode
+%	Path, Query, Fragment). If a URI  is *parsed*, i.e., using mode
 %	(+,-), components that are not   found are left _uninstantiated_
 %	(variable). See uri_data/3 for accessing this structure.
 
 %%	uri_data(?Field, +Components, ?Data) is semidet.
 %
 %	Provide access the uri_component structure.  Defined field-names
-%	are: =scheme=, =authority=, =path=, =search= and =fragment=
+%	are: =scheme=, =authority=, =path=, =query= and =fragment=.
 
 uri_data(scheme,    uri_components(S, _, _, _, _), S).
 uri_data(authority, uri_components(_, A, _, _, _), A).
 uri_data(path,	    uri_components(_, _, P, _, _), P).
-uri_data(search,    uri_components(_, _, _, S, _), S).
+uri_data(query,     uri_components(_, _, _, Q, _), Q).
 uri_data(fragment,  uri_components(_, _, _, _, F), F).
 
 %%	uri_data(+Field, +Components, +Data, -NewComponents) is semidet.
 %
 %	NewComponents is the same as Components with Field set to Data.
+%
+%	The supported field names are: =scheme=, =authority=, =path=,
+%	=query= and =fragment=.
 
 uri_data(scheme,    uri_components(_, A, P, Q, F), S,
 		    uri_components(S, A, P, Q, F)).
@@ -112,7 +115,7 @@ uri_data(authority, uri_components(S, _, P, Q, F), A,
 		    uri_components(S, A, P, Q, F)).
 uri_data(path,      uri_components(S, A, _, Q, F), P,
 		    uri_components(S, A, P, Q, F)).
-uri_data(search,    uri_components(S, A, P, _, F), Q,
+uri_data(query,     uri_components(S, A, P, _, F), Q,
 		    uri_components(S, A, P, Q, F)).
 uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 		    uri_components(S, A, P, Q, F)).
@@ -218,6 +221,9 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %
 %	Break-down the authority component of a   URI. The fields of the
 %	structure Components can be accessed using uri_authority_data/3.
+%
+%	Components is a compound term of the form
+%	=|uri_authority(User,Password,Host,Port)|=.
 
 %%	uri_authority_data(+Field, ?Components, ?Data) is semidet.
 %
