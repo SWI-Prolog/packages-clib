@@ -1129,7 +1129,7 @@ wait_socket(plsocket *s)
       poll(fds, 1, 250);
       return TRUE;
 #else
-      if ( fd < FD_SETSIZE )
+      if ( fd < FD_SETSIZE )		/* Unix only, so ok */
       { fd_set rfds;
 	struct timeval tv;
 

@@ -566,7 +566,7 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 { fd_set fds;
   struct timeval t, *to;
   double time;
-  int n, max = 0, ret, min = 1000000;
+  int max = 0, ret, min = 1000000;
   fdentry *map     = NULL;
   term_t head      = PL_new_term_ref();
   term_t streams   = PL_copy_term_ref(Streams);
@@ -574,6 +574,9 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
   term_t ahead     = PL_new_term_ref();
   int from_buffer  = 0;
   atom_t a;
+#ifdef __WINDOWS__
+  int count = 0;			/* on Windows the setsize is limited */
+#endif					/* to FD_SETSIZE */
 
   FD_ZERO(&fds);
   while( PL_get_list(streams, head, streams) )
@@ -605,7 +608,11 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     e->next   = map;
     map       = e;
 
+#ifdef __WINDOWS__
+    if ( ++count > FD_SETSIZE )
+#else
     if ( fd >= FD_SETSIZE )
+#endif
       return PL_representation_error("FD_SETSIZE");
     FD_SET((SOCKET)fd, &fds);
 
@@ -659,6 +666,8 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
       break;
 
     default: /* Something happened -> check fds */
+    { int n;
+
       for(n=min; n <= max; n++)
       { if ( FD_ISSET(n, &fds) )
 	{ if ( !PL_unify_list(available, ahead, available) ||
@@ -667,6 +676,7 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 	}
       }
       break;
+    }
   }
 
   return PL_unify_nil(available);
