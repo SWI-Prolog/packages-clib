@@ -238,6 +238,23 @@ pl_setegid(term_t gid)
 }
 
 
+#ifdef HAVE_INITGROUPS
+static foreign_t
+pl_initgroups(term_t user, term_t group)
+{ char *u;
+  int g;
+
+  if ( !PL_get_integer_ex(group, &g) ||
+       !PL_get_chars(user, &u, CVT_ATOMIC|REP_MB|CVT_EXCEPTION) )
+    return FALSE;
+
+  if ( initgroups(u, g) == 0 )
+    return TRUE;
+
+  return error(errno, "initgroups", "user", user);
+}
+#endif
+
 install_t
 install_uid()
 { PL_register_foreign("getuid", 1, pl_getuid, 0);
@@ -250,5 +267,8 @@ install_uid()
   PL_register_foreign("setgid", 1, pl_setgid, 0);
   PL_register_foreign("seteuid", 1, pl_seteuid, 0);
   PL_register_foreign("setegid", 1, pl_setegid, 0);
+#ifdef HAVE_INITGROUPS
+  PL_register_foreign("initgroups", 2, pl_initgroups, 0);
+#endif
 }
 

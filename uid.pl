@@ -52,6 +52,12 @@
 
 :- use_foreign_library(foreign(uid)).
 
+:- if(predicate_property(initgroups(_,_), defined)).
+:- export(initgroups/2).
+:- else.
+initgroups(_,_).
+:- endif.
+
 /** <module> User and group management on Unix systems
 
 This module provides and interface  to   user  and  group information on
@@ -167,6 +173,7 @@ set_user_and_group(User) :-
 	user_info(User, Data),
 	user_data(uid, Data, UID),
 	user_data(gid, Data, GID),
+	initgroups(User, GID),
 	setgid(GID),
 	setuid(UID).
 
