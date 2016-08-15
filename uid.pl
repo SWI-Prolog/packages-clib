@@ -37,6 +37,7 @@
 	    getgid/1,			% -GID
 	    geteuid/1,			% -UID
 	    getegid/1,			% -GID
+	    getgroups/1,		% -GIDs
 	    user_info/2,		% +User, -UserInfo
 	    group_info/2,		% +Group, -GroupInfo
 	    user_data/3,		% +Field, +UserInfo, -Value
@@ -58,10 +59,21 @@
 initgroups(_,_).
 :- endif.
 
+:- if(predicate_property(setgroups(_), defined)).
+:- export(setgroups/1).
+:- endif.
+
 /** <module> User and group management on Unix systems
 
 This module provides and interface  to   user  and  group information on
-Posix systems. In addition, it allows for changing user and group ids.
+Posix systems. In addition, it allows for   changing user and group ids.
+When changing user and group settings for   the calling process, bear in
+mind that:
+
+  - Changing user and groups of the calling process requires permission.
+  - The functions setgroups() and initgroups() are not part of the
+    POSIX standard and therefore the derived predicates may not be
+    present.
 
 @see	Please check the documentation of your OS for details on the
 	semantics of this predicates.
@@ -82,6 +94,13 @@ Posix systems. In addition, it allows for changing user and group ids.
 %%	getegid(-GID) is det.
 %
 %	GID is the effective group ID of the calling process.
+
+%%	getgroups(-GroupsIDs:list(integer)) is det.
+%
+%	GroupsIDs is the set of supplementary   group IDs of the calling
+%	process.  Note  that  these   are    numeric   identifiers.  Use
+%	group_info/2  to  obtain  details   on    the   returned   group
+%	identifiers.
 
 %%	user_info(+User, -UserData) is det.
 %
@@ -161,13 +180,26 @@ group_data(members,  group_info(_, _, _, MBR), MBR).
 %
 %	Set the effective group id of the calling process.
 
+%%	initgroups(+User, +Group) is det.
+%
+%	Initialise the group access list of   the calling process to the
+%	registered groups for User and the   group Group. This predicate
+%	is only available if the underlying OS provides it.
+
+%%	setgroups(+Groups:list(integer)) is det.
+%
+%	Set the group access list of the caling process to the indicated
+%	groups. This predicate is only available   if  the underlying OS
+%	provides it.
 
 %%	set_user_and_group(+User) is det.
 %%	set_user_and_group(+User, +Group) is det.
 %
 %	Set the UID and GID to the User. User  is either a UID or a user
 %	name. If Group is not specified, the   primary  group of User is
-%	used.
+%	used. If initgroups/2 is available,   the resulting group access
+%	list of the calling process consists   of  the registered groups
+%	for User and the specified Group.
 
 set_user_and_group(User) :-
 	user_info(User, Data),
@@ -181,6 +213,8 @@ set_user_and_group(User, Group) :-
 	user_info(User, Data),
 	group_info(Group, GData),
 	user_data(uid, Data, UID),
+	user_data(gid, Data, UGID),
 	group_data(gid, GData, GID),
+	initgroups(User, UGID),
 	setgid(GID),
 	setuid(UID).

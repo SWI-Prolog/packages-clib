@@ -255,12 +255,112 @@ pl_initgroups(term_t user, term_t group)
 }
 #endif
 
+static foreign_t
+pl_getgroups(term_t Groups)
+{ gid_t buf[32];
+  gid_t *list = buf;
+  int size = sizeof(buf)/sizeof(gid_t);
+  int rc;
+
+  for(;;)
+  { rc = getgroups(size, list);
+
+    if ( rc == -1 && errno == EINVAL )
+    { size *= 2;
+      gid_t *l2;
+
+      if ( list == buf )
+	l2 = malloc(sizeof(gid_t)*size);
+      else
+	l2 = realloc(list, sizeof(gid_t)*size);
+
+      if ( !l2 )
+      { if ( list != buf )
+	  free(list);
+	return PL_resource_error("memory");
+      }
+
+      list = l2;
+    } else
+      break;
+  }
+
+  if ( rc >= 0 )
+  { term_t tail = PL_copy_term_ref(Groups);
+    term_t head = PL_new_term_ref();
+    int i;
+
+    for(i=0; i<rc; i++)
+    { if ( !PL_unify_list(tail, head, tail) ||
+	   !PL_unify_integer(head, list[i]) )
+      { rc = FALSE;
+	goto out;
+      }
+    }
+    rc = PL_unify_nil(tail);
+  } else
+  { rc = error(errno, "getgroups", "", Groups);
+  }
+
+out:
+  if ( list != buf )
+    free(list);
+
+  return rc;
+}
+
+
+#ifdef HAVE_SETGROUPS
+static foreign_t
+pl_setgroups(term_t Groups)
+{ size_t len;
+
+  if ( PL_skip_list(Groups, 0, &len) == PL_LIST )
+  { gid_t *list;
+    int rc;
+
+    if ( (list=malloc(len*sizeof(gid_t))) )
+    { term_t tail = PL_copy_term_ref(Groups);
+      term_t head = PL_new_term_ref();
+      int i = 0;
+
+      while((rc=PL_get_list_ex(tail,head,tail)))
+      { int gid;
+
+	if ( (rc=PL_get_integer_ex(head, &gid)) )
+	  list[i++] = gid;
+	else
+	  goto out;
+      }
+      rc = PL_get_nil_ex(tail);
+
+      if ( rc )
+      { if ( setgroups(i, list) < 0 )
+	  rc = error(errno, "setgroups", "", Groups);
+	else
+	  rc = TRUE;
+      }
+    } else
+      rc = PL_resource_error("memory");
+
+  out:
+    if ( list )
+      free(list);
+    return rc;
+  }
+
+  return PL_type_error("list", Groups);
+}
+#endif /*HAVE_SETGROUPS*/
+
+
 install_t
 install_uid()
 { PL_register_foreign("getuid", 1, pl_getuid, 0);
   PL_register_foreign("geteuid", 1, pl_geteuid, 0);
   PL_register_foreign("getgid", 1, pl_getgid, 0);
   PL_register_foreign("getegid", 1, pl_getegid, 0);
+  PL_register_foreign("getgroups", 1, pl_getgroups, 0);
   PL_register_foreign("user_info", 2, pl_user_info, 0);
   PL_register_foreign("group_info", 2, pl_group_info, 0);
   PL_register_foreign("setuid", 1, pl_setuid, 0);
@@ -269,6 +369,9 @@ install_uid()
   PL_register_foreign("setegid", 1, pl_setegid, 0);
 #ifdef HAVE_INITGROUPS
   PL_register_foreign("initgroups", 2, pl_initgroups, 0);
+#endif
+#ifdef HAVE_SETGROUPS
+  PL_register_foreign("setgroups", 1, pl_setgroups, 0);
 #endif
 }
 
