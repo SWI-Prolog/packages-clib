@@ -189,6 +189,7 @@ get_memfile(term_t handle, memfile **mfp)
       return TRUE;
     }
 
+    UNLOCK(mf);
     PL_permission_error("access", "freed_memory_file", handle);
     return FALSE;
   }
