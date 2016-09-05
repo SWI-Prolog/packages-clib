@@ -447,6 +447,7 @@ those given above.
 
 
 \input{md5.tex}
+\input{hashstream.tex}
 
 \section{Memory files}
 \label{sec:memory-files}
