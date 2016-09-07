@@ -230,9 +230,10 @@ following finds the executable for =ls=:
 %		read_lines(Line2, Out, Lines).
 %	==
 %
-%	@error	process_error(Exe, Status) where Status is one of
+%	@error  process_error(Exe, Status) where Status is one of
 %		exit(Code) or killed(Signal).  Raised if the process
-%		does not exit with status 0.
+%		is waited for (i.e. Options does not include
+%		process(-PID)), and it does not exit with status 0.
 
 process_create(Exe, Args, Options) :-
 	exe_options(ExeOptions),
