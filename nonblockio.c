@@ -288,18 +288,10 @@ static plsocket *allocSocket(SOCKET socket);
 static plsocket *lookupOSSocket(SOCKET socket);
 static const char *WinSockError(unsigned long eno);
 static int releaseSocketWhenPossible(plsocket *s);
+#else
+static int need_retry(int error);
 #endif
 static int freeSocket(plsocket *s);
-
-#ifndef __WINDOWS__
-static int
-need_retry(int error)
-{ if ( error == EINTR || error == EAGAIN || error == EWOULDBLOCK )
-    return TRUE;
-
-  return FALSE;
-}
-#endif
 
 #ifdef O_DEBUG
 static int debugging;
@@ -1105,6 +1097,16 @@ startSocketThread()
 
 #else /*__WINDOWS__*/
 
+static int
+need_retry(int error)
+{ if ( error == EINTR || error == EAGAIN || error == EWOULDBLOCK )
+  { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, strerror(error)));
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 wait_socket() is the Unix way  to  wait   for  input  on  the socket. By
 default event-dispatching on behalf of XPCE is performed. If this is not
@@ -1371,7 +1373,8 @@ freeSocket(plsocket *s)
 
   DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->id));
   if ( !s || s->magic != PLSOCK_MAGIC )
-  { errno = EINVAL;
+  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n", s, s->magic));
+    errno = EINVAL;
     return -1;
   }
 
