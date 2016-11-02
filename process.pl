@@ -214,10 +214,12 @@ following finds the executable for =ls=:
 %
 %	==
 %	grep(File, Pattern, Lines) :-
-%		process_create(path(grep), [ Pattern, file(File) ],
-%			       [ stdout(pipe(Out))
-%			       ]),
-%		read_lines(Out, Lines).
+%		setup_call_cleanup(
+%		    process_create(path(grep), [ Pattern, file(File) ],
+%			           [ stdout(pipe(Out))
+%			           ]),
+%		    read_lines(Out, Lines),
+%		    close(Out)).
 %
 %	read_lines(Out, Lines) :-
 %		read_line_to_codes(Out, Line1),
