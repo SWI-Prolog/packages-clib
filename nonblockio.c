@@ -1977,7 +1977,7 @@ nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr, term_t *varport)
 
 int
 nbio_get_ip(term_t ip4, struct in_addr *ip)
-{ unsigned long hip = 0;
+{ uint32_t hip = 0;
 
   if ( PL_is_functor(ip4, FUNCTOR_ip4) )
   { int i, ia;
