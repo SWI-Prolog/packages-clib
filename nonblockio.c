@@ -1371,9 +1371,9 @@ freeSocket(plsocket *s)
   nbio_sock_t socket;
   SOCKET sock;
 
-  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->id));
+  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s ? s->id : 0));
   if ( !s || s->magic != PLSOCK_MAGIC )
-  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n", s, s->magic));
+  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n", s, s ? s->magic : 0));
     errno = EINVAL;
     return -1;
   }
