@@ -110,7 +110,7 @@ update_hash(In, Ctx0, Ctx, Hash0, Hash) :-
 	Ctx = Ctx0,
 	Hash = Hash0.
 update_hash(In, Ctx0, Ctx, _Hash0, Hash) :-
-	read_pending_codes(In, Data, []),
+	get_pending_codes(In, Data, []),
 	sha_hash_ctx(Ctx0, Data, Ctx1, Hash1),
 	update_hash(In, Ctx1, Ctx, Hash1, Hash).
 
