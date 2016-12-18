@@ -33,91 +33,92 @@
 */
 
 :- module(stream_pool,
-	  [ add_stream_to_pool/2,	% +Stream, :Goal
-	    delete_stream_from_pool/1,	% +Stream
-	    close_stream_pool/0,
-	    dispatch_stream_pool/1,	% +TimeOut
-	    stream_pool_main_loop/0
-	  ]).
+          [ add_stream_to_pool/2,       % +Stream, :Goal
+            delete_stream_from_pool/1,  % +Stream
+            close_stream_pool/0,
+            dispatch_stream_pool/1,     % +TimeOut
+            stream_pool_main_loop/0
+          ]).
 :- use_module(library(quintus)).
 
 :- meta_predicate
-	add_stream_to_pool(+, :).
+    add_stream_to_pool(+, :).
 
 :- volatile
-	pool/2.				% sockets don't survive a saved-state
+    pool/2.                         % sockets don't survive a saved-state
 :- dynamic
-	pool/2.				% Stream, Action
+    pool/2.                         % Stream, Action
 
-%	add_stream_to_pool(+Stream :Goal)
+%       add_stream_to_pool(+Stream :Goal)
 %
-%	Call Goal whenever there is input on Stream.
+%       Call Goal whenever there is input on Stream.
 
 add_stream_to_pool(Stream, Action) :-
-	strip_module(Action, Module, Plain),
-	register_stream(Stream, Module:Plain).
+    strip_module(Action, Module, Plain),
+    register_stream(Stream, Module:Plain).
 
 register_stream(Stream, Goal) :-
-	assert(pool(Stream, Goal)).
+    assert(pool(Stream, Goal)).
 
-%	delete_stream_from_pool(+Stream)
+%       delete_stream_from_pool(+Stream)
 %
-%	Retract stream from the pool
+%       Retract stream from the pool
 
 delete_stream_from_pool(Stream) :-
-	retractall(pool(Stream, _)).
+    retractall(pool(Stream, _)).
 
-%	close_stream_pool
+%       close_stream_pool
 
 close_stream_pool :-
-	(   retract(pool(Stream, _)),
-	    close(Stream, [force(true)]),
-	    fail
-	;   true
-	).
+    (   retract(pool(Stream, _)),
+        close(Stream, [force(true)]),
+        fail
+    ;   true
+    ).
 
-%	dispatch_stream_pool(+TimeOut)
+%       dispatch_stream_pool(+TimeOut)
 %
-%	Wait for input on one or more streams and handle that.  Wait for
-%	at most TimeOut seconds (0 means infinite).
+%       Wait for input on one or more streams and handle that.  Wait for
+%       at most TimeOut seconds (0 means infinite).
 
 dispatch_stream_pool(Timeout) :-
-	findall(S, pool(S, _), Pool),
-	catch(wait_for_input(Pool, Ready, Timeout), E, true),
-	debug(tcp, 'Select ~w --> ~w (E=~w)', [Pool, Ready, E]),
-	(   var(E)
-	->  actions(Ready)
-	;   E = error(existence_error(stream, Stream), _)
-	->  delete_stream_from_pool(Stream)
-	).
+    findall(S, pool(S, _), Pool),
+    catch(wait_for_input(Pool, Ready, Timeout), E, true),
+    debug(tcp, 'Select ~w --> ~w (E=~w)', [Pool, Ready, E]),
+    (   var(E)
+    ->  actions(Ready)
+    ;   E = error(existence_error(stream, Stream), _)
+    ->  delete_stream_from_pool(Stream)
+    ).
 
 actions([]).
 actions([H|T]) :-
-	action(H),
-	actions(T).
+    action(H),
+    actions(T).
 
 action(Stream) :-
-	pool(Stream, Action),
-	(   catch(Action, E, true)
-	->  (   var(E)
-	    ->	true
-	    ;	print_message(error, E)
-	    )
-	;   print_message(warning,
-			  goal_failed(Action, stream_pool))
-	).
+    pool(Stream, Action),
+    (   catch(Action, E, true)
+    ->  (   var(E)
+        ->  true
+        ;   print_message(error, E)
+        )
+    ;   print_message(warning,
+                      goal_failed(Action, stream_pool))
+    ).
 
-%	stream_pool_main_loop
+%       stream_pool_main_loop
 %
-%	Keep handling input from the streams in the pool until they have
-%	all died away.
+%       Keep handling input from the streams in the pool until they have
+%       all died away.
 
 stream_pool_main_loop :-
-	pool(_, _), !,
-	(   current_prolog_flag(windows, true)
-	->  dispatch_stream_pool(1)	% so we can break out easily
-	;   dispatch_stream_pool(0)
-	),
-	stream_pool_main_loop.
+    pool(_, _),
+    !,
+    (   current_prolog_flag(windows, true)
+    ->  dispatch_stream_pool(1)     % so we can break out easily
+    ;   dispatch_stream_pool(0)
+    ),
+    stream_pool_main_loop.
 stream_pool_main_loop.
 

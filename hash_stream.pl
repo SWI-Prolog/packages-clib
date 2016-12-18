@@ -33,14 +33,14 @@
 */
 
 :- module(hash_stream,
-	  [ open_hash_stream/3,		% +OrgStream, -HashStream, +Options
-	    stream_hash/2		% +HashStream, -Hash
-	  ]).
+          [ open_hash_stream/3,         % +OrgStream, -HashStream, +Options
+            stream_hash/2               % +HashStream, -Hash
+          ]).
 :- use_foreign_library(foreign(hashstream)).
 :- predicate_options(open_hash_stream/3, 3,
-		     [ close_parent(boolean),
-		       algorithm(oneof([md5,sha1,sha224,sha256,sha384,sha512]))
-		     ]).
+                     [ close_parent(boolean),
+                       algorithm(oneof([md5,sha1,sha224,sha256,sha384,sha512]))
+                     ]).
 
 /** <module> Maintain a hash on a stream
 
@@ -73,47 +73,47 @@ blocks.
   ```
   file_hash(Algorithm, File, Hash) :-
       setup_call_cleanup(
-	  open(File, read, In0, [type(binary)]),
-	  setup_call_cleanup(
-	      open_hash_stream(In0, In,
-			       [ algorithm(Algorithm),
-				 close_parent(false)
-			       ]),
-	      ( setup_call_cleanup(
-		    open_null_stream(Null),
-		    copy_stream_data(In, Null),
-		    close(Null)),
-		stream_hash(In, Hash)
-	      ),
-	      close(In)),
-	  close(In0)).
+          open(File, read, In0, [type(binary)]),
+          setup_call_cleanup(
+              open_hash_stream(In0, In,
+                               [ algorithm(Algorithm),
+                                 close_parent(false)
+                               ]),
+              ( setup_call_cleanup(
+                    open_null_stream(Null),
+                    copy_stream_data(In, Null),
+                    close(Null)),
+                stream_hash(In, Hash)
+              ),
+              close(In)),
+          close(In0)).
   ```
 
-@see	In addition to this hash library, SWI-Prolog provides
-	library(md5), library(sha) and hash functions through
-	library(ssl).
+@see    In addition to this hash library, SWI-Prolog provides
+        library(md5), library(sha) and hash functions through
+        library(ssl).
 */
 
-%%	open_hash_stream(+OrgStream, -HashStream, +Options) is det.
+%!  open_hash_stream(+OrgStream, -HashStream, +Options) is det.
 %
-%	Open a filter stream on  OrgStream   that  maintains a hash. The
-%	hash can be retrieved at any  time using stream_hash/2. Provided
-%	options:
+%   Open a filter stream on  OrgStream   that  maintains a hash. The
+%   hash can be retrieved at any  time using stream_hash/2. Provided
+%   options:
 %
-%	  - algorithm(+Algorithm)
-%	  One of `md5`, `sha1`, `sha224`, `sha256`, `sha384` or
-%	  `sha512`. Default is `sha1`.
-%	  - close_parent(+Bool)
-%	  If `true` (default), closing the filter stream also closes the
-%	  original (parent) stream.
+%     - algorithm(+Algorithm)
+%     One of `md5`, `sha1`, `sha224`, `sha256`, `sha384` or
+%     `sha512`. Default is `sha1`.
+%     - close_parent(+Bool)
+%     If `true` (default), closing the filter stream also closes the
+%     original (parent) stream.
 
 
-%%	stream_hash(+HashStream, -Digest:atom) is det.
+%!  stream_hash(+HashStream, -Digest:atom) is det.
 %
-%	Unify Digest with a hash for  the   bytes  send  to or read from
-%	HashStream. Note that  the  hash  is   computed  on  the  stream
-%	buffers. If the stream is an output  stream, it is first flushed
-%	and the Digest represents the hash   at the current location. If
-%	the stream is an input stream the  Digest represents the hash of
-%	the processed input including the already buffered data.
+%   Unify Digest with a hash for  the   bytes  send  to or read from
+%   HashStream. Note that  the  hash  is   computed  on  the  stream
+%   buffers. If the stream is an output  stream, it is first flushed
+%   and the Digest represents the hash   at the current location. If
+%   the stream is an input stream the  Digest represents the hash of
+%   the processed input including the already buffered data.
 

@@ -43,42 +43,42 @@
 :- use_module(uri).
 
 test_cgi :-
-	run_tests([ cgi
-		  ]).
+    run_tests([ cgi
+              ]).
 
 trip(FormIn, FormOut) :-
-	uri_query_components(String, FormIn),
-	setenv('QUERY_STRING', String),
-	cgi_get_form(FormOut).
+    uri_query_components(String, FormIn),
+    setenv('QUERY_STRING', String),
+    cgi_get_form(FormOut).
 
 n_list_of(0, _, []) :- !.
 n_list_of(I, H, [H|T]) :-
-	I2 is I - 1,
-	n_list_of(I2, H, T).
+    I2 is I - 1,
+    n_list_of(I2, H, T).
 
 :- begin_tests(cgi).
 
 test(atom, In == Out) :-
-	In = [name(value)],
-	trip(In, Out).
+    In = [name(value)],
+    trip(In, Out).
 test(atom, In == Out) :-
-	numlist(32, 126, Chars),
-	n_list_of(10, Chars, ListOfStrings),
-	append(ListOfStrings, AllChars),
-	atom_codes(Value, AllChars),
-	In = [name(Value)],
-	trip(In, Out).
+    numlist(32, 126, Chars),
+    n_list_of(10, Chars, ListOfStrings),
+    append(ListOfStrings, AllChars),
+    atom_codes(Value, AllChars),
+    In = [name(Value)],
+    trip(In, Out).
 test(unicode, In == Out) :-
-	numlist(32, 1100, Chars),
-	atom_codes(Value, Chars),
-	In = [name(Value)],
-	trip(In, Out).
+    numlist(32, 1100, Chars),
+    atom_codes(Value, Chars),
+    In = [name(Value)],
+    trip(In, Out).
 test(integer, In == Out) :-
-	In = [age(2394395340490340)],
-	trip(In, Out).
+    In = [age(2394395340490340)],
+    trip(In, Out).
 test(float, In == Out) :-
-	In = [age(42.0)],
-	trip(In, Out).
+    In = [age(42.0)],
+    trip(In, Out).
 
 :- end_tests(cgi).
 

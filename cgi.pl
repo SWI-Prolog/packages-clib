@@ -33,8 +33,8 @@
 */
 
 :- module(cgi,
-	  [ cgi_get_form/1		% -ListOf Name(Value)
-	  ]).
+          [ cgi_get_form/1              % -ListOf Name(Value)
+          ]).
 :- use_module(library(shlib)).
 
 :- use_foreign_library(foreign(cgi), install_cgi).
@@ -74,12 +74,12 @@ the query =|http://myhost.mydomain/cgi-bin/cgidemo?hello=world|=
     ==
 */
 
-%%	cgi_get_form(-Form)
+%!  cgi_get_form(-Form)
 %
-%	Decodes standard input and the environment variables to obtain a
-%	list of arguments passed to the  CGI script. This predicate both
-%	deals with the CGI *GET* method as well as the *POST* method. If
-%	the data cannot be  obtained,   an  existence_error exception is
-%	raised.
+%   Decodes standard input and the environment variables to obtain a
+%   list of arguments passed to the  CGI script. This predicate both
+%   deals with the CGI *GET* method as well as the *POST* method. If
+%   the data cannot be  obtained,   an  existence_error exception is
+%   raised.
 %
-%	@param Form is a list of Name(Value) terms.
+%   @param Form is a list of Name(Value) terms.

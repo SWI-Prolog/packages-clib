@@ -33,65 +33,68 @@
 */
 
 :- module(stream_info,
-	  [ stream_info/1		% +Stream
-	  ]).
+          [ stream_info/1               % +Stream
+          ]).
 
 :- use_foreign_library(foreign(streaminfo)).
 
-%%	stream_info(+Stream) is det.
+%!  stream_info(+Stream) is det.
 %
-%	Print detailed information about a stream   or  a file-number to
-%	the error output. The  output  of   this  command  is  meant for
-%	experts and requires  knowledge  about   the  implementation  of
-%	streams. It has been  added  to   diagnose  leaking  streams  in
-%	web-servers. For example,  on  linux   systems  we  can  examine
-%	process file-descriptors using
+%   Print detailed information about a stream   or  a file-number to
+%   the error output. The  output  of   this  command  is  meant for
+%   experts and requires  knowledge  about   the  implementation  of
+%   streams. It has been  added  to   diagnose  leaking  streams  in
+%   web-servers. For example,  on  linux   systems  we  can  examine
+%   process file-descriptors using
 %
-%	==
-%	% ls -l /proc/<pid>/fd
-%	==
+%   ==
+%   % ls -l /proc/<pid>/fd
+%   ==
 %
-%	If now (say) descriptor 15 is open   where  it should not be, we
-%	can this command to find the associated Prolog streams and print
-%	as mush as possible information about the stream.
+%   If now (say) descriptor 15 is open   where  it should not be, we
+%   can this command to find the associated Prolog streams and print
+%   as mush as possible information about the stream.
 %
-%	==
-%	?- stream_info(15).
-%	==
+%   ==
+%   ?- stream_info(15).
+%   ==
 %
-%	@param	Stream	A stream-handle, alias name, (integer) system
-%		file handle or `'<stream>(address)'` atom.
+%   @param  Stream  A stream-handle, alias name, (integer) system
+%           file handle or `'<stream>(address)'` atom.
 
 stream_info(Stream) :-
-	is_stream(Stream), !,
-	forall(stream_property(Stream, P),
-	       print_property(P)),
-	nl,
-	catch('$stream_info'(current_output, Stream), E, true),
-	(   nonvar(E)
-	->  format('~w:~t~25|~q~n', ['pending exception', E])
-	;   true
-	).
+    is_stream(Stream),
+    !,
+    forall(stream_property(Stream, P),
+           print_property(P)),
+    nl,
+    catch('$stream_info'(current_output, Stream), E, true),
+    (   nonvar(E)
+    ->  format('~w:~t~25|~q~n', ['pending exception', E])
+    ;   true
+    ).
 stream_info(FileNo) :-
-	integer(FileNo), !,
-	findall(S, stream_property(S, file_no(FileNo)), Streams),
-	length(Streams, Len),
-	format('File no ~w is connected to ~d streams~n', [FileNo, Len]),
-	forall(member(Stream, Streams),
-	       (   format('****************~nStream ~p:~n', [Stream]),
-		   stream_info(Stream))).
+    integer(FileNo),
+    !,
+    findall(S, stream_property(S, file_no(FileNo)), Streams),
+    length(Streams, Len),
+    format('File no ~w is connected to ~d streams~n', [FileNo, Len]),
+    forall(member(Stream, Streams),
+           (   format('****************~nStream ~p:~n', [Stream]),
+               stream_info(Stream))).
 stream_info(Atom) :-
-	atom(Atom),
-	(   stream_property(Stream, type(_)),
-	    format(atom(Atom), '~p', [Stream])
-	->  stream_info(Stream)
-	;   existence_error(stream, Atom)
-	).
+    atom(Atom),
+    (   stream_property(Stream, type(_)),
+        format(atom(Atom), '~p', [Stream])
+    ->  stream_info(Stream)
+    ;   existence_error(stream, Atom)
+    ).
 
 print_property(P) :-
-	P =.. [Name,Value], !,
-	format('~w:~t~25|~q~n', [Name, Value]).
+    P =.. [Name,Value],
+    !,
+    format('~w:~t~25|~q~n', [Name, Value]).
 print_property(input) :- !.
 print_property(output) :- !.
 print_property(P) :-
-	format('~p~n', [P]).
+    format('~p~n', [P]).

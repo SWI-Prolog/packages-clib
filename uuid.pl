@@ -33,9 +33,9 @@
 */
 
 :- module(uuid,
-	  [ uuid/1,			% -UUID
-	    uuid/2			% -UUID, +Options
-	  ]).
+          [ uuid/1,                     % -UUID
+            uuid/2                      % -UUID, +Options
+          ]).
 
 /** <module> Universally Unique Identifier (UUID) Library
 
@@ -57,33 +57,33 @@ versions.  Some typical calls are given below:
 
 :- use_foreign_library(foreign(uuid)).
 
-%%	uuid(-UUID) is det.
+%!  uuid(-UUID) is det.
 %
-%	UUID is an atom representing a  new   UUID.  This is the same as
-%	calling uuid(UUID, []).  See uuid/2 for options.
+%   UUID is an atom representing a  new   UUID.  This is the same as
+%   calling uuid(UUID, []).  See uuid/2 for options.
 
 uuid(UUID) :-
-	uuid(UUID, []).
+    uuid(UUID, []).
 
-%%	uuid(-UUID, +Options) is det.
+%!  uuid(-UUID, +Options) is det.
 %
-%	Create a new UUID according to   Options.  The following options
-%	are defined:
+%   Create a new UUID according to   Options.  The following options
+%   are defined:
 %
-%	  * version(+Versions)
-%	  Integer in the range 1..5, which specifies the UUID version
-%	  that is created.  Default is 1.
+%     * version(+Versions)
+%     Integer in the range 1..5, which specifies the UUID version
+%     that is created.  Default is 1.
 %
-%	  * dns(DNS)
-%	  * url(URL)
-%	  * oid(OID)
-%	  * x500(X500)
-%	  Provide additional context information for UUIDs using version
-%	  3 or 5.  If there is no explicit version option, UUID version
-%	  3 is used.
+%     * dns(DNS)
+%     * url(URL)
+%     * oid(OID)
+%     * x500(X500)
+%     Provide additional context information for UUIDs using version
+%     3 or 5.  If there is no explicit version option, UUID version
+%     3 is used.
 %
-%	  * format(+Format)
-%	  Representation of the UUID.  Default is =atom=, yielding atoms
-%	  such as =|8304efdd-bd6e-5b7c-a27f-83f3f05c64e0|=. The
-%	  alternative is =integer=, returning a large integer that
-%	  represents the 128 bits of the UUID.
+%     * format(+Format)
+%     Representation of the UUID.  Default is =atom=, yielding atoms
+%     such as =|8304efdd-bd6e-5b7c-a27f-83f3f05c64e0|=. The
+%     alternative is =integer=, returning a large integer that
+%     represents the 128 bits of the UUID.

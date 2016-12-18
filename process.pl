@@ -34,18 +34,18 @@
 */
 
 :- module(process,
-	  [ process_create/3,		% +Exe, +Args, +Options
-	    process_wait/2,		% +PID, -Status
-	    process_wait/3,		% +PID, -Status, +Options
-	    process_id/1,		% -PID
-	    process_id/2,		% +Process, -PID
-	    is_process/1,		% +PID
-	    process_release/1,		% +PID
-	    process_kill/1,		% +PID
-            process_group_kill/1,	% +PID
-            process_group_kill/2,	% +PID, +Signal
-	    process_kill/2		% +PID, +Signal
-	  ]).
+          [ process_create/3,           % +Exe, +Args, +Options
+            process_wait/2,             % +PID, -Status
+            process_wait/3,             % +PID, -Status, +Options
+            process_id/1,               % -PID
+            process_id/2,               % +Process, -PID
+            is_process/1,               % +PID
+            process_release/1,          % +PID
+            process_kill/1,             % +PID
+            process_group_kill/1,       % +PID
+            process_group_kill/2,       % +PID, +Signal
+            process_kill/2              % +PID, +Signal
+          ]).
 :- use_module(library(shlib)).
 :- use_module(library(lists)).
 :- use_module(library(option)).
@@ -53,16 +53,16 @@
 :- use_foreign_library(foreign(process)).
 
 :- predicate_options(process_create/3, 3,
-		     [ stdin(any),
-		       stdout(any),
-		       stderr(any),
-		       cwd(atom),
-		       env(list(any)),
-		       priority(+integer),
-		       process(-integer),
-		       detached(+boolean),
-		       window(+boolean)
-		     ]).
+                     [ stdin(any),
+                       stdout(any),
+                       stderr(any),
+                       cwd(atom),
+                       env(list(any)),
+                       priority(+integer),
+                       process(-integer),
+                       detached(+boolean),
+                       window(+boolean)
+                     ]).
 
 /** <module> Create processes and redirect I/O
 
@@ -101,290 +101,294 @@ following finds the executable for =ls=:
     * An extra option env([Name=Value, ...]) is added to
     process_create/3.
 
-@tbd	Implement detached option in process_create/3
-@compat	SICStus 4
+@tbd    Implement detached option in process_create/3
+@compat SICStus 4
 */
 
 
-%%	process_create(+Exe, +Args:list, +Options) is det.
+%!  process_create(+Exe, +Args:list, +Options) is det.
 %
-%	Create a new process running the   file  Exe and using arguments
-%	from the given list. Exe is a   file  specification as handed to
-%	absolute_file_name/3. Typically one use the =path= file alias to
-%	specify an executable file on the current   PATH. Args is a list
-%	of arguments that  are  handed  to   the  new  process.  On Unix
-%	systems, each element in the list becomes a seperate argument in
-%	the  new  process.  In  Windows,    the   arguments  are  simply
-%	concatenated to form the commandline.   Each  argument itself is
-%	either a primitive or  a  list   of  primitives.  A primitive is
-%	either atomic or a term file(Spec). Using file(Spec), the system
-%	inserts a filename using the OS   filename  conventions which is
-%	properly quoted if needed.
+%   Create a new process running the   file  Exe and using arguments
+%   from the given list. Exe is a   file  specification as handed to
+%   absolute_file_name/3. Typically one use the =path= file alias to
+%   specify an executable file on the current   PATH. Args is a list
+%   of arguments that  are  handed  to   the  new  process.  On Unix
+%   systems, each element in the list becomes a seperate argument in
+%   the  new  process.  In  Windows,    the   arguments  are  simply
+%   concatenated to form the commandline.   Each  argument itself is
+%   either a primitive or  a  list   of  primitives.  A primitive is
+%   either atomic or a term file(Spec). Using file(Spec), the system
+%   inserts a filename using the OS   filename  conventions which is
+%   properly quoted if needed.
 %
-%	Options:
+%   Options:
 %
-%	    * stdin(Spec)
-%	    * stdout(Spec)
-%	    * stderr(Spec)
-%	    Bind the standard streams of the new process. Spec is one of
-%	    the terms below. If pipe(Pipe) is used, the Prolog stream is
-%	    a stream in text-mode using the encoding of the default
-%	    locale.  The encoding can be changed using set_stream/2.
-%	    The options =stdout= and =stderr= may use the same stream,
-%	    in which case both output streams are connected to the same
-%	    Prolog stream.
+%       * stdin(Spec)
+%       * stdout(Spec)
+%       * stderr(Spec)
+%       Bind the standard streams of the new process. Spec is one of
+%       the terms below. If pipe(Pipe) is used, the Prolog stream is
+%       a stream in text-mode using the encoding of the default
+%       locale.  The encoding can be changed using set_stream/2.
+%       The options =stdout= and =stderr= may use the same stream,
+%       in which case both output streams are connected to the same
+%       Prolog stream.
 %
-%		* std
-%		Just share with the Prolog I/O streams
-%		* null
-%		Bind to a _null_ stream. Reading from such a stream
-%		returns end-of-file, writing produces no output
-%		* pipe(-Stream)
-%		Attach input and/or output to a Prolog stream.
+%           * std
+%           Just share with the Prolog I/O streams
+%           * null
+%           Bind to a _null_ stream. Reading from such a stream
+%           returns end-of-file, writing produces no output
+%           * pipe(-Stream)
+%           Attach input and/or output to a Prolog stream.
 %
-%	    * cwd(+Directory)
-%	    Run the new process in Directory.  Directory can be a
-%	    compound specification, which is converted using
-%	    absolute_file_name/3.
-%	    * env(+List)
-%	    Specify the environment for the new process.  List is
-%	    a list of Name=Value terms.  Note that the current
-%	    implementation does not pass any environment variables.
-%	    If unspecified, the environment is inherited from the
-%	    Prolog process.
-%	    * process(-PID)
-%	    Unify PID with the process id of the created process.
-%	    * detached(+Bool)
-%	    In Unix: If =true=, detach the process from the terminal
-%	    Currently mapped to setsid();
-%           Also creates a new process group for the child
-%	    In Windows: If =true=, detach the process from the current
-%	    job via the CREATE_BREAKAWAY_FROM_JOB flag. In Vista and beyond,
-%           processes launched from the shell directly have the 'compatibility
-%           assistant' attached to them automatically unless they have a UAC
-%           manifest embedded in them. This means that you will get a
-%           permission denied error if you try and assign the newly-created
-%           PID to a job you create yourself.
-%	    * window(+Bool)
-%	    If =true=, create a window for the process (Windows only)
-%	    * priority(+Priority)
-%	    In Unix: specifies the process priority for the newly
-%	    created process. Priority must be an integer between -20
-%	    and 19. Positive values are nicer to others, and negative
-%	    values are less so. The default is zero. Users are free to
-%	    lower their own priority. Only the super-user may _raise_ it
-%	    to less-than zero.
+%       * cwd(+Directory)
+%       Run the new process in Directory.  Directory can be a
+%       compound specification, which is converted using
+%       absolute_file_name/3.
+%       * env(+List)
+%       Specify the environment for the new process.  List is
+%       a list of Name=Value terms.  Note that the current
+%       implementation does not pass any environment variables.
+%       If unspecified, the environment is inherited from the
+%       Prolog process.
+%       * process(-PID)
+%       Unify PID with the process id of the created process.
+%       * detached(+Bool)
+%       In Unix: If =true=, detach the process from the terminal
+%       Currently mapped to setsid();
+%       Also creates a new process group for the child
+%       In Windows: If =true=, detach the process from the current
+%       job via the CREATE_BREAKAWAY_FROM_JOB flag. In Vista and beyond,
+%       processes launched from the shell directly have the 'compatibility
+%       assistant' attached to them automatically unless they have a UAC
+%       manifest embedded in them. This means that you will get a
+%       permission denied error if you try and assign the newly-created
+%       PID to a job you create yourself.
+%       * window(+Bool)
+%       If =true=, create a window for the process (Windows only)
+%       * priority(+Priority)
+%       In Unix: specifies the process priority for the newly
+%       created process. Priority must be an integer between -20
+%       and 19. Positive values are nicer to others, and negative
+%       values are less so. The default is zero. Users are free to
+%       lower their own priority. Only the super-user may _raise_ it
+%       to less-than zero.
 %
-%	If the user specifies the process(-PID)   option, he *must* call
-%	process_wait/2 to reclaim the process.  Without this option, the
-%	system will wait for completion of   the  process after the last
-%	pipe stream is closed.
+%   If the user specifies the process(-PID)   option, he *must* call
+%   process_wait/2 to reclaim the process.  Without this option, the
+%   system will wait for completion of   the  process after the last
+%   pipe stream is closed.
 %
-%	If the process is not waited for, it must succeed with status 0.
-%	If not, an process_error is raised.
+%   If the process is not waited for, it must succeed with status 0.
+%   If not, an process_error is raised.
 %
-%	*|Windows notes|*
+%   *|Windows notes|*
 %
-%	On Windows this call is an interface to the CreateProcess() API.
-%	The  commandline  consists  of  the  basename  of  Exe  and  the
-%	arguments formed from Args. Arguments are  separated by a single
-%	space. If all characters satisfy iswalnum()   it is unquoted. If
-%	the argument contains a double-quote it   is quoted using single
-%	quotes. If both single and double   quotes appear a domain_error
-%	is raised, otherwise double-quote are used.
+%   On Windows this call is an interface to the CreateProcess() API.
+%   The  commandline  consists  of  the  basename  of  Exe  and  the
+%   arguments formed from Args. Arguments are  separated by a single
+%   space. If all characters satisfy iswalnum()   it is unquoted. If
+%   the argument contains a double-quote it   is quoted using single
+%   quotes. If both single and double   quotes appear a domain_error
+%   is raised, otherwise double-quote are used.
 %
-%	The CreateProcess() API has  many   options.  Currently only the
-%	=CREATE_NO_WINDOW=   options   is   supported     through    the
-%	window(+Bool) option. If omitted, the  default   is  to use this
-%	option if the application has no   console.  Future versions are
-%	likely to support  more  window   specific  options  and replace
-%	win_exec/2.
+%   The CreateProcess() API has  many   options.  Currently only the
+%   =CREATE_NO_WINDOW=   options   is   supported     through    the
+%   window(+Bool) option. If omitted, the  default   is  to use this
+%   option if the application has no   console.  Future versions are
+%   likely to support  more  window   specific  options  and replace
+%   win_exec/2.
 %
-%	*Examples*
+%   *Examples*
 %
-%	First,  a  very  simple  example  that    behaves  the  same  as
-%	=|shell('ls -l')|=, except for error handling:
+%   First,  a  very  simple  example  that    behaves  the  same  as
+%   =|shell('ls -l')|=, except for error handling:
 %
-%	==
-%	?- process_create(path(ls), ['-l'], []).
-%	==
+%   ==
+%   ?- process_create(path(ls), ['-l'], []).
+%   ==
 %
-%	The following example uses grep to find  all matching lines in a
-%	file.
+%   The following example uses grep to find  all matching lines in a
+%   file.
 %
-%	==
-%	grep(File, Pattern, Lines) :-
-%		setup_call_cleanup(
-%		    process_create(path(grep), [ Pattern, file(File) ],
-%			           [ stdout(pipe(Out))
-%			           ]),
-%		    read_lines(Out, Lines),
-%		    close(Out)).
+%   ==
+%   grep(File, Pattern, Lines) :-
+%           setup_call_cleanup(
+%               process_create(path(grep), [ Pattern, file(File) ],
+%                              [ stdout(pipe(Out))
+%                              ]),
+%               read_lines(Out, Lines),
+%               close(Out)).
 %
-%	read_lines(Out, Lines) :-
-%		read_line_to_codes(Out, Line1),
-%		read_lines(Line1, Out, Lines).
+%   read_lines(Out, Lines) :-
+%           read_line_to_codes(Out, Line1),
+%           read_lines(Line1, Out, Lines).
 %
-%	read_lines(end_of_file, _, []) :- !.
-%	read_lines(Codes, Out, [Line|Lines]) :-
-%		atom_codes(Line, Codes),
-%		read_line_to_codes(Out, Line2),
-%		read_lines(Line2, Out, Lines).
-%	==
+%   read_lines(end_of_file, _, []) :- !.
+%   read_lines(Codes, Out, [Line|Lines]) :-
+%           atom_codes(Line, Codes),
+%           read_line_to_codes(Out, Line2),
+%           read_lines(Line2, Out, Lines).
+%   ==
 %
-%	@error	process_error(Exe, Status) where Status is one of
-%		exit(Code) or killed(Signal).  Raised if the process
-%		does not exit with status 0.
+%   @error  process_error(Exe, Status) where Status is one of
+%           exit(Code) or killed(Signal).  Raised if the process
+%           does not exit with status 0.
 
 process_create(Exe, Args, Options) :-
-	exe_options(ExeOptions),
-	absolute_file_name(Exe, PlProg, ExeOptions),
-	must_be(list, Args),
-	maplist(map_arg, Args, Av),
-	prolog_to_os_filename(PlProg, Prog),
-	Term =.. [Prog|Av],
-	expand_cwd_option(Options, Options1),
-	process_create(Term, Options1).
+    exe_options(ExeOptions),
+    absolute_file_name(Exe, PlProg, ExeOptions),
+    must_be(list, Args),
+    maplist(map_arg, Args, Av),
+    prolog_to_os_filename(PlProg, Prog),
+    Term =.. [Prog|Av],
+    expand_cwd_option(Options, Options1),
+    process_create(Term, Options1).
 
 exe_options(Options) :-
-	current_prolog_flag(windows, true), !,
-	Options = [ extensions(['',exe,com]), access(read) ].
+    current_prolog_flag(windows, true),
+    !,
+    Options = [ extensions(['',exe,com]), access(read) ].
 exe_options(Options) :-
-	Options = [ access(execute) ].
+    Options = [ access(execute) ].
 
 expand_cwd_option(Options0, Options) :-
-	select_option(cwd(Spec), Options0, Options1), !,
-	(   compound(Spec)
-	->  absolute_file_name(Spec, PlDir, [file_type(directory), access(read)]),
-	    prolog_to_os_filename(PlDir, Dir),
-	    Options = [cwd(Dir)|Options1]
-	;   exists_directory(Spec)
-	->  Options = Options0
-	;   existence_error(directory, Spec)
-	).
+    select_option(cwd(Spec), Options0, Options1),
+    !,
+    (   compound(Spec)
+    ->  absolute_file_name(Spec, PlDir, [file_type(directory), access(read)]),
+        prolog_to_os_filename(PlDir, Dir),
+        Options = [cwd(Dir)|Options1]
+    ;   exists_directory(Spec)
+    ->  Options = Options0
+    ;   existence_error(directory, Spec)
+    ).
 expand_cwd_option(Options, Options).
 
 
-%%	map_arg(+ArgIn, -Arg) is det.
+%!  map_arg(+ArgIn, -Arg) is det.
 %
-%	Map an individual argument. Primitives  are either file(Spec) or
-%	an atomic value (atom, string, number).  If ArgIn is a non-empty
-%	list,  all  elements  are   converted    and   the  results  are
-%	concatenated.
+%   Map an individual argument. Primitives  are either file(Spec) or
+%   an atomic value (atom, string, number).  If ArgIn is a non-empty
+%   list,  all  elements  are   converted    and   the  results  are
+%   concatenated.
 
 map_arg([], []) :- !.
 map_arg(List, Arg) :-
-	is_list(List), !,
-	maplist(map_arg_prim, List, Prims),
-	atomic_list_concat(Prims, Arg).
+    is_list(List),
+    !,
+    maplist(map_arg_prim, List, Prims),
+    atomic_list_concat(Prims, Arg).
 map_arg(Prim, Arg) :-
-	map_arg_prim(Prim, Arg).
+    map_arg_prim(Prim, Arg).
 
-map_arg_prim(file(Spec), File) :- !,
-	(   compound(Spec)
-	->  absolute_file_name(Spec, PlFile)
-	;   PlFile = Spec
-	),
-	prolog_to_os_filename(PlFile, File).
+map_arg_prim(file(Spec), File) :-
+    !,
+    (   compound(Spec)
+    ->  absolute_file_name(Spec, PlFile)
+    ;   PlFile = Spec
+    ),
+    prolog_to_os_filename(PlFile, File).
 map_arg_prim(Arg, Arg).
 
 
-%%	process_id(-PID) is det.
+%!  process_id(-PID) is det.
 %
-%	True if PID is the process id of the running Prolog process.
+%   True if PID is the process id of the running Prolog process.
 %
-%	@deprecated	Use current_prolog_flag(pid, PID)
+%   @deprecated     Use current_prolog_flag(pid, PID)
 
 process_id(PID) :-
-	current_prolog_flag(pid, PID).
+    current_prolog_flag(pid, PID).
 
-%%	process_id(+Process, -PID) is det.
+%!  process_id(+Process, -PID) is det.
 %
-%	PID is the process id of Process.  Given that they are united in
-%	SWI-Prolog, this is a simple unify.
+%   PID is the process id of Process.  Given that they are united in
+%   SWI-Prolog, this is a simple unify.
 
 process_id(PID, PID).
 
-%%	is_process(+PID) is semidet.
+%!  is_process(+PID) is semidet.
 %
-%	True if PID might  be  a   process.  Succeeds  for  any positive
-%	integer.
+%   True if PID might  be  a   process.  Succeeds  for  any positive
+%   integer.
 
 is_process(PID) :-
-	integer(PID),
-	PID > 0.
+    integer(PID),
+    PID > 0.
 
-%%	process_release(+PID)
+%!  process_release(+PID)
 %
-%	Release process handle.  In this implementation this is the same
-%	as process_wait(PID, _).
+%   Release process handle.  In this implementation this is the same
+%   as process_wait(PID, _).
 
 process_release(PID) :-
-	process_wait(PID, _).
+    process_wait(PID, _).
 
-%%	process_wait(+PID, -Status) is det.
-%%	process_wait(+PID, -Status, +Options) is det.
+%!  process_wait(+PID, -Status) is det.
+%!  process_wait(+PID, -Status, +Options) is det.
 %
-%	True if PID completed with  Status.   This  call normally blocks
-%	until the process is finished.  Options:
+%   True if PID completed with  Status.   This  call normally blocks
+%   until the process is finished.  Options:
 %
-%	    * timeout(+Timeout)
-%	    Default: =infinite=.  If this option is a number, the
-%	    waits for a maximum of Timeout seconds and unifies Status
-%	    with =timeout= if the process does not terminate within
-%	    Timeout.  In this case PID is _not_ invalidated.  On Unix
-%	    systems only timeout 0 and =infinite= are supported.  A
-%	    0-value can be used to poll the status of the process.
+%       * timeout(+Timeout)
+%       Default: =infinite=.  If this option is a number, the
+%       waits for a maximum of Timeout seconds and unifies Status
+%       with =timeout= if the process does not terminate within
+%       Timeout.  In this case PID is _not_ invalidated.  On Unix
+%       systems only timeout 0 and =infinite= are supported.  A
+%       0-value can be used to poll the status of the process.
 %
-%	    * release(+Bool)
-%	    Do/do not release the process.  We do not support this flag
-%	    and a domain_error is raised if release(false) is provided.
+%       * release(+Bool)
+%       Do/do not release the process.  We do not support this flag
+%       and a domain_error is raised if release(false) is provided.
 %
-%	@param	Status is one of exit(Code) or killed(Signal), where
-%		Code and Signal are integers.
+%   @param  Status is one of exit(Code) or killed(Signal), where
+%           Code and Signal are integers.
 
 process_wait(PID, Status) :-
-	process_wait(PID, Status, []).
+    process_wait(PID, Status, []).
 
-%%	process_kill(+PID) is det.
-%%	process_kill(+PID, +Signal) is det.
+%!  process_kill(+PID) is det.
+%!  process_kill(+PID, +Signal) is det.
 %
-%	Send signal to process PID.  Default   is  =term=.  Signal is an
-%	integer, Unix signal name (e.g. =SIGSTOP=)   or  the more Prolog
-%	friendly variation one gets after   removing  =SIG= and downcase
-%	the result: =stop=. On Windows systems,   Signal  is ignored and
-%	the process is terminated using   the TerminateProcess() API. On
-%	Windows systems PID must  be   obtained  from  process_create/3,
-%	while any PID is allowed on Unix systems.
+%   Send signal to process PID.  Default   is  =term=.  Signal is an
+%   integer, Unix signal name (e.g. =SIGSTOP=)   or  the more Prolog
+%   friendly variation one gets after   removing  =SIG= and downcase
+%   the result: =stop=. On Windows systems,   Signal  is ignored and
+%   the process is terminated using   the TerminateProcess() API. On
+%   Windows systems PID must  be   obtained  from  process_create/3,
+%   while any PID is allowed on Unix systems.
 %
-%	@compat	SICStus does not accept the prolog friendly version.  We
-%		choose to do so for compatibility with on_signal/3.
+%   @compat SICStus does not accept the prolog friendly version.  We
+%           choose to do so for compatibility with on_signal/3.
 
 process_kill(PID) :-
-	process_kill(PID, term).
+    process_kill(PID, term).
 
 
-%%	process_group_kill(+PID) is det.
-%%	process_group_kill(+PID, +Signal) is det.
+%!  process_group_kill(+PID) is det.
+%!  process_group_kill(+PID, +Signal) is det.
 %
-%	Send signal to the group containing process PID.  Default   is
-%       =term=.   See process_wait/1  for  a  description  of  signal
-%       handling. In Windows, the same restriction on PID applies: it
-%       must have been created from process_create/3, and the the group
-%       is terminated via the TerminateJobObject API.
+%   Send signal to the group containing process PID.  Default   is
+%   =term=.   See process_wait/1  for  a  description  of  signal
+%   handling. In Windows, the same restriction on PID applies: it
+%   must have been created from process_create/3, and the the group
+%   is terminated via the TerminateJobObject API.
 
 process_group_kill(PID) :-
-	process_group_kill(PID, term).
+    process_group_kill(PID, term).
 
 
-		 /*******************************
-		 *	      MESSAGES		*
-		 *******************************/
+                 /*******************************
+                 *            MESSAGES          *
+                 *******************************/
 
 :- multifile
-	prolog:error_message/3.
+    prolog:error_message/3.
 
 prolog:error_message(process_error(File, exit(Status))) -->
-	[ 'Process "~w": exit status: ~w'-[File, Status] ].
+    [ 'Process "~w": exit status: ~w'-[File, Status] ].
 prolog:error_message(process_error(File, killed(Signal))) -->
-	[ 'Process "~w": killed by signal ~w'-[File, Signal] ].
+    [ 'Process "~w": killed by signal ~w'-[File, Signal] ].

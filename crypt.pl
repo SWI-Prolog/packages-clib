@@ -33,12 +33,12 @@
 */
 
 :- module(crypt,
-	  [ crypt/2
-	  ]).
+          [ crypt/2
+          ]).
 
 :- use_foreign_library(foreign(crypt), install_crypt).
 
-%	crypt(+Passwd, ?Encripted).
+%       crypt(+Passwd, ?Encripted).
 %
-%	Used to test an encrypted passwd or create one.  In the latter
-%	case, the first 2 letter must be instantiated
+%       Used to test an encrypted passwd or create one.  In the latter
+%       case, the first 2 letter must be instantiated

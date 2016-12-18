@@ -33,22 +33,22 @@
 */
 
 :- module(clib_rlimit,
-	  [ rlimit/3			% +Limit, -Old, +New
-	  ]).
+          [ rlimit/3                    % +Limit, -Old, +New
+          ]).
 
-%	rlimit(+Limit, -Old, +New)
+%       rlimit(+Limit, -Old, +New)
 %
-%	Query and set POSIX resource limits.  Provided resources are:
+%       Query and set POSIX resource limits.  Provided resources are:
 %
-%		cpu		CPU time (seconds)
-%		fsize		file-size (bytes)
-%		data		size of data-segment (bytes)
-%		stack		size of C-stack (bytes)
-%		core		size of a core-dump (bytes)
-%		rss		resident set size
-%		memlock		locked-in-memory address space
-%		nproc		number of processes
-%		nofile		number of open files
+%               cpu             CPU time (seconds)
+%               fsize           file-size (bytes)
+%               data            size of data-segment (bytes)
+%               stack           size of C-stack (bytes)
+%               core            size of a core-dump (bytes)
+%               rss             resident set size
+%               memlock         locked-in-memory address space
+%               nproc           number of processes
+%               nofile          number of open files
 
 :- use_foreign_library(foreign(rlimit)).
 

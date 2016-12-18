@@ -33,8 +33,8 @@
 */
 
 :- module(md5,
-	  [ md5_hash/3			% +Input, -Hash, +Options
-	  ]).
+          [ md5_hash/3                  % +Input, -Hash, +Options
+          ]).
 
 :- use_foreign_library(foreign(md54pl)).
 
@@ -45,21 +45,21 @@ solution waiting for a more general interface to the libcrypto functions
 of OpenSSL.
 */
 
-%%	md5_hash(+Data, -Hash, +Options) is det.
+%!  md5_hash(+Data, -Hash, +Options) is det.
 %
-%	Hash is the MD5 hash of Data,   The  conversion is controlled by
-%	Options:
+%   Hash is the MD5 hash of Data,   The  conversion is controlled by
+%   Options:
 %
-%	  * encoding(+Encoding)
-%	  If Data is a sequence of character _codes_, this must be
-%	  translated into a sequence of _bytes_, because that is what
-%	  the hashing requires.  The default encoding is =utf8=.  The
-%	  other meaningful value is =octet=, claiming that Data contains
-%	  raw bytes.
+%     * encoding(+Encoding)
+%     If Data is a sequence of character _codes_, this must be
+%     translated into a sequence of _bytes_, because that is what
+%     the hashing requires.  The default encoding is =utf8=.  The
+%     other meaningful value is =octet=, claiming that Data contains
+%     raw bytes.
 %
-%	@arg Data is either an atom, string, code-list or char-list.
-%	@arg Hash is an atom holding 32 characters, representing the
-%	hash in hexadecimal notation
+%   @arg Data is either an atom, string, code-list or char-list.
+%   @arg Hash is an atom holding 32 characters, representing the
+%   hash in hexadecimal notation
 
 :- multifile sandbox:safe_primitive/1.
 

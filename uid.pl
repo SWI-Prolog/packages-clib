@@ -33,23 +33,23 @@
 */
 
 :- module(uid,
-	  [ getuid/1,			% -UID
-	    getgid/1,			% -GID
-	    geteuid/1,			% -UID
-	    getegid/1,			% -GID
-	    getgroups/1,		% -GIDs
-	    user_info/2,		% +User, -UserInfo
-	    group_info/2,		% +Group, -GroupInfo
-	    user_data/3,		% +Field, +UserInfo, -Value
-	    group_data/3,		% +Field, +GroupInfo, -Value
-	    setuid/1,			% +UID
-	    setgid/1,			% +GID
-	    seteuid/1,			% +UID
-	    setegid/1,			% +GID
+          [ getuid/1,                   % -UID
+            getgid/1,                   % -GID
+            geteuid/1,                  % -UID
+            getegid/1,                  % -GID
+            getgroups/1,                % -GIDs
+            user_info/2,                % +User, -UserInfo
+            group_info/2,               % +Group, -GroupInfo
+            user_data/3,                % +Field, +UserInfo, -Value
+            group_data/3,               % +Field, +GroupInfo, -Value
+            setuid/1,                   % +UID
+            setgid/1,                   % +GID
+            seteuid/1,                  % +UID
+            setegid/1,                  % +GID
 
-	    set_user_and_group/1,	% +User
-	    set_user_and_group/2	% +User, +Group
-	  ]).
+            set_user_and_group/1,       % +User
+            set_user_and_group/2        % +User, +Group
+          ]).
 
 :- use_foreign_library(foreign(uid)).
 
@@ -75,146 +75,146 @@ mind that:
     POSIX standard and therefore the derived predicates may not be
     present.
 
-@see	Please check the documentation of your OS for details on the
-	semantics of this predicates.
+@see    Please check the documentation of your OS for details on the
+        semantics of this predicates.
 */
 
-%%	getuid(-UID) is det.
+%!  getuid(-UID) is det.
 %
-%	UID is the real user ID of the calling process.
+%   UID is the real user ID of the calling process.
 
-%%	getgid(-GID) is det.
+%!  getgid(-GID) is det.
 %
-%	GID is the real group ID of the calling process.
+%   GID is the real group ID of the calling process.
 
-%%	geteuid(-UID) is det.
+%!  geteuid(-UID) is det.
 %
-%	UID is the effective user ID of the calling process.
+%   UID is the effective user ID of the calling process.
 
-%%	getegid(-GID) is det.
+%!  getegid(-GID) is det.
 %
-%	GID is the effective group ID of the calling process.
+%   GID is the effective group ID of the calling process.
 
-%%	getgroups(-GroupsIDs:list(integer)) is det.
+%!  getgroups(-GroupsIDs:list(integer)) is det.
 %
-%	GroupsIDs is the set of supplementary   group IDs of the calling
-%	process.  Note  that  these   are    numeric   identifiers.  Use
-%	group_info/2  to  obtain  details   on    the   returned   group
-%	identifiers.
+%   GroupsIDs is the set of supplementary   group IDs of the calling
+%   process.  Note  that  these   are    numeric   identifiers.  Use
+%   group_info/2  to  obtain  details   on    the   returned   group
+%   identifiers.
 
-%%	user_info(+User, -UserData) is det.
+%!  user_info(+User, -UserData) is det.
 %
-%	UserData represent the passwd  information   for  User.  User is
-%	either a numeric UID or a   user name. The predicate user_data/3
-%	can be used to extract information from UserData.
+%   UserData represent the passwd  information   for  User.  User is
+%   either a numeric UID or a   user name. The predicate user_data/3
+%   can be used to extract information from UserData.
 
-%%	user_data(?Field, ?UserData, ?Value)
+%!  user_data(?Field, ?UserData, ?Value)
 %
-%	Value is the value for Field in UserData.  Defined fields are:
+%   Value is the value for Field in UserData.  Defined fields are:
 %
-%	  * name
-%	  Name of the user
-%	  * password
-%	  Password hash of the user (or =x= if this is not accessible)
-%	  * uid
-%	  Numeric user id of the user
-%	  * gid
-%	  Numeric primary group id of the user
-%	  * comment
-%	  The _gecos_ field
-%	  * home
-%	  Home directory of the user
-%	  * shell
-%	  Default (login) shell of the user.
+%     * name
+%     Name of the user
+%     * password
+%     Password hash of the user (or =x= if this is not accessible)
+%     * uid
+%     Numeric user id of the user
+%     * gid
+%     Numeric primary group id of the user
+%     * comment
+%     The _gecos_ field
+%     * home
+%     Home directory of the user
+%     * shell
+%     Default (login) shell of the user.
 
-user_data(name,	    user_info(Nam, _, _, _, _, _, _), Nam).
+user_data(name,     user_info(Nam, _, _, _, _, _, _), Nam).
 user_data(password, user_info(_, PWD, _, _, _, _, _), PWD).
-user_data(uid,	    user_info(_, _, UID, _, _, _, _), UID).
-user_data(gid,	    user_info(_, _, _, GID, _, _, _), GID).
+user_data(uid,      user_info(_, _, UID, _, _, _, _), UID).
+user_data(gid,      user_info(_, _, _, GID, _, _, _), GID).
 user_data(comment,  user_info(_, _, _, _, GEC, _, _), GEC).
-user_data(home,	    user_info(_, _, _, _, _, HOM, _), HOM).
+user_data(home,     user_info(_, _, _, _, _, HOM, _), HOM).
 user_data(shell,    user_info(_, _, _, _, _, _, SHE), SHE).
 
-%%	group_info(+Group, -GroupData) is det.
+%!  group_info(+Group, -GroupData) is det.
 %
-%	GroupData represent the group information   for  Group. Group is
-%	either a numeric GID or a group name. The predicate group_data/3
-%	can be used to extract information from GroupData.
+%   GroupData represent the group information   for  Group. Group is
+%   either a numeric GID or a group name. The predicate group_data/3
+%   can be used to extract information from GroupData.
 
-%%	group_data(?Field, ?GroupData, ?Value)
+%!  group_data(?Field, ?GroupData, ?Value)
 %
-%	Value is the value for Field  GroupData.  Defined fields are:
+%   Value is the value for Field  GroupData.  Defined fields are:
 %
-%	  * name
-%	  Name of the user
-%	  * password
-%	  Password hash of the user (or =x= if this is not accessible)
-%	  * gid
-%	  Numeric group id of the group
-%	  * members
-%	  List of user-names that are member of this group.
+%     * name
+%     Name of the user
+%     * password
+%     Password hash of the user (or =x= if this is not accessible)
+%     * gid
+%     Numeric group id of the group
+%     * members
+%     List of user-names that are member of this group.
 
 group_data(name,     group_info(Nam, _, _, _), Nam).
 group_data(password, group_info(_, PWD, _, _), PWD).
-group_data(gid,	     group_info(_, _, GID, _), GID).
+group_data(gid,      group_info(_, _, GID, _), GID).
 group_data(members,  group_info(_, _, _, MBR), MBR).
 
-		 /*******************************
-		 *	       SETTING		*
-		 *******************************/
+                 /*******************************
+                 *             SETTING          *
+                 *******************************/
 
-%%	setuid(+UID)
+%!  setuid(+UID)
 %
-%	Set the user id of the calling process.
+%   Set the user id of the calling process.
 
-%%	seteuid(+UID)
+%!  seteuid(+UID)
 %
-%	Set the effective user id of the calling process.
+%   Set the effective user id of the calling process.
 
 
-%%	setgid(+GID)
+%!  setgid(+GID)
 %
-%	Set the group id of the calling process.
+%   Set the group id of the calling process.
 
-%%	setegid(+GID)
+%!  setegid(+GID)
 %
-%	Set the effective group id of the calling process.
+%   Set the effective group id of the calling process.
 
-%%	initgroups(+User, +Group) is det.
+%!  initgroups(+User, +Group) is det.
 %
-%	Initialise the group access list of   the calling process to the
-%	registered groups for User and the   group Group. This predicate
-%	is only available if the underlying OS provides it.
+%   Initialise the group access list of   the calling process to the
+%   registered groups for User and the   group Group. This predicate
+%   is only available if the underlying OS provides it.
 
-%%	setgroups(+Groups:list(integer)) is det.
+%!  setgroups(+Groups:list(integer)) is det.
 %
-%	Set the group access list of the caling process to the indicated
-%	groups. This predicate is only available   if  the underlying OS
-%	provides it.
+%   Set the group access list of the caling process to the indicated
+%   groups. This predicate is only available   if  the underlying OS
+%   provides it.
 
-%%	set_user_and_group(+User) is det.
-%%	set_user_and_group(+User, +Group) is det.
+%!  set_user_and_group(+User) is det.
+%!  set_user_and_group(+User, +Group) is det.
 %
-%	Set the UID and GID to the User. User  is either a UID or a user
-%	name. If Group is not specified, the   primary  group of User is
-%	used. If initgroups/2 is available,   the resulting group access
-%	list of the calling process consists   of  the registered groups
-%	for User and the specified Group.
+%   Set the UID and GID to the User. User  is either a UID or a user
+%   name. If Group is not specified, the   primary  group of User is
+%   used. If initgroups/2 is available,   the resulting group access
+%   list of the calling process consists   of  the registered groups
+%   for User and the specified Group.
 
 set_user_and_group(User) :-
-	user_info(User, Data),
-	user_data(uid, Data, UID),
-	user_data(gid, Data, GID),
-	initgroups(User, GID),
-	setgid(GID),
-	setuid(UID).
+    user_info(User, Data),
+    user_data(uid, Data, UID),
+    user_data(gid, Data, GID),
+    initgroups(User, GID),
+    setgid(GID),
+    setuid(UID).
 
 set_user_and_group(User, Group) :-
-	user_info(User, Data),
-	group_info(Group, GData),
-	user_data(uid, Data, UID),
-	user_data(gid, Data, UGID),
-	group_data(gid, GData, GID),
-	initgroups(User, UGID),
-	setgid(GID),
-	setuid(UID).
+    user_info(User, Data),
+    group_info(Group, GData),
+    user_data(uid, Data, UID),
+    user_data(gid, Data, UGID),
+    group_data(gid, GData, GID),
+    initgroups(User, UGID),
+    setgid(GID),
+    setuid(UID).

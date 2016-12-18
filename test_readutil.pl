@@ -33,8 +33,8 @@
 */
 
 :- module(test_readutil,
-	  [ test_readutil/0
-	  ]).
+          [ test_readutil/0
+          ]).
 
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '.')).
@@ -44,14 +44,14 @@
 :- use_module(library(readutil)).
 
 test_readutil :-
-	run_tests([ read_line_to_codes
-		  ]).
+    run_tests([ read_line_to_codes
+              ]).
 
 :- begin_tests(read_line_to_codes).
 
 test(eof, [condition(access_file('/dev/null', read)), X == end_of_file]) :-
-	open('/dev/null', read, In),
-	call_cleanup(read_line_to_codes(In, X), close(In)).
+    open('/dev/null', read, In),
+    call_cleanup(read_line_to_codes(In, X), close(In)).
 
 :- end_tests(read_line_to_codes).
 
