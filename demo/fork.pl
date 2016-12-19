@@ -14,14 +14,14 @@ childs to return results.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 fork_demo(Result) :-
-	pipe(Read, Write),
-	fork(Pid),
-	(   Pid == child
-	->  close(Read),
-	    format(Write, '~q.~n', [hello(world)]),
-	    flush_output(Write),	% stream is fully buffered!
-	    halt
-	;   close(Write),
-	    read(Read, Result),
-	    close(Read)
-	).
+    pipe(Read, Write),
+    fork(Pid),
+    (   Pid == child
+    ->  close(Read),
+        format(Write, '~q.~n', [hello(world)]),
+        flush_output(Write),        % stream is fully buffered!
+        halt
+    ;   close(Write),
+        read(Read, Result),
+        close(Read)
+    ).
