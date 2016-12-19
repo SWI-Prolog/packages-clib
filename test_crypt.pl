@@ -186,7 +186,7 @@ int_to_bytes(Int, Bytes) :-
     int_to_bytes(Int, [], Bytes).
 
 int_to_bytes(Int, Bytes0, [Int|Bytes0]) :-
-    Int < 128, 
+    Int < 128,
     !.
 int_to_bytes(Int, Bytes0, Bytes) :-
     Last is Int /\ 0xff,

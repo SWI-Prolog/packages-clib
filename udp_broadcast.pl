@@ -413,7 +413,7 @@ dispatch_traffic(S, S1) :-
 
 start_udp_listener_daemon :-
     catch(thread_property(udp_listener_daemon2, status(running)),_, fail),
-    
+
     !.
 
 start_udp_listener_daemon :-
@@ -460,7 +460,7 @@ udp_broadcast(Term:To, _Scope, _Timeout) :-
     ground(Term), ground(To),
     !,
     udp_basic_broadcast(_S, _Port, Term, To),
-    
+
     !.
 
 % broadcast to all listeners
@@ -469,7 +469,7 @@ udp_broadcast(Term, Scope, _Timeout) :-
     !,
     udp_broadcast_service(Scope, Address),
     udp_basic_broadcast(_S, _Port, Term, Address),
-    
+
     !.
 
 % directed broadcast_request to a single listener
@@ -493,7 +493,7 @@ udp_br_send_timeout(Port) :-
     udp_socket(S)
       ~> tcp_close_socket(S),
     udp_send(S, '$udp_br_timeout', localhost:Port, []),
-    
+
     !.
 
 udp_br_collect_replies(S, Port, Timeout, Term:From) :-

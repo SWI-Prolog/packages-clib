@@ -223,7 +223,7 @@ run_udp :-
     tcp_close_socket(S),
     assertion(X=='hello world'),
     assertion(Q=='quit'),
-    assertion(Exit==true), 
+    assertion(Exit==true),
     !.
 
 

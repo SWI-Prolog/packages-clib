@@ -223,13 +223,13 @@ destination_file(Dest, _, Dest).
 %   raise various file-specific exceptions.
 
 make_directory_path(Dir) :-
-    make_directory_path_2(Dir), 
+    make_directory_path_2(Dir),
     !.
 make_directory_path(Dir) :-
     permission_error(create, directory, Dir).
 
 make_directory_path_2(Dir) :-
-    exists_directory(Dir), 
+    exists_directory(Dir),
     !.
 make_directory_path_2(Dir) :-
     atom_concat(RealDir, '/', Dir),
@@ -259,7 +259,7 @@ copy_directory(From, To) :-
     maplist(copy_directory_content(From, To), Entries).
 
 copy_directory_content(_From, _To, Special) :-
-    special(Special), 
+    special(Special),
     !.
 copy_directory_content(From, To, Entry) :-
     directory_file_path(From, Entry, Source),
@@ -288,7 +288,7 @@ delete_directory_and_contents(Dir) :-
     delete_directory(Dir).
 
 delete_directory_contents(_, Entry) :-
-    special(Entry), 
+    special(Entry),
     !.
 delete_directory_contents(Dir, Entry) :-
     directory_file_path(Dir, Entry, Delete),

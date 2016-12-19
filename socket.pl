@@ -298,7 +298,7 @@ tcp_open_socket(Socket, Stream) :-
 %   tcp_connect(+Address, -StreamPair, +Options).
 
 tcp_connect(Socket, Address, Read, Write) :-
-    tcp_connect_hook(Socket, Address, Read, Write), 
+    tcp_connect_hook(Socket, Address, Read, Write),
     !.
 tcp_connect(Socket, Address, Read, Write) :-
     tcp_connect(Socket, Address),

@@ -127,10 +127,10 @@ chunk_size(element(unsorted, Attrs0, []), Dict) :-
     dict_create(Dict, unsorted, Attrs).
 
 attr_value(Name=In, Name=Out) :-
-    atom_number(In, Out), 
+    atom_number(In, Out),
     !.
 attr_value(Name=In, Name=Out) :-
-    atom_string(In, Out), 
+    atom_string(In, Out),
     !.
 
 :- endif.

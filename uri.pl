@@ -304,7 +304,7 @@ ensure_leading_slash(Path, SlashPath) :-
 :- if(current_prolog_flag(windows, true)).
 delete_leading_slash(Path, WinPath) :-
     atom_concat(/, WinPath, Path),
-    is_absolute_file_name(WinPath), 
+    is_absolute_file_name(WinPath),
     !.
 :- endif.
 delete_leading_slash(Path, Path).

@@ -169,7 +169,7 @@ work(Queue) :-
     repeat,
     thread_get_message(Queue, Socket),
     handle(Socket, Data),
-    Data == exit, 
+    Data == exit,
     !.
 
 handle(Client, Data) :-

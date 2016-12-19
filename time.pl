@@ -142,7 +142,7 @@ call_with_time_limit(_Time, _Goal) :-
 
 run_alarm_goal(AlarmID, Goal) :-
     install_alarm(AlarmID),
-    Goal, 
+    Goal,
     !.
 
 time_limit_exceeded(_Time) :-

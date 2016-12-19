@@ -115,7 +115,7 @@ test(cwd, [true, condition(current_prolog_flag(windows, true))]) :-
     same_file(CWD, Tmp).
 
 tmp_dir(Dir) :-
-    getenv('TEMP', Dir), 
+    getenv('TEMP', Dir),
     !.
 tmp_dir('/tmp').
 
