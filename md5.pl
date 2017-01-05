@@ -40,9 +40,11 @@
 
 /** <module> MD5 hashes
 
-Compute MD5 hashes from a Prolog  string.   This  is a rather short-term
-solution waiting for a more general interface to the libcrypto functions
-of OpenSSL.
+Compute MD5 hashes  from  a  Prolog   string.  This  library  provides a
+lightweight alternative to the general secure hash interface provided by
+library(crypto) from the `ssl` package.
+
+@see library(sha), library(hash_stream) and library(crypto).
 */
 
 %!  md5_hash(+Data, -Hash, +Options) is det.

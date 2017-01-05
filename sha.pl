@@ -45,6 +45,15 @@
 
 :- use_foreign_library(foreign(sha4pl)).
 
+/** <module> SHA secure hashes
+
+This library provides a  lightweight   implementation  for computing SHA
+secure  hashes.  A  general  secure  hash    interface  is  provided  by
+library(crypto), part of the `ssl` package.
+
+@see library(md5), library(hash_stream) and library(crypto).
+*/
+
 %!  sha_hash(+Data, -Hash, +Options) is det
 %
 %   Hash is the SHA hash of Data, The conversion is controlled

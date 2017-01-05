@@ -91,7 +91,7 @@ blocks.
 
 @see    In addition to this hash library, SWI-Prolog provides
         library(md5), library(sha) and hash functions through
-        library(ssl).
+        library(crypto), part of the `ssl` package.
 */
 
 %!  open_hash_stream(+OrgStream, -HashStream, +Options) is det.
