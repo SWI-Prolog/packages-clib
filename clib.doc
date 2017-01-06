@@ -417,7 +417,7 @@ the hash code.  E.g.,
 Hash = [61, 128, 252, 38, 121, 69, 229, 85, 199|...],
 Hex = '3d80fc267945e555c730403bd0ab0716e2a68c68'.
 \end{code}
-\end{description}<
+\end{description}
 
 \subsection{License terms}
 \label{sec:sha-license}
