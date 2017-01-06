@@ -351,6 +351,9 @@ The current library supports all 5 approved algorithms, both computing
 the hash-key from data and the \jargon{hash Message Authentication Code}
 (HMAC).
 
+A general secure hash interface is provided by \verb$library(crypto)$,
+part of the \verb$ssl$ package.
+
 Input is text, represented as an atom, packed string object or
 code-list. Note that these functions operate on byte-sequences and
 therefore are not meaningful on Unicode text. The result is returned as
