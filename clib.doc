@@ -25,14 +25,14 @@
 
 \begin{abstract}
 This document describes commonly used foreign language extensions to
-\url[SWI-Prolog]{http://www.swi-prolog.org}
+\href{http://www.swi-prolog.org}{SWI-Prolog}
 distributed as a package known under the name {\em clib}. The package
 defines a number of Prolog libraries with accompagnying foreign
 libraries.
 
 On Windows systems, the \pllib{unix} library can only be used if the
 whole SWI-Prolog suite is compiled using
-\url[Cygwin]{http://www.cygwin.com}. The other libraries have been
+\href{http://www.cygwin.com}{Cygwin}. The other libraries have been
 ported to native Windows.
 \end{abstract}
 
@@ -269,10 +269,11 @@ alternative is provided by \pllib{http/html_write} from the HTTP
 library.
 
 The startup-time of Prolog is relatively long, in particular if the
-program is large. In many cases it is much better to use the
-SWI-Prolog HTTP server library and make the main web-server relay
-requests to the SWI-Prolog webserver. See the SWI-Prolog \url[HTTP
-package]{http://www.swi-prolog.org/pldoc/package/http.html} for details.
+program is large. In many cases it is much better to use the SWI-Prolog
+HTTP server library and make the main web-server relay requests to the
+SWI-Prolog webserver. See the SWI-Prolog
+\href{http://www.swi-prolog.org/pldoc/package/http.html}{HTTP package}
+for details.
 
 
 The CGI standard is unclear about handling Unicode data. The above two
@@ -330,13 +331,13 @@ defined atom.
 
 \input{uuid.tex}
 
-\section{SHA1 and SHA2 Secure Hash Algorithms}
+\section{SHA* Secure Hash Algorithms}
 \label{sec:sha}
 
 The library \pllib{sha} provides \jargon{Secure Hash Algorihms} approved
 by FIPS (\jargon{Federal Information Processing Standard}). Quoting
-\url[Wikipedia]{http://en.wikipedia.org/wiki/SHA-1}: \textit{``The SHA
-(Secure Hash Algorithm) hash functions refer to five FIPS-approved
+\href{http://en.wikipedia.org/wiki/SHA-1}{Wikipedia}: \textit{``The
+SHA (Secure Hash Algorithm) hash functions refer to five FIPS-approved
 algorithms for computing a condensed digital representation (known as a
 message digest) that is, to a high degree of probability, unique for a
 given input data sequence (the message). These algorithms are called
@@ -350,6 +351,9 @@ digest.''}
 The current library supports all 5 approved algorithms, both computing
 the hash-key from data and the \jargon{hash Message Authentication Code}
 (HMAC).
+
+A general secure hash interface is provided by \pllib{crypto}, +part of
+the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl package}.
 
 Input is text, represented as an atom, packed string object or
 code-list. Note that these functions operate on byte-sequences and
@@ -385,15 +389,15 @@ An error is raised if the text contains code-points outside the range
     \end{description}
 
     \predicate{hmac_sha}{4}{+Key, +Data, -HMAC, +Options}
-Quoting \url[Wikipedia]{http://en.wikipedia.org/wiki/HMAC}: \textit{``A
-keyed-hash message authentication code, or HMAC, is a type of message
-authentication code (MAC) calculated using a cryptographic hash function
-in combination with a secret key. As with any MAC, it may be used to
-simultaneously verify both the data integrity and the authenticity of a
-message. Any iterative cryptographic hash function, such as MD5 or
-SHA-1, may be used in the calculation of an HMAC; the resulting MAC
-algorithm is termed HMAC-MD5 or HMAC-SHA-1 accordingly. The
-cryptographic strength of the HMAC depends upon the cryptographic
+Quoting \href{http://en.wikipedia.org/wiki/HMAC}{Wikipedia}:
+\textit{``A keyed-hash message authentication code, or HMAC, is a type
+of message authentication code (MAC) calculated using a cryptographic
+hash function in combination with a secret key. As with any MAC, it may
+be used to simultaneously verify both the data integrity and the
+authenticity of a message. Any iterative cryptographic hash function,
+such as MD5 or SHA-1, may be used in the calculation of an HMAC; the
+resulting MAC algorithm is termed HMAC-MD5 or HMAC-SHA-1 accordingly.
+The cryptographic strength of the HMAC depends upon the cryptographic
 strength of the underlying hash function, on the size and quality of the
 key and the size of the hash output length in bits.''}
 
@@ -413,7 +417,7 @@ the hash code.  E.g.,
 Hash = [61, 128, 252, 38, 121, 69, 229, 85, 199|...],
 Hex = '3d80fc267945e555c730403bd0ab0716e2a68c68'.
 \end{code}
-\end{description}
+\end{description}<
 
 \subsection{License terms}
 \label{sec:sha-license}
