@@ -34,7 +34,6 @@ clib.html
 clib.tex
 process.tex
 unix.tex
-mime.tex
 uri.tex
 filesex.tex
 uid.tex
@@ -45,5 +44,4 @@ socket.tex
 prologstream.tex
 hashstream.tex
 md5.tex
-maildrop/rfc2045/rfc2045charset.h
 stamp-h1

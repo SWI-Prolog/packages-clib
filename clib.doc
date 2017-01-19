@@ -283,8 +283,6 @@ send form-data using the same encoding as the page in which the form
 appears, UTF-8 or ISO Latin-1. The current version of cgi_get_form/1
 assumes the CGI data is in UTF-8.
 
-\input{mime.tex}
-
 \section{Password encryption library}
 \label{sec:crypt}
 

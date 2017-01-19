@@ -11,14 +11,13 @@
 
 PACKAGE=clib
 DOC=clib
-PKGCFLAGS=-I$(srcdir) -I$(srcdir)/maildrop/rfc2045 -I$(srcdir)/maildrop/rfc822
+PKGCFLAGS=-I$(srcdir)
 include ../Makefile.defs
 # COFLAGS=-gdwarf-2 -g3
 
 NETLIBS=@NETLIBS@
 CRYPTLIBS=@CRYPTLIBS@
 LIBS=@LIBS@
-MIMELIBS=maildrop/rfc2045/librfc2045.a maildrop/rfc822/librfc822.a
 
 LIBPL=		@PLTARGETS@ streaminfo.pl process.pl prolog_server.pl sha.pl \
 		uri.pl udp_broadcast.pl prolog_stream.pl md5.pl hash_stream.pl
@@ -31,7 +30,6 @@ SOCKOBJ=	error.o socket.o nonblockio.o
 CGIOBJ=		error.o form.o cgi.o
 CRYPTOBJ=	error.o crypt.o md5.o md5passwd.o @CRYPTOBJ@
 MEMOBJ=		error.o memfile.o
-MIMEOBJ=	error.o mime.o
 TIMEOBJ=	error.o time.o
 FILESOBJ=	error.o files.o
 RLIMITOBJ=	error.o rlimit.o
@@ -61,8 +59,6 @@ crypt.@SO@:	$(CRYPTOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(CRYPTOBJ) $(CRYPTLIBS) $(LIBPLSO)
 memfile.@SO@:	$(MEMOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(MEMOBJ) $(LIBPLSO) $(LIBS)
-mime.@SO@:	$(MIMEOBJ) $(MIMELIBS)
-		$(LD) $(LDSOFLAGS) -o $@ $(MIMEOBJ) $(LIBPLSO) $(MIMELIBS)
 time.@SO@:	$(TIMEOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(TIMEOBJ) $(LIBPLSO) $(LIBS)
 files.@SO@:	$(FILESOBJ)
@@ -100,12 +96,6 @@ sha1/hmac_sha1.o:
 		$(CC) -c $(CFLAGS) -DUSE_SHA1 -o $@ sha1/hmac.c
 sha1/hmac_sha256.o:
 		$(CC) -c $(CFLAGS) -DUSE_SHA256 -o $@ sha1/hmac.c
-
-maildrop/rfc822/librfc822.a:
-		(cd maildrop/rfc822 && $(MAKE))
-maildrop/rfc2045/librfc2045.a:
-		(cd maildrop/rfc2045 && $(MAKE))
-
 
 install:	$(TARGETS)
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
@@ -173,7 +163,7 @@ check-read::
 # Documentation
 ################################################################
 
-TEXEXTRA=process.tex uri.tex filesex.tex uid.tex mime.tex udpbroadcast.tex \
+TEXEXTRA=process.tex uri.tex filesex.tex uid.tex udpbroadcast.tex \
 	 uuid.tex unix.tex syslog.tex socket.tex prologstream.tex md5.tex \
 	 hashstream.tex
 $(TEX):		$(TEXEXTRA)
@@ -184,8 +174,6 @@ process.tex:	process.pl
 		$(PLTOTEX) 'library(process)'
 unix.tex:	unix.pl
 		$(PLTOTEX) 'library(unix)'
-mime.tex:	mime.pl
-		$(PLTOTEX) 'library(mime)'
 filesex.tex:	filesex.pl
 		$(PLTOTEX) 'library(filesex)'
 uid.tex:	uid.pl
@@ -212,11 +200,7 @@ hashstream.tex:	hash_stream.pl
 clean:
 		rm -f $(OBJ) *~ *.o *% a.out core config.log sha1/*.o
 		rm -f $(TEX)
-		-(cd maildrop/rfc822 && $(MAKE) clean)
-		-(cd maildrop/rfc2045 && $(MAKE) clean)
 
 distclean:	clean
 		rm -f $(TARGETS) config.cache config.h config.status Makefile
 		rm -f clib.aux clib.log clib.out clib.toc
-		-(cd maildrop/rfc822 && $(MAKE) distclean)
-		-(cd maildrop/rfc2045 && $(MAKE) distclean)

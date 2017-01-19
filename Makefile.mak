@@ -16,7 +16,6 @@ SOCKOBJ=	socket.obj nonblockio.obj error.obj
 CGIOBJ=		error.obj form.obj cgi.obj
 CRYPTOBJ=	error.obj crypt.obj md5.obj md5passwd.obj bsd-crypt.obj
 MEMOBJ=		error.obj memfile.obj
-MIMEOBJ=	error.obj mime.obj
 MIMELIBS=	rfc2045.lib rfc822.lib
 TIMEOBJ=	error.obj time.obj
 READOBJ=	readutil.obj
@@ -28,7 +27,7 @@ FILESOBJ=	error.obj files.obj
 STREAMINFOOBJ=	error.obj streaminfo.obj
 TIMELIBS=	winmm.lib
 
-all:		socket.dll cgi.dll memfile.dll mime.dll time.dll readutil.dll \
+all:		socket.dll cgi.dll memfile.dll time.dll readutil.dll \
 		crypt.dll sha4pl.dll process.dll uri.dll files.dll streaminfo.dll
 
 readutil.dll:	$(READOBJ)
@@ -43,8 +42,6 @@ crypt.dll:	$(CRYPTOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(CRYPTOBJ) $(PLLIB) $(LIBS)
 memfile.dll:	$(MEMOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(MEMOBJ) $(PLLIB) $(LIBS)
-mime.dll:	$(MIMEOBJ)
-		$(LD) /dll /out:$@ $(LDFLAGS) $(MIMEOBJ) $(PLLIB) $(LIBS) $(MIMELIBS)
 time.dll:	$(TIMEOBJ)
 		$(LD) /dll /out:$@ $(LDFLAGS) $(TIMEOBJ) $(PLLIB) $(LIBS) $(TIMELIBS)
 sha4pl.dll:	$(SHAOBJ)
@@ -94,7 +91,6 @@ idll::
 		copy cgi.dll "$(BINDIR)"
 		copy crypt.dll "$(BINDIR)"
 		copy memfile.dll "$(BINDIR)"
-		copy mime.dll "$(BINDIR)"
 		copy time.dll "$(BINDIR)"
 		copy readutil.dll "$(BINDIR)"
 		copy process.dll "$(BINDIR)"
@@ -106,7 +102,6 @@ idll::
 		copy socket.pdb "$(BINDIR)"
 		copy cgi.pdb "$(BINDIR)"
 		copy memfile.pdb "$(BINDIR)"
-		copy mime.pdb "$(BINDIR)"
 		copy time.pdb "$(BINDIR)"
 		copy readutil.pdb "$(BINDIR)"
 		copy process.pdb "$(BINDIR)"
@@ -124,7 +119,6 @@ ilib::
 		copy cgi.pl "$(PLBASE)\library"
 		copy crypt.pl "$(PLBASE)\library"
 		copy memfile.pl "$(PLBASE)\library"
-		copy mime.pl "$(PLBASE)\library"
 		copy time.pl "$(PLBASE)\library"
 		copy sha.pl "$(PLBASE)\library"
 		copy uri.pl "$(PLBASE)\library"
@@ -140,7 +134,6 @@ uninstall::
 		del "$(BINDIR)\cgi.dll"
 		del "$(BINDIR)\crypt.dll"
 		del "$(BINDIR)\memfile.dll"
-		del "$(BINDIR)\mime.dll"
 		del "$(BINDIR)\time.dll"
 		del "$(BINDIR)\readutil.dll"
 		del "$(BINDIR)\sha4pl.dll"
@@ -150,7 +143,6 @@ uninstall::
 		del "$(PLBASE)\library\cgi.pl"
 		del "$(PLBASE)\library\crypt.pl"
 		del "$(PLBASE)\library\memfile.pl"
-		del "$(PLBASE)\library\mime.pl"
 		del "$(PLBASE)\library\time.pl"
 		del "$(PLBASE)\library\sha.pl"
 		del "$(PLBASE)\library\uri.pl"
