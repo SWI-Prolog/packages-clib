@@ -220,7 +220,7 @@ and subtle differences that must be taken into consideration:
     people honest!
 
 @author    Jeffrey Rosenwald (JeffRose@acm.org)
-@license   LGPL
+@license   BSD-2
 @see       tipc.pl
 */
 
