@@ -179,10 +179,13 @@ directory_file_path(Dir, File, Path) :-
     nonvar(Path),
     !,
     (   nonvar(Dir)
-    ->  (   sub_atom(Dir, _, _, 0, /)
+    ->  (   Dir == '.',
+            \+ is_absolute_file_name(Path)
+        ->  File = Path
+        ;   sub_atom(Dir, _, _, 0, /)
         ->  atom_concat(Dir, File, Path)
-        ;   atom_concat(Dir, /, TheDir),
-            atom_concat(TheDir, File, Path)
+        ;   atom_concat(Dir, /, TheDir)
+        ->  atom_concat(TheDir, File, Path)
         )
     ;   nonvar(File)
     ->  atom_concat(Dir, File, Path)
