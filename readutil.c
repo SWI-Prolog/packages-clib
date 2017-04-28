@@ -62,7 +62,7 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
   term_t cl = PL_copy_term_ref(codes);
   int rc = FALSE;
 
-  if ( !PL_get_stream_handle(stream, &s) )
+  if ( !PL_get_stream(stream, &s, SIO_INPUT) )
     return FALSE;
 
   for(;;)
