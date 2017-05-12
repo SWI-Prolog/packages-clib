@@ -234,7 +234,8 @@ following finds the executable for =ls=:
 %
 %   @error  process_error(Exe, Status) where Status is one of
 %           exit(Code) or killed(Signal).  Raised if the process
-%           does not exit with status 0.
+%           is waited for (i.e., Options does not include
+%           process(-PID)), and does not exit with status 0.
 
 process_create(Exe, Args, Options) :-
     exe_options(ExeOptions),
