@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2015, University of Amsterdam
+    Copyright (c)  2002-2017, University of Amsterdam
                               VU University Amsterdam
     All rights reserved.
 
@@ -53,8 +53,8 @@
 #include <errno.h>
 #include <assert.h>
 
-#ifdef SIGUSR2
-#define SIG_TIME SIGUSR2
+#ifdef SIGUSR1
+#define SIG_TIME SIGUSR1
 #else
 #define SIG_TIME SIGALRM
 #endif
