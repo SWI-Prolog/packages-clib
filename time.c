@@ -53,12 +53,6 @@
 #include <errno.h>
 #include <assert.h>
 
-#ifdef SIGUSR1
-#define SIG_TIME SIGUSR1
-#else
-#define SIG_TIME SIGALRM
-#endif
-
 #ifdef O_SAFE
 #define __USE_GNU
 #endif
@@ -219,8 +213,9 @@ static pthread_t scheduler;		/* thread id of scheduler */
 static schedule the_schedule = {0};	/* the schedule */
 #define TheSchedule() (&the_schedule)	/* current schedule */
 
-int signal_function_set = FALSE;	/* signal function is set */
-static handler_t signal_function;	/* Current signal function */
+static int signal_function_set = FALSE;	/* signal function is set */
+static int sig_time = 0;
+static pl_sigaction_t saved_sigaction;	/* Old signal action */
 
 static int removeEvent(Event ev);
 
@@ -354,20 +349,29 @@ freeEvent(Event ev)
 
 
 static void
-cleanupHandler()
+cleanupHandler(void)
 { if ( signal_function_set )
-  { signal_function_set = FALSE;
-    PL_signal(SIG_TIME, signal_function);
+  { PL_sigaction(sig_time, &saved_sigaction, NULL);
+    signal_function_set = FALSE;
   }
 }
 
 
-static void
-installHandler()
+static int
+installHandler(void)
 { if ( !signal_function_set )
-  { signal_function = PL_signal(SIG_TIME|PL_SIGSYNC, on_alarm);
-    signal_function_set = TRUE;
+  { pl_sigaction_t act = {0};
+
+    act.sa_cfunction = on_alarm;
+    act.sa_flags     = PLSIG_SYNC;
+
+    if ( (sig_time = PL_sigaction(0, &act, &saved_sigaction)) > 0 )
+      signal_function_set = TRUE;
+    else
+      return PL_warning("Could not initialize alarm signal handler\n");
   }
+
+  return TRUE;
 }
 
 
@@ -524,11 +528,7 @@ alarm_loop(void * closure)
 			    (long)left.tv_sec,
 			    ev->pl_thread_id));
 	  set_bit(&signalled, ev->pl_thread_id);
-#ifdef __WINDOWS__
-	  PL_thread_raise(ev->pl_thread_id, SIG_TIME);
-#else
-	  pthread_kill(ev->thread_id, SIG_TIME);
-#endif
+	  PL_thread_raise(ev->pl_thread_id, sig_time);
 	}
       } else
 	break;
@@ -1031,7 +1031,7 @@ current_alarms(term_t time, term_t goal, term_t id, term_t status,
 
 
 install_t
-install_time()
+install_time(void)
 { MODULE_user	  = PL_new_module(PL_new_atom("user"));
 
   FUNCTOR_alarm1  = PL_new_functor(PL_new_atom("$alarm"), 1);
@@ -1060,13 +1060,13 @@ install_time()
   PL_register_foreign("time_debug",	1, pl_time_debug,  0);
 #endif
 
-  installHandler();
-  PL_on_halt(cleanup, NULL);
+  if ( installHandler() )
+    PL_on_halt(cleanup, NULL);
   PL_thread_at_exit(cleanup_thread, NULL, TRUE);
 }
 
 
 install_t
-uninstall_time()
+uninstall_time(void)
 { cleanup(0, NULL);
 }
