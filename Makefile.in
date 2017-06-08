@@ -136,16 +136,16 @@ check:		check-socket check-memfile check-crypt check-process \
 torture:	torture-socket
 
 check-socket::
-		$(PL) -q -f test_socket.pl -F none -g test_socket,halt -t 'halt(1)'
+		$(PL) -q -f test_socket.pl -F none -g test_socket -t halt
 
 torture-socket::
-		$(PL) -q -f stresssocket.pl -F none -g test,halt -t 'halt(1)'
+		$(PL) -q -f stresssocket.pl -F none -g test -t halt
 
 check-memfile::
-		$(PL) -q -f test_memfile.pl -F none -g test_memfile,halt -t 'halt(1)'
+		$(PL) -q -f test_memfile.pl -F none -g test_memfile -t halt
 
 check-crypt::
-		$(PL) -q -f test_crypt.pl -g test_crypt,halt -t 'halt(1)'
+		$(PL) -q -f test_crypt.pl -g test_crypt -t halt
 
 check-uri::
 		$(PL) -q -f test_uri.pl -g true -t test_uri
