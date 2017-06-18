@@ -188,12 +188,21 @@ directory_file_path(Dir, File, Path) :-
         ->  atom_concat(TheDir, File, Path)
         )
     ;   nonvar(File)
-    ->  atom_concat(Dir, File, Path)
+    ->  atom_concat(Dir0, File, Path),
+        strip_trailing_slash(Dir0, Dir)
     ;   file_directory_name(Path, Dir),
         file_base_name(Path, File)
     ).
 directory_file_path(_, _, _) :-
     throw(error(instantiation_error(_), _)).
+
+strip_trailing_slash(Dir0, Dir) :-
+    (   atom_concat(D, /, Dir0),
+        D \== ''
+    ->  Dir = D
+    ;   Dir = Dir0
+    ).
+
 
 %!  copy_file(From, To) is det.
 %
