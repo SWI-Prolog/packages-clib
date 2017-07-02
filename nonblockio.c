@@ -1730,6 +1730,7 @@ nbio_socket(int domain, int type, int protocol)
 NBIO_EXPORT(int)
 nbio_closesocket(nbio_sock_t socket)
 { plsocket *s;
+  int rc = 0;
 
   if ( !(s = nbio_to_plsocket_raw(socket)) )
   { DEBUG(1, Sdprintf("nbio_closesocket(%d): no plsocket\n", socket));
@@ -1743,14 +1744,20 @@ nbio_closesocket(nbio_sock_t socket)
 
     if ( flags & PLSOCK_INSTREAM )
     { assert(s->input);
-      Sclose(s->input);
+      if ( Slock(s->input) == 0 )
+	rc += Sclose(s->input);
+      else
+	rc--;
     }
     if ( flags & PLSOCK_OUTSTREAM )
     { assert(s->output);
-      Sclose(s->output);
+      if ( Slock(s->output) == 0 )
+	rc += Sclose(s->output);
+      else
+	rc--;
     }
   } else
-  {
+  { rc = 0;
   // We cannot free the socket in Windows since we might subsequently get an FD_CLOSE. Instead set the timeout
 #ifdef __WINDOWS__
   releaseSocketWhenPossible(s);
@@ -1759,7 +1766,7 @@ nbio_closesocket(nbio_sock_t socket)
 #endif
   }
 
-  return 0;
+  return rc;
 }
 
 NBIO_EXPORT(int)
