@@ -131,7 +131,7 @@ uninstall::
 ################################################################
 
 check:		check-socket check-memfile check-crypt check-process \
-		check-read check-uri check-cgi
+		check-read check-uri check-cgi check-time
 
 torture:	torture-socket
 
@@ -148,16 +148,19 @@ check-crypt::
 		$(PL) -q -f test_crypt.pl -g test_crypt -t halt
 
 check-uri::
-		$(PL) -q -f test_uri.pl -g true -t test_uri
+		$(PL) -q -f test_uri.pl -g test_uri -t halt
 
 check-cgi::
-		$(PL) -q -f test_cgi.pl -g true -t test_cgi
+		$(PL) -q -f test_cgi.pl -g test_cgi -t halt
 
 check-process::
-		$(PL) -q -f test_process.pl -g true -t test_process
+		$(PL) -q -f test_process.pl -g test_process -t halt
 
 check-read::
-		$(PL) -q -f test_readutil.pl -g true -t test_readutil
+		$(PL) -q -f test_readutil.pl -g test_readutil -t halt
+
+check-time::
+		$(PL) -q -f test_time.pl -g test_time -t halt
 
 ################################################################
 # Documentation

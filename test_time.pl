@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2006-2011, University of Amsterdam,
+    Copyright (c)  2006-2017, University of Amsterdam,
                               VU University Amsterdam
     All rights reserved.
 
@@ -38,11 +38,13 @@
             list_alarms/0
           ]).
 
+:- asserta(user:file_search_path(foreign, '.')).
+:- asserta(user:file_search_path(library, '.')).
+:- asserta(user:file_search_path(library, '../plunit')).
+
 :- use_module(library(debug)).
 :- use_module(library(plunit)).
-
-:- asserta(file_search_path(foreign, '.')).
-:- [time].
+:- use_module(library(time)).
 
 dbg :-
     time:time_debug(1).
@@ -66,7 +68,7 @@ test(current) :-
                        current_alarm(_At, _Goal, _ID, scheduled),
                        remove_alarm(ID)).
 test(bg) :-
-    bg(4).
+    bg(5, 4).
 test(flood) :-
     flood_test.
 
@@ -77,9 +79,9 @@ test(flood) :-
                  *     MULTI-THREAD TIMEOUT     *
                  *******************************/
 
-bg(N) :-
+bg(Times, N) :-
     findall(Id, (between(1, N, _),
-                 thread_create(t(100, 0.05), Id, [])),
+                 thread_create(t(Times, 0.05), Id, [])),
             IDS),
     join_all(IDS).
 
@@ -136,13 +138,13 @@ w(N) :-
 flood_test :-
     retractall(x(_)),
     forall(between(1, 100, X),
-           alarm(1, got(X), _,
+           alarm(0.1, got(X), _,
                  [ remove(true)
                  ])),
     get_time(Now),
     repeat,
        get_time(End),
-       End - Now > 2,
+       End - Now > 0.5,
     !,
     (   forall(between(1, 100, X), x(X))
     ->  retractall(x(_))
