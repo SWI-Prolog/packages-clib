@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2015, University of Amsterdam
+    Copyright (c)  2002-2017, University of Amsterdam
                               Vu University Amsterdam
     All rights reserved.
 
@@ -44,6 +44,7 @@
             delete_directory_and_contents/1, % +Dir
             delete_directory_contents/1 % +Dir
           ]).
+:- use_module(library(apply)).
 
 /** <module> Extended operations on files
 
@@ -211,9 +212,10 @@ strip_trailing_slash(Dir0, Dir) :-
 
 copy_file(From, To) :-
     destination_file(To, From, Dest),
-    setup_call_cleanup(open(Dest, write, Out, [type(binary)]),
-                       copy_from(From, Out),
-                       close(Out)).
+    setup_call_cleanup(
+        open(Dest, write, Out, [type(binary)]),
+        copy_from(From, Out),
+        close(Out)).
 
 copy_from(File, Stream) :-
     setup_call_cleanup(
@@ -253,7 +255,12 @@ make_directory_path_2(Dir) :-
     !,
     file_directory_name(Dir, Parent),
     make_directory_path_2(Parent),
-    make_directory(Dir).
+    E = error(existence_error(directory, _), _),
+    catch(make_directory(Dir), E,
+          (   exists_directory(Dir)
+          ->  true
+          ;   throw(E)
+          )).
 
 %!  copy_directory(+From, +To) is det.
 %
@@ -297,7 +304,12 @@ delete_directory_and_contents(Dir) :-
 delete_directory_and_contents(Dir) :-
     directory_files(Dir, Files),
     maplist(delete_directory_contents(Dir), Files),
-    delete_directory(Dir).
+    E = error(existence_error(directory, _), _),
+    catch(delete_directory(Dir), E,
+          (   \+ exists_directory(Dir)
+          ->  true
+          ;   throw(E)
+          )).
 
 delete_directory_contents(_, Entry) :-
     special(Entry),
@@ -306,7 +318,11 @@ delete_directory_contents(Dir, Entry) :-
     directory_file_path(Dir, Entry, Delete),
     (   exists_directory(Delete)
     ->  delete_directory_and_contents(Delete)
-    ;   delete_file(Delete)
+    ;   E = error(existence_error(file, _), _),
+        catch(delete_file(Delete), E,
+              (   \+ exists_file(Delete)
+              ->  true
+              ;   throw(E)))
     ).
 
 %!  delete_directory_contents(+Dir) is det.
