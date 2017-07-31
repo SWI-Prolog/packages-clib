@@ -298,6 +298,14 @@ fully instantiated. To generate a default encrypted version of
 \arg{Plain}, run with unbound \arg{Encrypted} and this argument is
 unified to a list of character codes holding an encrypted version.
 
+\textbf{WARNING}: This method to encrypt (more precisely:
+\textit{hash}) passwords is \textit{insecure} by today's standards!
+This predicate is provided \textit{only} for backwards compatibility
+and should \textit{not} be used in new applications. To derive hashes
+from passwords in a reasonably secure way, use crypto_password_hash/2
+instead. It is provided by library \pllib{crypto} from the
+\href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
+
 The library supports two encryption formats: traditional Unix
 DES-hashes\footnote{On non-Unix systems, crypt() is provided by the
 NetBSD library. The license header is added at the end of this
@@ -350,8 +358,8 @@ The current library supports all 5 approved algorithms, both computing
 the hash-key from data and the \jargon{hash Message Authentication Code}
 (HMAC).
 
-A general secure hash interface is provided by \pllib{crypto}, +part of
-the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl package}.
+A general secure hash interface is provided by \pllib{crypto}, part of
+the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
 
 Input is text, represented as an atom, packed string object or
 code-list. Note that these functions operate on byte-sequences and
