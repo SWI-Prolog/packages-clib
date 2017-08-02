@@ -325,6 +325,19 @@ only supports ISO-Latin-1 passwords in the current implementation.
 or list of character-codes.  It is not advised to use atoms, as this
 implies the password will be available from the Prolog heap as a
 defined atom.
+
+\textbf{NOTE}: crypt/2 provides an interface to the Unix password
+hashing API. Above we already introduced support for classical DES and
+MD5 hashes, both hashes that are considered \emph{insecure} by today's
+standards.\footnote{\emph{Insecure} means that the password can
+realistically be derived from the password hash using a brute-force
+attack. This implies that leaking the password database is an immediate
+security risk.} The crypt() API of modern Unix systems typically support
+more secure hashes. Using crypt/2 is suitable if compatibility with OS
+passwords is required. If strong hashes and platform independence are
+important to you, use crypto_password_hash/2 provided by library
+\pllib{crypto} from the
+\href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
 \end{description}
 
 \input{uuid.tex}
@@ -350,8 +363,8 @@ The current library supports all 5 approved algorithms, both computing
 the hash-key from data and the \jargon{hash Message Authentication Code}
 (HMAC).
 
-A general secure hash interface is provided by \pllib{crypto}, +part of
-the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl package}.
+A general secure hash interface is provided by \pllib{crypto}, part of
+the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
 
 Input is text, represented as an atom, packed string object or
 code-list. Note that these functions operate on byte-sequences and
