@@ -78,7 +78,7 @@ static pthread_mutex_t crypt_mutex = PTHREAD_MUTEX_INITIALIZER;
 static foreign_t
 pl_crypt(term_t passwd, term_t encrypted)
 { char *pw, *e;
-  char salt[20];
+  char salt[64];
 
   if ( !PL_get_chars(passwd, &pw, CVT_ATOM|CVT_STRING|CVT_LIST|BUF_RING) )
     return pl_error("crypt", 2, NULL, ERR_ARGTYPE,
@@ -124,7 +124,7 @@ pl_crypt(term_t passwd, term_t encrypted)
     char *s2;
     int rval;
 
-    for(n=0; n<slen; n++)
+    for(n=0; n<sizeof(salt)-1; n++)
     { if ( PL_get_list(tail, head, tail) )
       { int i;
 	char *t;
@@ -138,14 +138,12 @@ pl_crypt(term_t passwd, term_t encrypted)
 	{ return pl_error("crypt", 2, NULL, ERR_ARGTYPE,
 			  2, head, "character");
 	}
-
-	if ( n == 1 && salt[0] == '$' && salt[1] == '1' )
-	  slen = 3;
-	else if ( n == 2 && salt[2] == '$' )
-	  slen = 8+3;
       } else
 	break;
     }
+
+    if ( n >= 3 && strncmp(salt, "$1$", 3) == 0 )
+      slen = 3+8;
 
     for( ; n < slen; n++ )
     { int c = 'a'+(int)(26.0*rand()/(RAND_MAX+1.0));
@@ -157,7 +155,7 @@ pl_crypt(term_t passwd, term_t encrypted)
     }
     salt[n] = 0;
     LOCK();
-    if ( slen > 2 )
+    if ( slen > 2 && strncmp(salt, "$1$", 3) == 0 )
     { s2 = md5_crypt(pw, salt);
     } else
     { s2 = crypt(pw, salt);
