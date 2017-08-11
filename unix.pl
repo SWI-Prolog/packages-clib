@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2015, University of Amsterdam
+    Copyright (c)  2000-2017, University of Amsterdam
                               VU University Amsterdam
     All rights reserved.
 
@@ -97,6 +97,9 @@ fork_warn_threads :-
     findall(T, other_thread(T), Others),
     (   Others == []
     ->  true
+    ;   Others == [gc]
+    ->  thread_signal(gc, abort),
+        thread_join(gc, _)
     ;   throw(error(permission_error(fork, process, main),
                     context(_, running_threads(Others))))
     ).
