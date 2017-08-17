@@ -707,7 +707,7 @@ should be guarded with catch/3.  The defined resources are:
 \end{quote}
 
 When the process hits a limit POSIX systems normally send the process a
-signal that terminates it. These signals may be catched using
+signal that terminates it. These signals may be caught using
 SWI-Prolog's on_signal/3 primitive. The code below illustrates this
 behaviour. Please note that asynchronous signal handling is dangerous,
 especially when using threads.  100\% fail-safe operation cannot be
