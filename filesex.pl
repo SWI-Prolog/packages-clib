@@ -36,6 +36,7 @@
 :- module(files_ex,
           [ set_time_file/3,            % +File, -OldTimes, +NewTimes
             link_file/3,                % +OldPath, +NewPath, +Type
+            chmod/2,                    % +File, +Mode
             relative_file_name/3,       % ?AbsPath, +RelTo, ?RelPath
             directory_file_path/3,      % +Dir, +File, -Path
             copy_file/2,                % +From, +To
@@ -45,6 +46,7 @@
             delete_directory_contents/1 % +Dir
           ]).
 :- use_module(library(apply)).
+:- use_module(library(error)).
 
 /** <module> Extended operations on files
 
@@ -335,4 +337,97 @@ delete_directory_contents(Dir, Entry) :-
 delete_directory_contents(Dir) :-
     directory_files(Dir, Files),
     maplist(delete_directory_contents(Dir), Files).
+
+
+%!  chmod(+File, +Spec) is det.
+%
+%   Set the mode of the target file. Spec  is one of `+Mode`, `-Mode` or
+%   a plain `Mode`, which adds new   permissions, revokes permissions or
+%   sets the exact permissions. `Mode`  itself   is  an integer, a POSIX
+%   mode name or a list of POSIX   mode names. Defines names are `suid`,
+%   `sgid`, `svtx` and the all names   defined by the regular expression
+%   =|[ugo]*[rwx]*|=. Specifying none of "ugo" is the same as specifying
+%   all of them. For example, to make   a  file executable for the owner
+%   (user) and group, we can use:
+%
+%     ```
+%     ?- chmod(myfile, +ugx).
+%     ```
+
+chmod(File, +Spec) :-
+    must_be(ground, Spec),
+    !,
+    mode_bits(Spec, Bits),
+    file_mode_(File, Mode0),
+    Mode is Mode0 \/ Bits,
+    chmod_(File, Mode).
+chmod(File, -Spec) :-
+    must_be(ground, Spec),
+    !,
+    mode_bits(Spec, Bits),
+    file_mode_(File, Mode0),
+    Mode is Mode0 /\ \Bits,
+    chmod_(File, Mode).
+chmod(File, Spec) :-
+    must_be(ground, Spec),
+    !,
+    mode_bits(Spec, Bits),
+    chmod_(File, Bits).
+
+mode_bits(Spec, Spec) :-
+    integer(Spec),
+    !.
+mode_bits(Name, Bits) :-
+    atom(Name),
+    !,
+    (   file_mode(Name, Bits)
+    ->  true
+    ;   domain_error(posix_file_mode, Name)
+    ).
+mode_bits(Spec, Bits) :-
+    must_be(list(atom), Spec),
+    phrase(mode_bits(0, Bits), Spec).
+
+mode_bits(Bits0, Bits) -->
+    [Spec], !,
+    (   { file_mode(Spec, B), Bits1 is Bits0\/B }
+    ->  mode_bits(Bits1, Bits)
+    ;   { domain_error(posix_file_mode, Spec) }
+    ).
+mode_bits(Bits, Bits) -->
+    [].
+
+file_mode(suid, 0o4000).
+file_mode(sgid, 0o2000).
+file_mode(svtx, 0o1000).
+file_mode(Name, Bits) :-
+    atom_chars(Name, Chars),
+    phrase(who_mask(0, WMask0), Chars, Rest),
+    (   WMask0 =:= 0
+    ->  WMask = 0o0777
+    ;   WMask = WMask0
+    ),
+    maplist(mode_char, Rest, MBits),
+    foldl(or, MBits, 0, Mask),
+    Bits is Mask /\ WMask.
+
+who_mask(M0, M) -->
+    [C],
+    { who_mask(C,M1), !,
+      M2 is M0\/M1
+    },
+    who_mask(M2,M).
+who_mask(M, M) -->
+    [].
+
+who_mask(o, 0o0007).
+who_mask(g, 0o0070).
+who_mask(u, 0o0700).
+
+mode_char(r, 0o0444).
+mode_char(w, 0o0222).
+mode_char(x, 0o0111).
+
+or(B1, B2, B) :-
+    B is B1\/B2.
 

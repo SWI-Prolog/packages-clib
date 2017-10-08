@@ -245,6 +245,38 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
 }
 
 
+static foreign_t
+pl_file_mode(term_t spec, term_t mode)
+{ FCHAR *name;
+  statstruct sbuf;
+
+  if ( !PL_get_file_name(spec, &name, 0) )
+    return FALSE;
+
+  if ( statfunc(name, &sbuf) )
+    return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "stat", "file", spec);
+
+  return PL_unify_integer(mode, sbuf.st_mode);
+}
+
+
+#ifdef HAVE_CHMOD
+static foreign_t
+pl_chmod(term_t spec, term_t mode)
+{ FCHAR *name;
+  int imode;
+
+  if ( !PL_get_file_name(spec, &name, 0) ||
+       !PL_get_integer_ex(mode, &imode) )
+    return FALSE;
+
+  if ( chmod(name, imode) != 0 )
+    return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "chmod", "file", mode);
+
+  return TRUE;
+}
+#endif
+
 		 /*******************************
 		 *	       LINK		*
 		 *******************************/
@@ -318,4 +350,8 @@ install_files()
 
   PL_register_foreign("set_time_file", 3, pl_set_time_file, 0);
   PL_register_foreign("link_file",     3, pl_link_file,     0);
+  PL_register_foreign("file_mode_",    2, pl_file_mode,     0);
+#ifdef HAVE_CHMOD
+  PL_register_foreign("chmod_",        2, pl_chmod,         0);
+#endif
 }
