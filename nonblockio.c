@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2015, University of Amsterdam
+    Copyright (c)  2004-2017, University of Amsterdam
                               VU University Amsterdam
     All rights reserved.
 
@@ -943,7 +943,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     LOCK_FREE();
     s = lookupOSSocket(sock);
 
-    if ( s )
+    if ( s && !((evt&FD_CLOSE) && s->request == REQ_DEALLOCATE) )
     { if ( (s->w32_flags & FD_CLOSE) )
       { DEBUG(1,
 	      { char *nm = event_name(evt);
@@ -999,7 +999,7 @@ socket_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
       } else
       { doneRequest(s);
       }
-    } else
+    } else if ( !s )
     { DEBUG(1, Sdprintf("Socket %d is gone (error=%s)\n",
 			sock, WinSockError(err)));
     }
