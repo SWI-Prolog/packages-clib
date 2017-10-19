@@ -2347,16 +2347,6 @@ nbio_close_input(nbio_sock_t socket)
   DEBUG(2, Sdprintf("[%d]: nbio_close_input(%d, flags=0x%x)\n",
 		    PL_thread_self(), socket, s->flags));
   s->flags &= ~PLSOCK_INSTREAM;
-#ifdef __WINDOWS__
-  if ( false(s, PLSOCK_LISTEN) )
-  { SOCKET sock;
-
-    if ( (sock=s->socket) == INVALID_SOCKET )
-    { s->error = WSAECONNRESET;
-      rc = -1;
-    }
-  }
-#endif
 
   s->input = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
@@ -2380,22 +2370,8 @@ nbio_close_output(nbio_sock_t socket)
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%d, flags=0x%x)\n",
 		    PL_thread_self(), socket, s->flags));
-  if ( s->output )
-  {
-#if __WINDOWS__
-    SOCKET sock;
-#endif
+  s->flags &= ~PLSOCK_OUTSTREAM;
 
-    s->flags &= ~PLSOCK_OUTSTREAM;
-#if __WINDOWS__
-    if ( (sock=s->socket) == INVALID_SOCKET )
-    { s->error = WSAECONNRESET;
-      rc = -1;
-    }
-#endif
-  }
-
-  DEBUG(3, Sdprintf("%d->flags = 0x%x\n", socket, s->flags));
   s->output = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
 #ifdef __WINDOWS__
