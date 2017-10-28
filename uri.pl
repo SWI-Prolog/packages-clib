@@ -216,8 +216,10 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %!  uri_authority_components(+Authority, -Components) is det.
 %!  uri_authority_components(-Authority, +Components) is det.
 %
-%   Break-down the authority component of a   URI. The fields of the
-%   structure Components can be accessed using uri_authority_data/3.
+%   Break-down the authority component of a URI.  Components is a
+%   compound term of the form
+%   `uri_authority(User,Password,Host,Port)`.  The fields of
+%   Components can be accessed using uri_authority_data/3.
 
 %!  uri_authority_data(+Field, ?Components, ?Data) is semidet.
 %
