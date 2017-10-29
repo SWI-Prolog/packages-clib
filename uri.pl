@@ -150,16 +150,19 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 
 %!  uri_is_global(+URI) is semidet.
 %
-%   True if URI has a scheme. The semantics  is the same as the code
-%   below, but the implementation is more   efficient as it does not
-%   need to parse the  other  components,   nor  needs  to  bind the
-%   scheme.
+%   True if URI has a scheme. The  semantics   is  the  same as the code
+%   below, but the implementation is more efficient  as it does not need
+%   to parse the other components, nor  needs   to  bind the scheme. The
+%   condition to demand a scheme of more  than one character as added to
+%   avoid confusion with DOS path names.
 %
 %   ==
 %   uri_is_global(URI) :-
 %           uri_components(URI, Components),
 %           uri_data(scheme, Components, Scheme),
-%           nonvar(Scheme).
+%           nonvar(Scheme),
+%           atom_length(Scheme, Len),
+%           Len > 1.
 %   ==
 
 %!  uri_resolve(+URI, +Base, -GlobalURI) is det.
