@@ -68,6 +68,14 @@
 #include <malloc.h>
 #endif
 
+#ifdef __WINDOWS__
+#define GET_ERRNO WSAGetLastError()
+#define GET_H_ERRNO WSAGetLastError()
+#else
+#define GET_ERRNO errno
+#define GET_H_ERRNO h_errno
+#endif
+
 static atom_t ATOM_reuseaddr;		/* "reuseaddr" */
 static atom_t ATOM_bindtodevice;	/* "bindtodevice" */
 static atom_t ATOM_broadcast;		/* "broadcast" */
@@ -155,7 +163,7 @@ pl_host_to_address(term_t Host, term_t Ip)
 
       return rc;
     } else
-    { return nbio_error(h_errno, TCP_HERRNO);
+    { return nbio_error(GET_H_ERRNO, TCP_HERRNO);
     }
   } else if ( nbio_get_ip(Ip, &ip) )
   { struct hostent *host;
@@ -163,7 +171,7 @@ pl_host_to_address(term_t Host, term_t Ip)
     if ( (host = gethostbyaddr((char *)&ip, sizeof(ip), AF_INET)) )
       return PL_unify_atom_chars(Host, host->h_name);
     else
-      return nbio_error(h_errno, TCP_HERRNO);
+      return nbio_error(GET_H_ERRNO, TCP_HERRNO);
   }
 
   return FALSE;
@@ -344,7 +352,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 
   if ( (n=nbio_recvfrom(socket, buf, bufsize, flags,
 			(struct sockaddr*)&sockaddr, &alen)) == -1 )
-  { rc = nbio_error(errno, TCP_ERRNO);
+  { rc = nbio_error(GET_ERRNO, TCP_ERRNO);;
     goto out;
   }
 
@@ -385,7 +393,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 		      (int)dlen,
 		      flags,
 		      (struct sockaddr*)&sockaddr, alen)) == -1 )
-    return nbio_error(errno, TCP_ERRNO);
+    return nbio_error(GET_ERRNO, TCP_ERRNO);;
 
   return TRUE;
 }
@@ -460,7 +468,7 @@ pl_bind(term_t Socket, term_t Address)
 #endif
 
     if ( getsockname(fd, (struct sockaddr *) &addr, &len) )
-      return nbio_error(errno, TCP_ERRNO);
+      return nbio_error(GET_ERRNO, TCP_ERRNO);
     return PL_unify_integer(varport, ntohs(addr.sin_port));
   }
 
@@ -510,7 +518,7 @@ pl_gethostname(term_t name)
 	hname = PL_new_atom(buf);
 
     } else
-    { return nbio_error(h_errno, TCP_HERRNO);
+    { return nbio_error(GET_H_ERRNO, TCP_HERRNO);
     }
   }
 
@@ -659,7 +667,7 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 
   switch(ret)
   { case -1:
-      return pl_error("tcp_select", 3, NULL, ERR_ERRNO, errno,
+      return pl_error("tcp_select", 3, NULL, ERR_ERRNO, GET_ERRNO,
 		      "select", "streams", Streams);
 
     case 0: /* Timeout */
