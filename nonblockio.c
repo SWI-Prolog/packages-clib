@@ -2472,9 +2472,7 @@ ssize_t
 nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 	    const struct sockaddr *to, socklen_t tolen)
 { plsocket *s;
-#ifdef __WINDOWS__
   ssize_t n;
-#endif
 
   if ( !(s = nbio_to_plsocket(socket)) )
     return -1;
@@ -2516,6 +2514,24 @@ wouldblock:
 
 #else /*__WINDOWS__*/
 
-  return sendto(s->socket, buf, bufSize, flags, to, tolen);
+  for(;;)
+  { n = sendto(s->socket, buf, bufSize, flags, to, tolen);
+
+    if ( n < 0 )
+    { if ( need_retry(GET_ERRNO) )
+      { if ( PL_handle_signals() < 0 )
+	{ errno = EPLEXCEPTION;
+	  return -1;
+	}
+        continue;
+      }
+      nbio_error(GET_ERRNO, TCP_ERRNO);
+      return -1;
+    }
+    break;
+  }
+
+  return n;
+
 #endif /*__WINDOWS__*/
 }
