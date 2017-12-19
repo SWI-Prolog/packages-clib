@@ -2325,6 +2325,12 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
       }
       return -1;
     }
+    if ( n < len )
+    { if ( PL_handle_signals() < 0 )
+      { errno = EPLEXCEPTION;
+        return -1;
+      }
+    }
 
     len -= n;
     str += n;
