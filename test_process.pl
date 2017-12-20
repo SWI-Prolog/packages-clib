@@ -59,34 +59,38 @@ read_process(In, Text) :-
     close(In),
     atom_codes(Text, Codes).
 
+has_exe(Name) :-
+    process:exe_options(Options),
+    absolute_file_name(path(Name), _, [file_errors(fail)|Options]).
+
 :- begin_tests(process_create, [sto(rational_trees)]).
 
-test(echo, true) :-
+test(echo, [condition(has_exe(true))]) :-
     process_create(path(true), [], []).
-test(null_input, Codes == []) :-
+test(null_input, [condition(has_exe(cat)), Codes == []]) :-
     process_create(path(cat), [], [stdin(null), stdout(pipe(Out))]),
     read_stream_to_codes(Out, Codes),
     close(Out).
-test(null_output, true) :-
+test(null_output, [condition(has_exe(sh))]) :-
     process_create(path(sh),
                    ['-c', 'echo THIS IS AN ERROR'],
                    [stdout(null)]).
-test(null_error, true) :-
+test(null_error, [condition(has_exe(sh))]) :-
     process_create(path(sh),
                    ['-c', 'echo "THIS IS AN ERROR" 1>&2'],
                    [stderr(null)]).
-test(read_error, X == 'error\n') :-
+test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
     process_create(path(sh),
                    ['-c', 'echo "error" 1>&2'],
                    [stderr(pipe(Out))]),
     read_process(Out, X).
-test(echo, X == 'hello\n') :-
+test(echo, [condition(has_exe(sh)), X == 'hello\n']) :-
     process_create(path(sh),
                    ['-c', 'echo hello'],
                    [ stdout(pipe(Out))
                    ]),
     read_process(Out, X).
-test(lwr, X == 'HELLO') :-
+test(lwr, [condition(has_exe(tr)), X == 'HELLO']) :-
     process_create(path(tr), [hello, 'HELLO'], % a-z A-Z is non-portable
                    [ stdin(pipe(In)),
                      stdout(pipe(Out))
@@ -124,10 +128,10 @@ tmp_dir('/tmp').
 
 :- begin_tests(process_wait, [sto(rational_trees)]).
 
-test(wait_ok, X == exit(0)) :-
+test(wait_ok, [condition(has_exe(sh)), X == exit(0)]) :-
     process_create(path(sh), ['-c', 'exit 0'], [process(PID)]),
     process_wait(PID, X).
-test(wait_ok, X == exit(42)) :-
+test(wait_ok, [condition(has_exe(sh)), X == exit(42)]) :-
     process_create(path(sh), ['-c', 'exit 42'], [process(PID)]),
     process_wait(PID, X).
 test(kill_ok, [ X == killed(9),
@@ -136,7 +140,9 @@ test(kill_ok, [ X == killed(9),
     process_kill(PID, 9),
     process_wait(PID, X).
 test(kill_ok, [ X = exit(_),
-                condition(current_prolog_flag(windows, true))]) :-
+                condition((current_prolog_flag(windows, true),
+                           has_exe(sleep)))
+              ]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID, 9),
     process_wait(PID, X).
@@ -147,7 +153,7 @@ test(kill_gone, [ error(existence_error(process, PID)),
     process_wait(PID, X),
     assertion(X == killed(15)),
     process_kill(PID).
-test(wait_timeout, [ X = timeout ]) :-
+test(wait_timeout, [ condition(has_exe(sleep)), X = timeout ]) :-
     process_create(path(sleep), [2], [process(PID)]),
     (   current_prolog_flag(windows, true)
     ->  TMO = 0.1
@@ -189,7 +195,7 @@ create_and_wait_once :-
 
 /* See create_pipes() in process.c */
 
-test(concurr, true) :-
+test(concurr, [condition(has_exe(cat))]) :-
     forall(between(1, 50, _),
            create_and_wait_once).
 
