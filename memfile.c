@@ -712,6 +712,7 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
 
     if ( (rc=PL_unify_stream(stream, fd)) )
     { fd->encoding = encoding;
+      fd->newline = SIO_NL_POSIX;
       m->stream = fd;
       m->mode = iom;
       PL_register_atom(m->symbol);
