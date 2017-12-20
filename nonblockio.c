@@ -269,12 +269,6 @@ nbio_debug(int level)
 
 #endif
 
-void					/* allow debugger breakpoint */
-tcp_debug()
-{ Sdprintf("Trapping debugger\n");
-}
-
-
 		 /*******************************
 		 *	  COMPATIBILITY		*
 		 *******************************/
@@ -356,8 +350,7 @@ nbio_fcntl(nbio_sock_t socket, int op, int arg)
 
 static int
 need_retry(int error)
-{
- if ( error == WSAEINTR || error == WSAEWOULDBLOCK )
+{ if ( error == WSAEINTR || error == WSAEWOULDBLOCK )
   { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, WinSockError(error)));
     return TRUE;
   }
@@ -366,8 +359,10 @@ need_retry(int error)
 }
 
 
-int wait_socket(plsocket *s)
+static int
+wait_socket(plsocket *s)
 { int index;
+
   for(;;)
   { DEBUG(2, Sdprintf("waiting on socket: %d\n", s->socket));
     index = MsgWaitForMultipleObjects(1, &s->event, FALSE, INFINITE, QS_ALLINPUT);
@@ -375,10 +370,9 @@ int wait_socket(plsocket *s)
     if ( index == WAIT_FAILED )
     { nbio_error(GetLastError(), TCP_ERRNO);
       return FALSE;
-    }
-
-    else if ( index == WAIT_OBJECT_0+0 ) /* socket event */
+    } else if ( index == WAIT_OBJECT_0+0 ) /* socket event */
     { WSANETWORKEVENTS events;
+
       if ( WSAEnumNetworkEvents(s->socket, s->event, &events) == SOCKET_ERROR )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
         return FALSE;
@@ -413,10 +407,9 @@ int wait_socket(plsocket *s)
         }
       }
       break;
-    }
-
-    else if ( index == WAIT_OBJECT_0+1 ) /* message event */
+    } else if ( index == WAIT_OBJECT_0+1 ) /* message event */
     { MSG msg;
+
       DEBUG(2, Sdprintf("interrupted socket: %p\n", s->socket));
       while( PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) )
       { TranslateMessage(&msg);
@@ -492,12 +485,10 @@ nbio_select(int n,
           if ( (network_events.lNetworkEvents & FD_ACCEPT) &&
                !network_events.iErrorCode[FD_ACCEPT_BIT] )
           { n_ready++;
-          }
-          else if ( (network_events.lNetworkEvents & FD_READ) &&
-                    !network_events.iErrorCode[FD_READ_BIT] )
+          } else if ( (network_events.lNetworkEvents & FD_READ) &&
+		      !network_events.iErrorCode[FD_READ_BIT] )
           { n_ready++;
-          }
-          else
+          } else
           { FD_CLR(i, readfds);
           }
         } else
@@ -535,8 +526,7 @@ nbio_select(int n,
       msecs = t_end - t;
       if ( msecs < 0 )
         msecs = -msecs; /* wrapped around */
-    }
-    else
+    } else
     { msecs = INFINITE;
     }
 
@@ -550,9 +540,7 @@ nbio_select(int n,
     if ( index == WAIT_FAILED )
     { nbio_error(GET_ERRNO, TCP_ERRNO);
       return -1;
-    }
-
-    else if ( index < WAIT_OBJECT_0+count ) /* socket event */
+    } else if ( index < WAIT_OBJECT_0+count ) /* socket event */
     { WSANETWORKEVENTS network_events;
       if ( WSAEnumNetworkEvents(sockets[index-WSA_WAIT_EVENT_0], NULL, &network_events) == SOCKET_ERROR )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
@@ -567,15 +555,12 @@ nbio_select(int n,
            !network_events.iErrorCode[FD_ACCEPT_BIT] )
       { FD_SET(fds[index-WSA_WAIT_EVENT_0], readfds);
         return 1;
-      }
-      else if ( (network_events.lNetworkEvents & FD_READ) &&
-           !network_events.iErrorCode[FD_READ_BIT] )
+      } else if ( (network_events.lNetworkEvents & FD_READ) &&
+		  !network_events.iErrorCode[FD_READ_BIT] )
       { FD_SET(fds[index-WSA_WAIT_EVENT_0], readfds);
         return 1;
       }
-    }
-
-    else if ( index == WAIT_OBJECT_0+count ) /* message event */
+    } else if ( index == WAIT_OBJECT_0+count ) /* message event */
     { MSG msg;
       DEBUG(2, Sdprintf("nbio_select() interrupted\n"));
       while( PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) )
