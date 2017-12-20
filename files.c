@@ -270,7 +270,11 @@ pl_chmod(term_t spec, term_t mode)
        !PL_get_integer_ex(mode, &imode) )
     return FALSE;
 
+#ifdef __WINDOWS__
+  if ( _wchmod(name, imode) != 0 )
+#else
   if ( chmod(name, imode) != 0 )
+#endif
     return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "chmod", "file", mode);
 
   return TRUE;
