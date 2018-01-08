@@ -94,15 +94,23 @@ fork(Pid) :-
 %   See whether we are the  only thread.  If not, we cannot fork
 
 fork_warn_threads :-
+    set_prolog_gc_thread(stop),
     findall(T, other_thread(T), Others),
     (   Others == []
     ->  true
-    ;   Others == [gc]
-    ->  thread_signal(gc, abort),
-        thread_join(gc, _)
     ;   throw(error(permission_error(fork, process, main),
                     context(_, running_threads(Others))))
     ).
+
+:- if(\+current_predicate(set_prolog_gc_thread/1)).
+set_prolog_gc_thread(stop) :-
+    (   catch(thread_signal(gc, abort),
+              error(existence_error(thread, _), _),
+              fail)
+    ->  thread_join(gc)
+    ;   true
+    ).
+:- endif.
 
 other_thread(T) :-
     thread_self(Me),
