@@ -95,6 +95,7 @@ stream_read(void *handle, char *buf, size_t size)
 	rc = 0;			/* EOF */
       ctx->buffered = (char*)ws;
       ctx->buflen = len*sizeof(wchar_t);
+      ctx->sent = 0;
     } else
     { term_t ex;
 
