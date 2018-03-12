@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2015, VU University Amsterdam
+    Copyright (c)  2009-2018, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -236,18 +236,19 @@ uri_authority_data(port,     uri_authority(_, _, _, P), P).
 %!  uri_encoded(+Component, +Value, -Encoded) is det.
 %!  uri_encoded(+Component, -Value, +Encoded) is det.
 %
-%   Encoded  is  the  URI   encoding    for   Value.  When  encoding
-%   (Value->Encoded), Component specifies the   URI  component where
-%   the value is used. It  is   one  of =query_value=, =fragment= or
-%   =path=.  Besides  alphanumerical  characters,    the   following
-%   characters are passed verbatim (the  set   is  split  in logical
-%   groups according to RFC3986).
+%   Encoded   is   the   URI   encoding   for   Value.   When   encoding
+%   (Value->Encoded), Component specifies the URI   component  where the
+%   value is used. It is  one   of  =query_value=, =fragment=, =path= or
+%   =segment=.  Besides  alphanumerical   characters,    the   following
+%   characters are passed verbatim (the set   is split in logical groups
+%   according to RFC3986).
 %
 %       $ query_value, fragment :
-%       "-._~" | "!$'()*,;" | ":@" | "/?"
+%       "-._~" | "!$'()*,;" | "@" | "/?"
 %       $ path :
-%       "-._~" | "!$&'()*,;=" | ":@" | "/"
-
+%       "-._~" | "!$&'()*,;=" | "@" | "/"
+%       $ segment :
+%       "-._~" | "!$&'()*,;=" | "@"
 
 %!  uri_iri(+URI, -IRI) is det.
 %!  uri_iri(-URI, +IRI) is det.

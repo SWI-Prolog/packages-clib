@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2015, VU University Amsterdam
+    Copyright (c)  2009-2018, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,7 @@ static char *_utf8_put_char(char *out, int chr);
 static atom_t ATOM_query_value;
 static atom_t ATOM_fragment;
 static atom_t ATOM_path;
+static atom_t ATOM_segment;
 
 static functor_t FUNCTOR_equal2;	/* =/2 */
 static functor_t FUNCTOR_pair2;		/* -/2 */
@@ -131,6 +132,7 @@ domain_error(const char *expected, term_t found)
 		 *******************************/
 
 #define	ESC_PATH       (CH_UNRESERVED|CH_SUBDELIM|CH_EX_PATH)
+#define	ESC_SEGMENT    (CH_UNRESERVED|CH_SUBDELIM|CH_EX_SEGMENT)
 #define	ESC_QUERY      (CH_UNRESERVED|CH_PSUBDELIM|CH_EX_QF)
 #define	ESC_QVALUE     (CH_UNRESERVED|CH_QSUBDELIM|CH_EX_QF)
 #define	ESC_QNAME      (CH_PCHAR)
@@ -154,6 +156,7 @@ domain_error(const char *expected, term_t found)
 #define CH_QSUBDELIM  0x0200
 #define CH_PSUBDELIM  0x0400
 #define CH_EX_PATH    0x0800
+#define CH_EX_SEGMENT 0x1000
 
 #define CH_SCHEME	(CH_ALPHA|CH_DIGIT|CH_EX_SCHEME)
 #define CH_UNRESERVED	(CH_ALPHA|CH_DIGIT|CH_EX_UNRES)
@@ -187,6 +190,7 @@ fill_flags()
     set_flags("!$'()*,",     CH_QSUBDELIM); /* = CH_SUBDELIM - "&=+" */
     set_flags(":@",          CH_EX_PCHAR);
     set_flags("/@",          CH_EX_PATH);
+    set_flags("@",           CH_EX_SEGMENT);
     set_flags("/?@",         CH_EX_QF);
     set_flags("+-.",	     CH_EX_SCHEME);
 
@@ -992,6 +996,8 @@ uri_encoded(term_t what, term_t qv, term_t enc)
     flags = ESC_FRAGMENT;
   else if ( w == ATOM_path )
     flags = ESC_PATH;
+  else if ( w == ATOM_segment )
+    flags = ESC_SEGMENT;
   else
     return domain_error("uri_component", what);
 
@@ -1607,6 +1613,7 @@ install_uri()
 { MKATOM(query_value);
   MKATOM(fragment);
   MKATOM(path);
+  MKATOM(segment);
 
   MKFUNCTOR(uri_components, 5);
   MKFUNCTOR(uri_authority, 4);
