@@ -153,7 +153,7 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %   True if URI has a scheme. The  semantics   is  the  same as the code
 %   below, but the implementation is more efficient  as it does not need
 %   to parse the other components, nor  needs   to  bind the scheme. The
-%   condition to demand a scheme of more  than one character as added to
+%   condition to demand a scheme of more  than one character is added to
 %   avoid confusion with DOS path names.
 %
 %   ==
