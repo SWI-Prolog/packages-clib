@@ -95,13 +95,12 @@ implementations from this library is usually faster.
 
 %!  link_file(+OldPath, +NewPath, +Type) is det.
 %
-%   Create a link in the filesystem   from  NewPath to OldPath. Type
+%   Create a link in  the  filesystem   from  NewPath  to  OldPath. Type
 %   defines the type of link and is one of =hard= or =symbolic=.
 %
-%   With some limitations, these  functions   also  work on Windows.
-%   First of all, the unerlying filesystem  must support links. This
-%   requires NTFS. Second, symbolic  links   are  only  supported in
-%   Vista and later.
+%   With some limitations, these functions also   work on Windows. First
+%   of all, the underlying filesystem must  support links. This requires
+%   NTFS. Second, symbolic links are only supported in Vista and later.
 %
 %   @error  domain_error(link_type, Type) if the requested link-type
 %           is unknown or not supported on the target OS.
