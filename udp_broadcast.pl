@@ -33,11 +33,10 @@
 */
 
 :- module(udp_broadcast,
-             [
-             udp_host_to_address/2,    % ? Host, ? Address
-             udp_broadcast_initialize/2,   % +IPAddress, +Subnet
-             udp_broadcast_service/2   % ? Domain, ? Address
-             ]).
+          [ udp_host_to_address/2,             % ?Host, ?Address
+            udp_broadcast_initialize/2,        % +IPAddress, +Subnet
+            udp_broadcast_service/2            % ?Domain, ?Address
+          ]).
 
 /** <module> A UDP Broadcast Bridge
 
@@ -50,8 +49,9 @@ any member on your local IP subnetwork that also has this library loaded
 may hear and respond to your broadcasts.
 
 This  module  has  only  two  public  predicates.  When  the  module  is
-initialized, it starts a two listener threads that listen for broadcasts
-from others, received as UDP datagrams.
+initialized using udp_broadcast_initialize/2, it starts   a two listener
+threads  that  listen  for  broadcasts  from  others,  received  as  UDP
+datagrams.
 
 Unlike TIPC broadcast, UDP broadcast has only one scope, =udp_subnet=. A
 broadcast/1 or broadcast_request/1 that is not  directed to the listener
@@ -228,30 +228,20 @@ and subtle differences that must be taken into consideration:
 :- use_module(library(broadcast)).
 :- use_module(library(time)).
 
-:- require([ thread_self/1
-           , forall/2
-           , term_to_atom/2
-           , thread_send_message/2
-           , catch/3
-           , setup_call_cleanup/3
-           , thread_create/3
-           ]).
-
-% %     ~>(:P, :Q) is nondet.
-% %     eventually_implies(P, Q) is nondet.
-%    asserts temporal Liveness (something good happens, eventually) and
-%    Safety (nothing bad ever happens) properties. Analogous to the
+%!   ~>(:P, :Q) is nondet.
+%
+%    asserts temporal Liveness (something good  happens, eventually) and
+%    Safety (nothing bad ever  happens)   properties.  Analogous  to the
 %    "leads-to" operator of Owicki and Lamport, 1982. Provides a sort of
 %    lazy implication described informally as:
 %
-%    * Liveness: For all possible outcomes, P -> Q, eventually.
-%    * Safety: For all possible outcomes, (\+P ; Q), is invariant.
+%      - Liveness: For all possible outcomes, P -> Q, eventually.
+%      - Safety: For all possible outcomes, (\+P ; Q), is invariant.
 %
-%  Described practically:
+%    Described practically:
 %
 %    P ~> Q, declares that if P is true, then Q must be true, now or at
 %    some point in the future.
-%
 
 :- meta_predicate ~>(0,0).
 :- op(950, xfy, ~>).
@@ -259,16 +249,18 @@ and subtle differences that must be taken into consideration:
 ~>(P, Q) :-
     setup_call_cleanup(P,
                        (true; fail),
-                       (   Q -> true;
-                       throw(error(goal_failed(Q), context(~>, _))))
-                      ).
+                       (   Q -> true
+                       ;   throw(error(goal_failed(Q), context(~>, _))))
+                       ).
 
 :- meta_predicate safely(0).
 
 safely(Predicate) :-
     catch(Predicate, Err,
-          (Err == '$aborted' -> (!, fail);
-          print_message(error, Err), fail)).
+          (   Err == '$aborted'
+          ->  !, fail
+          ;   print_message(error, Err), fail
+          )).
 
 :- meta_predicate make_thread(0, +).
 
@@ -282,7 +274,7 @@ join_thread(Id) :-
     thread_join(Id, exception('$aborted')).
 
 make_thread(Goal, Options) :-
-    thread_create(safely(Goal), Id, [ detached(false) | Options ])
+    thread_create(safely(Goal), Id, Options)
       ~> join_thread(Id).
 
 udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
@@ -296,9 +288,9 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     B4 is A4 \/ (S4 xor 255).
 
 %!  udp_broadcast_service(?Domain, ?Address) is nondet.
-%   provides the UDP broadcast address for a given Domain. At present,
-%   only one domain is supported, =|udp_subnet|=.
 %
+%   provides the UDP broadcast address for   a given Domain. At present,
+%   only one domain is supported, =|udp_subnet|=.
 
 %  The following are defined at initialization:
 :- dynamic
@@ -360,16 +352,24 @@ ld_dispatch(_S, Term, _From) :-
 
 ld_dispatch(S, '$udp_request'(wru(Name)), From) :-
     !, gethostname(Name),
-    term_to_atom(wru(Name), Atom),
-    udp_send(S, Atom, From, []).
+    term_message(wru(Name), Message),
+    udp_send(S, Message, From, []).
 
 ld_dispatch(S, '$udp_request'(Term), From) :-
-    !, forall(broadcast_request(Term),
-          (   term_to_atom(Term, Atom),
-              udp_send(S, Atom, From, []))).
+    !,
+    forall(broadcast_request(Term),
+           ( term_message(Term, Message),
+             udp_send(S, Message, From, [])
+           )).
 
 ld_dispatch(_S, Term, _From) :-
     safely(broadcast(Term)).
+
+term_message(Term, Message) :-
+    term_string(Term, Message,
+                [ ignore_ops(true),
+                  quoted(true)
+                ]).
 
 %  Thread 1 listens for directed traffic on the private port.
 %
@@ -403,23 +403,24 @@ udp_listener_daemon2(Parent) :-
     safely(dispatch_traffic(S, S1)).
 
 dispatch_traffic(S, S1) :-
-    udp_receive(S, Data, From,
-                [as(atom), max_message_size(65535)]),
+    udp_receive(S, Data, From, [max_message_size(65535)]),
     udp_subnet_member(From),  % ignore all traffic that is foreign to my subnet
-    term_to_atom(Term, Data),
+    term_string(Term, Data),
     with_mutex(udp_broadcast, ld_dispatch(S1, Term, From)),
     !,
     dispatch_traffic(S, S1).
 
 start_udp_listener_daemon :-
-    catch(thread_property(udp_listener_daemon2, status(running)),_, fail),
-
+    catch(thread_property(udp_listener_daemon2, status(running)),
+          error(_,_),
+          fail),
     !.
-
 start_udp_listener_daemon :-
     thread_self(Self),
     thread_create(udp_listener_daemon2(Self), _,
-           [alias(udp_listener_daemon2), detached(true)]),
+                  [ alias(udp_listener_daemon2),
+                    detached(true)
+                  ]),
     call_with_time_limit(6.0,
                          thread_get_message(udp_listener_daemon_ready)).
 
@@ -444,23 +445,23 @@ udp_basic_broadcast(S, Port, Term, Address) :-
       ~> tcp_close_socket(S),
 
     (   udp_broadcast_service(udp_subnet, Address)
-           -> tcp_setopt(S, broadcast)
-           ; true
+    ->  tcp_setopt(S, broadcast)
+    ;   true
     ),
 
     tcp_bind(S, Port),  % find our own ephemeral Port
     term_to_atom(Term, Atom),
 
     (   udp_subnet_member(Address)  % talk only to your local subnet
-        -> safely(udp_send(S, Atom, Address, []))
-        ;  true).
+    ->  safely(udp_send(S, Atom, Address, []))
+    ;   true
+    ).
 
 % directed broadcast to a single listener
 udp_broadcast(Term:To, _Scope, _Timeout) :-
     ground(Term), ground(To),
     !,
     udp_basic_broadcast(_S, _Port, Term, To),
-
     !.
 
 % broadcast to all listeners
@@ -469,7 +470,6 @@ udp_broadcast(Term, Scope, _Timeout) :-
     !,
     udp_broadcast_service(Scope, Address),
     udp_basic_broadcast(_S, _Port, Term, Address),
-
     !.
 
 % directed broadcast_request to a single listener
@@ -481,7 +481,8 @@ udp_broadcast(Term:Address, _Scope, Timeout) :-
 
 % broadcast_request to all listeners returning responder port-id
 udp_broadcast(Term:From, Scope, Timeout) :-
-    !, udp_broadcast_service(Scope, Address),
+    !,
+    udp_broadcast_service(Scope, Address),
     udp_basic_broadcast(S, Port, '$udp_request'(Term), Address),
     udp_br_collect_replies(S, Port, Timeout, Term:From).
 
@@ -493,7 +494,6 @@ udp_br_send_timeout(Port) :-
     udp_socket(S)
       ~> tcp_close_socket(S),
     udp_send(S, '$udp_br_timeout', localhost:Port, []),
-
     !.
 
 udp_br_collect_replies(S, Port, Timeout, Term:From) :-
@@ -503,40 +503,36 @@ udp_br_collect_replies(S, Port, Timeout, Term:From) :-
     tcp_setopt(S, dispatch(false)),
 
     repeat,
-    udp_receive(S, Atom, From1, [as(atom)]),
-    (   (Atom \== '$udp_br_timeout')
-        -> (From1 = From, safely(term_to_atom(Term, Atom)))
-        ;  (!, fail)).
+    udp_receive(S, Atom, From1, []),
+    (   Atom \== "$udp_br_timeout"
+    ->  From1 = From,
+        safely(term_string(Term, Atom))
+    ;   !,
+        fail
+    ).
 
 %!  udp_host_to_address(?Service, ?Address) is nondet.
 %
-%   locates a UDP service by name. Service  is an atom or grounded term
-%   representing the common name  of  the   service.  Address  is a UDP
+%   locates a UDP service by name. Service   is an atom or grounded term
+%   representing the common name  of  the   service.  Address  is  a UDP
 %   address structure. A server may advertise   its  services by name by
-%   including  the  fact,    udp:host_to_address(+Service,   +Address),
+%   including   the   fact,   udp:host_to_address(+Service,   +Address),
 %   somewhere in its source. This predicate can  also be used to perform
 %   reverse searches. That is it  will  also   resolve  an  Address to a
 %   Service name.
-%
 
 udp_host_to_address(Host, Address) :-
     broadcast_request(udp_subnet(udp_host_to_address(Host, Address))).
 
-%!  udp_initialize is semidet.
-%   See udp:udp_initialize/0
-%
-%:- multifile udp:udp_stack_initialize/0.
-
-
 %!  udp_broadcast_initialize(+IPAddress, +SubnetMask) is semidet.
-%   causes any required runtime initialization to occur. At present,
-%   proper operation of UDP broadcast depends on local information
-%   that is not easily obtained mechanically. In order to determine
-%   the appropriate UDP broadcast address, you must supply the
-%   IPAddress and SubnetMask for the node that is running this module.
-%   These data are supplied in the form of ip/4 terms. This is now
-%   required to be included in an applications intialization directive.
 %
+%   Causes any required runtime  initialization   to  occur. At present,
+%   proper operation of UDP broadcast depends  on local information that
+%   is not easily obtained  mechanically.  In   order  to  determine the
+%   appropriate UDP broadcast address, you must supply the IPAddress and
+%   SubnetMask for the node that is running  this module. These data are
+%   supplied in the form of  ip/4  terms.   This  is  now required to be
+%   included in an applications intialization directive.
 
 udp_broadcast_initialize(IPAddress, Subnet) :-
     retractall(udp_broadcast_service(_,_)),
@@ -544,6 +540,7 @@ udp_broadcast_initialize(IPAddress, Subnet) :-
 
     udp_broadcast_address(IPAddress, Subnet, BroadcastAddr),
     assert(udp_broadcast_service(udp_subnet, BroadcastAddr:20005)),
-    assert(udp_subnet_member(Address:_Port) :- udp_broadcast_address(Address, Subnet, BroadcastAddr)),
+    assert((udp_subnet_member(Address:_Port) :-
+               udp_broadcast_address(Address, Subnet, BroadcastAddr))),
 
     start_udp_listener_daemon.
