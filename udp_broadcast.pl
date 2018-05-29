@@ -4,6 +4,7 @@
     E-mail:        jeffrose@acm.org
     WWW:           http://www.swi-prolog.org
     Copyright (c)  2012-2013, Jeffrey Rosenwald
+		   2018, CWI Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -200,8 +201,8 @@ and subtle differences that must be taken into consideration:
     (or none at all). No ordering of replies is implied.
 
     * Prolog terms are sent to others after first converting them to
-    atoms using term_to_atom/2. Passing real numbers this way may
-    result in a substantial truncation of precision.
+    atoms using term_string/3.  Serialization does not deal with cycles,
+    attributes or sharing.
 
     * The broadcast model is based on anonymity and a presumption of
     trust--a perfect recipe for compromise. UDP is an Internet protocol.
@@ -219,7 +220,7 @@ and subtle differences that must be taken into consideration:
     members of the local subnet. This security measure only keeps honest
     people honest!
 
-@author    Jeffrey Rosenwald (JeffRose@acm.org)
+@author    Jeffrey Rosenwald (JeffRose@acm.org), Jan Wielemaker
 @license   BSD-2
 @see       tipc.pl
 */
@@ -227,6 +228,10 @@ and subtle differences that must be taken into consideration:
 :- use_module(library(socket)).
 :- use_module(library(broadcast)).
 :- use_module(library(time)).
+
+:- multifile
+    udp_term_string_hook/2,                     % ?Term, ?String
+    udp:host_to_address/2.                      % +Host, -Address
 
 %!   ~>(:P, :Q) is nondet.
 %
@@ -346,30 +351,20 @@ black_list(tipc_zone(_,_)).
 %
 ld_dispatch(_S, '$udp_request'(Term), _From) :-
     black_list(Term), !, fail.
-
 ld_dispatch(_S, Term, _From) :-
     black_list(Term), !, fail.
-
 ld_dispatch(S, '$udp_request'(wru(Name)), From) :-
     !, gethostname(Name),
-    term_message(wru(Name), Message),
+    udp_term_string(wru(Name), Message),
     udp_send(S, Message, From, []).
-
 ld_dispatch(S, '$udp_request'(Term), From) :-
     !,
     forall(broadcast_request(Term),
-           ( term_message(Term, Message),
+           ( udp_term_string(Term, Message),
              udp_send(S, Message, From, [])
            )).
-
 ld_dispatch(_S, Term, _From) :-
     safely(broadcast(Term)).
-
-term_message(Term, Message) :-
-    term_string(Term, Message,
-                [ ignore_ops(true),
-                  quoted(true)
-                ]).
 
 %  Thread 1 listens for directed traffic on the private port.
 %
@@ -405,7 +400,7 @@ udp_listener_daemon2(Parent) :-
 dispatch_traffic(S, S1) :-
     udp_receive(S, Data, From, [max_message_size(65535)]),
     udp_subnet_member(From),  % ignore all traffic that is foreign to my subnet
-    term_string(Term, Data),
+    udp_term_string(Term, Data),
     with_mutex(udp_broadcast, ld_dispatch(S1, Term, From)),
     !,
     dispatch_traffic(S, S1).
@@ -424,17 +419,12 @@ start_udp_listener_daemon :-
     call_with_time_limit(6.0,
                          thread_get_message(udp_listener_daemon_ready)).
 
-:- multifile udp:host_to_address/2.
-%
 broadcast_listener(udp_host_to_address(Host, Addr)) :-
     udp:host_to_address(Host, Addr).
-
 broadcast_listener(udp_broadcast_service(Class, Addr)) :-
     udp_broadcast_service(Class, Addr).
-
 broadcast_listener(udp_subnet(X)) :-
     udp_broadcast(X, udp_subnet, 0.250).
-
 broadcast_listener(udp_subnet(X, Timeout)) :-
     udp_broadcast(X, udp_subnet, Timeout).
 
@@ -503,10 +493,10 @@ udp_br_collect_replies(S, Port, Timeout, Term:From) :-
     tcp_setopt(S, dispatch(false)),
 
     repeat,
-    udp_receive(S, Atom, From1, []),
-    (   Atom \== "$udp_br_timeout"
+    udp_receive(S, String, From1, []),
+    (   String \== "$udp_br_timeout"
     ->  From1 = From,
-        safely(term_string(Term, Atom))
+        safely(udp_term_string(Term, String))
     ;   !,
         fail
     ).
@@ -544,3 +534,22 @@ udp_broadcast_initialize(IPAddress, Subnet) :-
                udp_broadcast_address(Address, Subnet, BroadcastAddr))),
 
     start_udp_listener_daemon.
+
+
+		 /*******************************
+		 *             HOOKS		*
+		 *******************************/
+
+%!  udp_term_string(?Term, ?String) is det.
+%
+%   Serialize an arbitrary Prolog term as a string.  The
+
+udp_term_string(Term, String) :-
+    udp_term_string_hook(Term, String),
+    !.
+udp_term_string(Term, String) :-
+    term_string(Term, String,
+                [ ignore_ops(true),
+                  quoted(true)
+                ]).
+
