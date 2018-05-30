@@ -430,8 +430,50 @@ broadcast_listener(udp_subnet(X)) :-
 broadcast_listener(udp_subnet(X, Timeout)) :-
     udp_broadcast(X, udp_subnet, Timeout).
 
+%!  udp_broadcast(+What, +Scope, +TimeOut)
 %
+%   Send a broadcast request to my UDP peers in Scope. What is either of
+%   the shape `Term:Address` to send Term to a specific address or query
+%   the address from which term is answered or it is a plain `Term`.
 %
+%   If `Term` is  nonground,  it  is   considered  is  a  _request_ (see
+%   broadcast_request/1) and the predicate  succeeds   for  each  answer
+%   received within TimeOut seconds. If Term is ground it is considered
+%   an asynchronous broadcast and udp_broadcast/3 is deterministic.
+
+udp_broadcast(Term:To, _Scope, _Timeout) :-
+    ground(Term), ground(To),           % broadcast to single listener
+    !,
+    udp_basic_broadcast(_S, _Port, Term, To),
+    !.
+udp_broadcast(Term, Scope, _Timeout) :-
+    ground(Term),                       % broadcast to all listeners
+    !,
+    udp_broadcast_service(Scope, Address),
+    udp_basic_broadcast(_S, _Port, Term, Address),
+    !.
+udp_broadcast(Term:Address, _Scope, Timeout) :-
+    ground(Address),                    % request to single listener
+    !,
+    udp_basic_broadcast(S, Port, '$udp_request'(Term), Address),
+    udp_br_collect_replies(S, Port, Timeout, Term:Address).
+udp_broadcast(Term:From, Scope, Timeout) :-
+    !,                                  % request to all listeners, collect sender
+    udp_broadcast_service(Scope, Address),
+    udp_basic_broadcast(S, Port, '$udp_request'(Term), Address),
+    udp_br_collect_replies(S, Port, Timeout, Term:From).
+udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
+    udp_broadcast(Term:_, Scope, Timeout).
+
+
+%!  udp_basic_broadcast(-S, ?Port, +Term, +Address)
+%
+%   Create a UDP private socket and use it   to send Term to Address. If
+%   Address is our broadcast address, set the socket in broadcast mode.
+%
+%   This predicate succeeds with a choice   point. Committing the choice
+%   point closes S.
+
 udp_basic_broadcast(S, Port, Term, Address) :-
     udp_socket(S)
       ~> tcp_close_socket(S),
@@ -448,39 +490,6 @@ udp_basic_broadcast(S, Port, Term, Address) :-
     ->  safely(udp_send(S, String, Address, []))
     ;   true
     ).
-
-% directed broadcast to a single listener
-udp_broadcast(Term:To, _Scope, _Timeout) :-
-    ground(Term), ground(To),
-    !,
-    udp_basic_broadcast(_S, _Port, Term, To),
-    !.
-
-% broadcast to all listeners
-udp_broadcast(Term, Scope, _Timeout) :-
-    ground(Term),
-    !,
-    udp_broadcast_service(Scope, Address),
-    udp_basic_broadcast(_S, _Port, Term, Address),
-    !.
-
-% directed broadcast_request to a single listener
-udp_broadcast(Term:Address, _Scope, Timeout) :-
-    ground(Address),
-    !,
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), Address),
-    udp_br_collect_replies(S, Port, Timeout, Term:Address).
-
-% broadcast_request to all listeners returning responder port-id
-udp_broadcast(Term:From, Scope, Timeout) :-
-    !,
-    udp_broadcast_service(Scope, Address),
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), Address),
-    udp_br_collect_replies(S, Port, Timeout, Term:From).
-
-% broadcast_request to all listeners ignoring responder port-id
-udp_broadcast(Term, Scope, Timeout) :-
-    udp_broadcast(Term:_, Scope, Timeout).
 
 %!  udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom) is nondet.
 %
