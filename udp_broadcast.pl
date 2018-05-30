@@ -547,6 +547,14 @@ udp_broadcast_initialize(IPAddress, Subnet) :-
 %   Serialize an arbitrary Prolog  term  as   a  string.  The  string is
 %   prefixed by a magic key to ensure   we only accept messages that are
 %   meant for us.
+%
+%   In mode (+,-), Term is written with the options ignore_ops(true) and
+%   quoted(true).
+%
+%   This predicate first calls  udp_term_string_hook/2   with  the  same
+%   signature. This hook  may  use   alternative  serialization  such as
+%   fast_term_serialized/2,  use  library(ssl)  to    realise  encrypted
+%   messages, etc.
 
 udp_term_string(Term, String) :-
     udp_term_string_hook(Term, String),
