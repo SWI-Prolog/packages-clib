@@ -399,10 +399,11 @@ udp_listener_daemon2(Parent) :-
 
 dispatch_traffic(S, S1) :-
     udp_receive(S, Data, From, [max_message_size(65535)]),
-    udp_subnet_member(From),  % ignore all traffic that is foreign to my subnet
-    udp_term_string(Term, Data),
-    with_mutex(udp_broadcast, ld_dispatch(S1, Term, From)),
-    !,
+    (   udp_subnet_member(From),    % ignore traffic that is foreign to my subnet
+        udp_term_string(Term, Data) % only accept valid data
+    ->  with_mutex(udp_broadcast, ld_dispatch(S1, Term, From))
+    ;   true
+    ),
     dispatch_traffic(S, S1).
 
 start_udp_listener_daemon :-
@@ -540,16 +541,27 @@ udp_broadcast_initialize(IPAddress, Subnet) :-
 		 *             HOOKS		*
 		 *******************************/
 
-%!  udp_term_string(?Term, ?String) is det.
+%!  udp_term_string(+Term, -String) is det.
+%!  udp_term_string(-Term, +String) is semidet.
 %
-%   Serialize an arbitrary Prolog term as a string.  The
+%   Serialize an arbitrary Prolog  term  as   a  string.  The  string is
+%   prefixed by a magic key to ensure   we only accept messages that are
+%   meant for us.
 
 udp_term_string(Term, String) :-
     udp_term_string_hook(Term, String),
     !.
 udp_term_string(Term, String) :-
-    term_string(Term, String,
-                [ ignore_ops(true),
-                  quoted(true)
-                ]).
+    (   var(String)
+    ->  format(string(String), '%-prolog-\n~W',
+               [ Term,
+                 [ ignore_ops(true),
+                   quoted(true)
+                 ]
+               ])
+    ;   sub_string(String, 0, _, _, '%-prolog-\n'),
+        term_string(Term, String,
+                    [ syntax_errors(quiet)
+                    ])
+    ).
 
