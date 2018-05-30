@@ -36,7 +36,7 @@
 :- module(udp_broadcast,
           [ udp_host_to_address/2,             % ?Host, ?Address
             udp_broadcast_initialize/2,        % +IPAddress, +Options
-            udp_broadcast_service/2            % ?Domain, ?Address
+            udp_broadcast_service/2            % ?Scope, ?Address
           ]).
 :- use_module(library(socket)).
 :- use_module(library(broadcast)).
@@ -293,19 +293,19 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     B3 is A3 \/ (S3 xor 255),
     B4 is A4 \/ (S4 xor 255).
 
-%!  udp_broadcast_service(?Domain, ?Address) is nondet.
+%!  udp_broadcast_service(?Scope, ?Address) is nondet.
 %
-%   provides the UDP broadcast address for   a given Domain. At present,
-%   only one domain is supported, =|udp_subnet|=.
+%   provides the UDP broadcast address for   a  given Scope. At present,
+%   only one scope is supported, =|udp_subnet|=.
 
 %  The following are defined at initialization:
 :- dynamic
     udp_subnet_member/1,      % +IpAddress:Port
-    udp_broadcast_service/2.  % ?Domain, ?BroadcastAddress:Port
+    udp_broadcast_service/2.  % ?Scope, ?BroadcastAddress:Port
 
 :- volatile
     udp_subnet_member/1,      % +IpAddress:Port
-    udp_broadcast_service/2.  % ?Domain, ?BroadcastAddress:Port
+    udp_broadcast_service/2.  % ?Scope, ?BroadcastAddress:Port
 %
 %  Here's a UDP bridge to Prolog's broadcast library
 %
@@ -423,8 +423,8 @@ start_udp_listener_daemon :-
 
 broadcast_listener(udp_host_to_address(Host, Addr)) :-
     udp:host_to_address(Host, Addr).
-broadcast_listener(udp_broadcast_service(Class, Addr)) :-
-    udp_broadcast_service(Class, Addr).
+broadcast_listener(udp_broadcast_service(Scope, Addr)) :-
+    udp_broadcast_service(Scope, Addr).
 broadcast_listener(udp_subnet(X)) :-
     udp_broadcast(X, udp_subnet, 0.250).
 broadcast_listener(udp_subnet(X, Timeout)) :-
