@@ -481,11 +481,15 @@ udp_broadcast(Term:From, Scope, Timeout) :-
 udp_broadcast(Term, Scope, Timeout) :-
     udp_broadcast(Term:_, Scope, Timeout).
 
-udp_br_send_timeout(Port) :-
-    udp_socket(S)
-      ~> tcp_close_socket(S),
-    udp_send(S, '$udp_br_timeout', localhost:Port, []),
-    !.
+%!  udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom) is nondet.
+%
+%   Collect replies on Socket for  TimeOut   seconds.  Succeed  for each
+%   received message.
+%
+%   @bug The timeout is realised by sending a message to ourselves. This
+%   message can easily be faked. We could send a random message (that is
+%   not a valid Prolog term) or  use   wait_for_input/3  to wait for the
+%   socket.
 
 udp_br_collect_replies(S, Port, Timeout, Term:From) :-
     alarm(Timeout, udp_br_send_timeout(Port), Id, [remove(false)])
@@ -494,13 +498,19 @@ udp_br_collect_replies(S, Port, Timeout, Term:From) :-
     tcp_setopt(S, dispatch(false)),
 
     repeat,
-    udp_receive(S, String, From1, []),
+    udp_receive(S, String, From1, [max_message_size(65535)]),
     (   String \== "$udp_br_timeout"
     ->  From1 = From,
         safely(udp_term_string(Term, String))
     ;   !,
         fail
     ).
+
+udp_br_send_timeout(Port) :-
+    udp_socket(S)
+      ~> tcp_close_socket(S),
+    udp_send(S, '$udp_br_timeout', localhost:Port, []),
+    !.
 
 %!  udp_host_to_address(?Service, ?Address) is nondet.
 %
