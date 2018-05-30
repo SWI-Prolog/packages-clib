@@ -35,9 +35,14 @@
 
 :- module(udp_broadcast,
           [ udp_host_to_address/2,             % ?Host, ?Address
-            udp_broadcast_initialize/2,        % +IPAddress, +Subnet
+            udp_broadcast_initialize/2,        % +IPAddress, +Options
             udp_broadcast_service/2            % ?Domain, ?Address
           ]).
+:- use_module(library(socket)).
+:- use_module(library(broadcast)).
+:- use_module(library(time)).
+:- use_module(library(option)).
+
 
 /** <module> A UDP Broadcast Bridge
 
@@ -224,10 +229,6 @@ and subtle differences that must be taken into consideration:
 @license   BSD-2
 @see       tipc.pl
 */
-
-:- use_module(library(socket)).
-:- use_module(library(broadcast)).
-:- use_module(library(time)).
 
 :- multifile
     udp_term_string_hook/2,                     % ?Term, ?String
@@ -525,26 +526,68 @@ udp_br_send_timeout(Port) :-
 udp_host_to_address(Host, Address) :-
     broadcast_request(udp_subnet(udp_host_to_address(Host, Address))).
 
-%!  udp_broadcast_initialize(+IPAddress, +SubnetMask) is semidet.
+%!  udp_broadcast_initialize(+IPAddress, +Options) is semidet.
 %
-%   Causes any required runtime  initialization   to  occur. At present,
-%   proper operation of UDP broadcast depends  on local information that
-%   is not easily obtained  mechanically.  In   order  to  determine the
-%   appropriate UDP broadcast address, you must supply the IPAddress and
-%   SubnetMask for the node that is running  this module. These data are
-%   supplied in the form of  ip/4  terms.   This  is  now required to be
-%   included in an applications intialization directive.
+%   Initialized UDP broadcast bridge. IPAddress is the IP address on the
+%   network we want to broadcast on.  IP addresses are terms ip(A,B,C,D)
+%   or an atom or string of the format =|A.B.C.D|=.   Options processed:
+%
+%     - subnet_mask(+SubNet)
+%     Subnet to broadcast on.  This uses the same syntax as IPAddress.
+%     Default classifies the network as class A, B or C depending on
+%     the the first octet and applies the default mask.
+%     - port(+Port)
+%     Public port to use.  Default is 20005.
+%
+%   For compatibility reasons Options may be the subnet mask.
 
-udp_broadcast_initialize(IPAddress, Subnet) :-
+udp_broadcast_initialize(IP, Options) :-
+    nonvar(Options),
+    Options = ip(_,_,_,_),
+    !,
+    udp_broadcast_initialize(IP, [subnet_mask(Options)]).
+udp_broadcast_initialize(IP, Options) :-
+    to_ip4(IP, IPAddress),
+    option(subnet_mask(Subnet), Options, _),
+    mk_subnet(Subnet, IPAddress, Subnet4),
+    option(port(Port), Options, 20005),
+
     retractall(udp_broadcast_service(_,_)),
     retractall(udp_subnet_member(_)),
 
-    udp_broadcast_address(IPAddress, Subnet, BroadcastAddr),
-    assert(udp_broadcast_service(udp_subnet, BroadcastAddr:20005)),
+    udp_broadcast_address(IPAddress, Subnet4, BroadcastAddr),
+    assert(udp_broadcast_service(udp_subnet, BroadcastAddr:Port)),
     assert((udp_subnet_member(Address:_Port) :-
-               udp_broadcast_address(Address, Subnet, BroadcastAddr))),
+               udp_broadcast_address(Address, Subnet4, BroadcastAddr))),
 
     start_udp_listener_daemon.
+
+to_ip4(Atomic, ip(A,B,C,D)) :-
+    atomic(Atomic),
+    !,
+    (   split_string(Atomic, ".", "", Strings),
+        maplist(number_string, [A,B,C,D], Strings)
+    ->  true
+    ;   syntax_error(illegal_ip_address)
+    ).
+to_ip4(IP, IP).
+
+mk_subnet(Var, IP, Subnet) :-
+    var(Var),
+    !,
+    (   default_subnet(IP, Subnet)
+    ->  true
+    ;   domain_error(ip_with_subnet, IP)
+    ).
+mk_subnet(Subnet, _, Subnet4) :-
+    to_ip4(Subnet, Subnet4).
+
+default_subnet(ip(A,_,_,_), ip(A,0,0,0)) :-
+    between(1,126, A), !.
+default_subnet(ip(A,B,_,_), ip(A,B,0,0)) :-
+    between(128,191, A), !.
+default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
+    between(192,223, A), !.
 
 
 		 /*******************************
