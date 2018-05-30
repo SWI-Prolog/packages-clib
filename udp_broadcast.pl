@@ -440,10 +440,10 @@ udp_basic_broadcast(S, Port, Term, Address) :-
     ),
 
     tcp_bind(S, Port),  % find our own ephemeral Port
-    term_to_atom(Term, Atom),
+    udp_term_string(Term, String),
 
     (   udp_subnet_member(Address)  % talk only to your local subnet
-    ->  safely(udp_send(S, Atom, Address, []))
+    ->  safely(udp_send(S, String, Address, []))
     ;   true
     ).
 
