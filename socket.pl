@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2016, University of Amsterdam
+    Copyright (c)  2000-2018, University of Amsterdam
                               VU University Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -45,6 +46,7 @@
             tcp_listen/2,               % +Socket, +BackLog
             tcp_fcntl/3,                % +Socket, +Command, ?Arg
             tcp_setopt/2,               % +Socket, +Option
+            tcp_getopt/2,               % +Socket, ?Option
             tcp_host_to_address/2,      % ?HostName, ?Ip-nr
             tcp_select/3,               % +Inputs, -Ready, +Timeout
             gethostname/1,              % -HostName
@@ -533,6 +535,15 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :-
 tcp_fcntl(Socket, setfl, nonblock) :-
     !,
     tcp_setopt(Socket, nonblock).
+
+%!  tcp_getopt(+Socket, ?Option) is semidet.
+%
+%   Get  information  about  Socket.  Defined    properties  are  below.
+%   Requesting an unknown option results in a `domain_error` exception.
+%
+%     - file_no(-File)
+%     Get the OS file handle as an integer.  This may be used for
+%     debugging and integration.
 
 %!  tcp_host_to_address(?HostName, ?Address) is det.
 %

@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2015, University of Amsterdam
+    Copyright (c)  2000-2018, University of Amsterdam
                               VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -88,6 +89,7 @@ static atom_t ATOM_atom;		/* "atom" */
 static atom_t ATOM_string;		/* "string" */
 static atom_t ATOM_codes;		/* "codes" */
 static atom_t ATOM_max_message_size;    /* "message_size" */
+static atom_t ATOM_file_no;		/* "file_no" */
 
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
@@ -252,6 +254,31 @@ not_implemented:
   return pl_error(NULL, 0, NULL, ERR_DOMAIN, opt, "socket_option");
 }
 
+
+static foreign_t
+pl_getopt(term_t Socket, term_t opt)
+{ int socket;
+  atom_t a;
+  size_t arity;
+
+  if ( !tcp_get_socket(Socket, &socket) )
+    return FALSE;
+
+  if ( PL_get_name_arity(opt, &a, &arity) && arity >= 1 )
+  { term_t a1 = PL_new_term_ref();
+
+    _PL_get_arg(1, opt, a1);
+    if ( a == ATOM_file_no && arity == 1 )
+    { SOCKET s = nbio_fd(socket);
+
+      if ( s != -1 )
+	return PL_unify_integer(a1, s);
+      return FALSE;
+    }
+  }
+
+  return pl_error(NULL, 0, NULL, ERR_DOMAIN, opt, "socket_option");
+}
 
 #include "sockcommon.c"
 
@@ -722,6 +749,7 @@ install_socket(void)
   ATOM_string	        = PL_new_atom("string");
   ATOM_codes	        = PL_new_atom("codes");
   ATOM_max_message_size = PL_new_atom("max_message_size");
+  ATOM_file_no		= PL_new_atom("file_no");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 
@@ -733,6 +761,7 @@ install_socket(void)
   PL_register_foreign("tcp_socket",           1, tcp_socket,          0);
   PL_register_foreign("tcp_close_socket",     1, pl_close_socket,     0);
   PL_register_foreign("tcp_setopt",           2, pl_setopt,           0);
+  PL_register_foreign("tcp_getopt",           2, pl_getopt,           0);
   PL_register_foreign("tcp_host_to_address",  2, pl_host_to_address,  0);
   PL_register_foreign("gethostname",          1, pl_gethostname,      0);
 #ifdef __WINDOWS__
