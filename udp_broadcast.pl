@@ -42,6 +42,7 @@
 :- use_module(library(broadcast)).
 :- use_module(library(time)).
 :- use_module(library(option)).
+:- use_module(library(apply)).
 
 
 /** <module> A UDP Broadcast Bridge
