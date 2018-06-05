@@ -233,6 +233,7 @@ and subtle differences that must be taken into consideration:
 
 :- multifile
     udp_term_string_hook/2,                     % ?Term, ?String
+    black_list/1,                               % +Term
     udp:host_to_address/2.                      % +Host, -Address
 
 %!   ~>(:P, :Q) is nondet.
@@ -326,47 +327,6 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 %  and replies are  sent  on  the   private  port.  Directed  broadcasts
 %  (unicasts) are received on the private port   and replies are sent on
 %  the private port.
-%
-%  Interactions with TIPC Broadcast
-%
-%  As a security precaution, we do   not allow unsupervised transactions
-%  directly between UDP and TIPC broadcast. These terms are black-listed
-%  and ignored when received via UDP   listeners.  A UDP enabled service
-%  that wishes to use TIPC resources on  the cluster must have a sponsor
-%  on the TIPC cluster to filter   incoming  UDP broadcast traffic. This
-%  can be as simple as loading  and initializing both tipc_broadcast and
-%  udp_broadcast within the same TIPC broadcast service.
-%
-%  Because the UDP  and  TIPC  broadcast   listeners  are  operating  in
-%  separate threads of execution, a  UDP   broadcast  sponsor can safely
-%  perform a broadcast_request with  TIPC  scope   from  within  the UDP
-%  broadcast listener context. This is one of the few scenarios where a
-%  recursive broadcast_request with TIPC scope is safe.
-%
-
-black_list(tipc_node(_)).
-black_list(tipc_node(_,_)).
-black_list(tipc_cluster(_)).
-black_list(tipc_cluster(_,_)).
-black_list(tipc_zone(_)).
-black_list(tipc_zone(_,_)).
-%
-ld_dispatch(_S, '$udp_request'(Term), _From) :-
-    black_list(Term), !, fail.
-ld_dispatch(_S, Term, _From) :-
-    black_list(Term), !, fail.
-ld_dispatch(S, '$udp_request'(wru(Name)), From) :-
-    !, gethostname(Name),
-    udp_term_string(wru(Name), Message),
-    udp_send(S, Message, From, []).
-ld_dispatch(S, '$udp_request'(Term), From) :-
-    !,
-    forall(broadcast_request(Term),
-           ( udp_term_string(Term, Message),
-             udp_send(S, Message, From, [])
-           )).
-ld_dispatch(_S, Term, _From) :-
-    safely(broadcast(Term)).
 
 %  Thread 1 listens for directed traffic on the private port.
 %
@@ -399,28 +359,70 @@ udp_listener_daemon2(Parent) :-
     repeat,
     safely(dispatch_traffic(S, S1)).
 
-dispatch_traffic(S, S1) :-
-    udp_receive(S, Data, From, [max_message_size(65535)]),
+%!  dispatch_traffic(+PublicSocket, +PrivateSocket)
+%
+%   Listen for UDP traffic  on   PublicSocket.  Distribute  the received
+%   events using broadcast/1 or broadcast_request/1.  In the latter case
+%   the responses are sent via PrivateSocket.
+
+dispatch_traffic(Public, Private) :-
+    udp_receive(Public, Data, From, [max_message_size(65535)]),
     (   udp_subnet_member(From),    % ignore traffic that is foreign to my subnet
         udp_term_string(Term, Data) % only accept valid data
-    ->  with_mutex(udp_broadcast, ld_dispatch(S1, Term, From))
+    ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From))
     ;   true
     ),
-    dispatch_traffic(S, S1).
+    dispatch_traffic(Public, Private).
 
-start_udp_listener_daemon :-
+%!  ld_dispatch(+PrivateSocket, +Term, +From)
+%
+%   Locally dispatch Term received from From. If it concerns a broadcast
+%   request, send the replies to PrivateSocket   to  From. The multifile
+%   hook black_list/1 can be used to ignore certain messages.
+
+ld_dispatch(_S, '$udp_request'(Term), _From) :-
+    black_list(Term), !, fail.
+ld_dispatch(_S, Term, _From) :-
+    black_list(Term), !, fail.
+ld_dispatch(S, '$udp_request'(Term), From) :-
+    !,
+    forall(broadcast_request(Term),
+           ( udp_term_string(Term, Message),
+             udp_send(S, Message, From, [])
+           )).
+ld_dispatch(_S, Term, _From) :-
+    safely(broadcast(Term)).
+
+%!  start_udp_proxy
+%
+%   Start the UDP relaying proxy service.   The  proxy consists of three
+%   forwarding mechanisms:
+%
+%     - Listen on our _scope_.  If any messages are received, hand them
+%       to udp_broadcast/3 to be broadcasted to _scope_ or sent to a
+%       specific recipient.
+%     - Listen on the _scope_ public port. Incomming messages are
+%       relayed to the internal broadcast mechanism and replies are sent
+%       to from our private socket.
+%     - Listen on our private port and reply using the same port.
+
+start_udp_proxy :-
     catch(thread_property(udp_listener_daemon2, status(running)),
           error(_,_),
           fail),
     !.
-start_udp_listener_daemon :-
+start_udp_proxy :-
     thread_self(Self),
     thread_create(udp_listener_daemon2(Self), _,
                   [ alias(udp_listener_daemon2),
                     detached(true)
                   ]),
-    call_with_time_limit(6.0,
-                         thread_get_message(udp_listener_daemon_ready)).
+    (   thread_get_message(Self, udp_listener_daemon_ready,
+                           [ timeout(10)
+                           ])
+    ->  true
+    ;   throw(error(thread_starting_error(udp_listener_daemon2), _))
+    ).
 
 broadcast_listener(udp_host_to_address(Host, Addr)) :-
     udp:host_to_address(Host, Addr).
@@ -559,7 +561,7 @@ udp_broadcast_initialize(IP, Options) :-
     assert((udp_subnet_member(Address:_Port) :-
                udp_broadcast_address(Address, Subnet4, BroadcastAddr))),
 
-    start_udp_listener_daemon.
+    start_udp_proxy.
 
 to_ip4(Atomic, ip(A,B,C,D)) :-
     atomic(Atomic),
