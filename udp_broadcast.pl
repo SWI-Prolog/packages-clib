@@ -34,14 +34,17 @@
 */
 
 :- module(udp_broadcast,
-          [ udp_host_to_address/2,             % ?Host, ?Address
-            udp_broadcast_initialize/2         % +IPAddress, +Options
+          [ udp_broadcast_initialize/2,         % +IPAddress, +Options
+            udp_peer_add/2,                     % +Scope, +IP
+            udp_peer_del/2,                     % +Scope, ?IP
+            udp_peer/2                          % +Scope, -IP
           ]).
 :- use_module(library(socket)).
 :- use_module(library(broadcast)).
 :- use_module(library(option)).
 :- use_module(library(apply)).
 :- use_module(library(debug)).
+:- use_module(library(error)).
 
 
 /** <module> A UDP Broadcast Bridge
@@ -65,11 +68,11 @@ above, behaves as usual and is confined   to the instance of Prolog that
 originated it. But when so directed, the   broadcast will be sent to all
 participating systems, including  itself,  by   way  of  UDP's multicast
 addressing facility. A UDP broadcast  or   broadcast  request  takes the
-typical form: =|broadcast(udp_subnet(+Term, +Timeout))|=. To prevent the
-potential for feedback loops, the scope   qualifier is stripped from the
-message before transmission. The timeout is   optional. It specifies the
-amount to time  to  wait  for  replies   to  arrive  in  response  to  a
-broadcast_request. The default period is 0.250   seconds. The timeout is
+typical form: =|broadcast(udp(+Scope, +Term,   +Timeout))|=.  To prevent
+the potential for feedback loops, the   scope qualifier is stripped from
+the message before transmission. The timeout   is optional. It specifies
+the amount to time to wait  for  replies   to  arrive  in  response to a
+broadcast_request/1. The default period is 0.250 seconds. The timeout is
 ignored for broadcasts.
 
 An example of three separate processes cooperating on the same Node:
@@ -91,7 +94,7 @@ Process B:
 
 Process C:
 
-   ?- findall(X, broadcast_request(udp_subnet(number(X))), Xs).
+   ?- findall(X, broadcast_request(udp(subnet, number(X))), Xs).
    Xs = [1, 2, 3, 4, 5, 7, 8, 9].
 
    ?-
@@ -132,7 +135,7 @@ Host A Process 2:
    ?- listen(number(X), between(1, 5, X)).
    true.
 
-   ?- bagof(X, broadcast_request(udp_subnet(number(X):From,1)), Xs).
+   ?- bagof(X, broadcast_request(udp(subnet,number(X):From,1)), Xs).
    From = ip(192, 168, 1, 103):34855,
    Xs = [7, 8, 9] ;
    From = ip(192, 168, 1, 103):56331,
@@ -285,8 +288,12 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 
 %!  udp_scope(?ScopeName, ?ScopeDef)
 
-:- dynamic  udp_scope/2.
-:- volatile udp_scope/2.
+:- dynamic
+    udp_scope/2,
+    udp_scope_peer/2.
+:- volatile
+    udp_scope/2,
+    udp_scope_peer/2.
 %
 %  Here's a UDP bridge to Prolog's broadcast library
 %
@@ -333,12 +340,16 @@ make_private_socket :-
 make_public_socket(_, Scope) :-
     udp_public_socket(Scope, _, _, _),
     !.
-make_public_socket(subnet(_SubNet, _Broadcast, Port), Scope) :-
+make_public_socket(ScopeData, Scope) :-
+    scope_public_port(ScopeData, Port),
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
     assertz(udp_public_socket(Scope, Port, S, F)).
+
+scope_public_port(broadcast(_SubNet, _Broadcast, Port), Port).
+scope_public_port(unicast(Port), Port).
 
 udp_socket_file_no(FileNo) :-
     udp_private_socket(_,_,FileNo).
@@ -372,14 +383,20 @@ dispatch_ready(FileNo) :-
     ;   true
     ).
 
-in_scope(Scope, IP:_FromPort) :-
-    udp_scope(Scope, subnet(Subnet, Broadcast, _PublicPort)),
-    udp_broadcast_address(IP, Subnet, Broadcast),
+in_scope(Scope, Address) :-
+    udp_scope(Scope, ScopeData),
+    in_scope(ScopeData, Scope, Address),
     !.
 in_scope(Scope, From) :-
     debug(udp(broadcasts), 'Ignore out-of-scope ~p datagram from ~p',
           [Scope, From]),
     fail.
+
+in_scope(broadcasts(Subnet, Broadcast, _PublicPort), _Scope, IP:_FromPort) :-
+    udp_broadcast_address(IP, Subnet, Broadcast).
+in_scope(unicast(_PublicPort), Scope, IP:_FromPort) :-
+    udp_peer(Scope, IP).
+
 
 %!  ld_dispatch(+PrivateSocket, +Term, +From, +Scope)
 %
@@ -466,22 +483,22 @@ udp_broadcast_close(_).
 udp_broadcast(Term:To, Scope, _Timeout) :-
     ground(Term), ground(To),           % broadcast to single listener
     !,
-    udp_basic_broadcast(_S, _Port, Term, single(Scope, To)),
+    udp_basic_broadcast(_S, _Port, Term, Scope, single(To)),
     !.
 udp_broadcast(Term, Scope, _Timeout) :-
     ground(Term),                       % broadcast to all listeners
     !,
-    udp_basic_broadcast(_S, _Port, Term, broadcast(Scope)),
+    udp_basic_broadcast(_S, _Port, Term, Scope, broadcast),
     !.
 udp_broadcast(Term:To, Scope, Timeout) :-
     ground(To),                         % request to single listener
     !,
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), single(Scope, To)),
+    udp_basic_broadcast(S, Port, '$udp_request'(Term), Scope, single(To)),
     udp_br_collect_replies(S, Port, Timeout, Term:To, Scope),
     !.
 udp_broadcast(Term:From, Scope, Timeout) :-
     !,                                  % request to all listeners, collect sender
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), broadcast(Scope)),
+    udp_basic_broadcast(S, Port, '$udp_request'(Term), Scope, broadcast),
     udp_br_collect_replies(S, Port, Timeout, Term:From, Scope).
 udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
     udp_broadcast(Term:_, Scope, Timeout).
@@ -495,24 +512,27 @@ udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
 %   This predicate succeeds with a choice   point. Committing the choice
 %   point closes S.
 
-udp_basic_broadcast(S, Port, Term, Dest) :-
+udp_basic_broadcast(S, Port, Term, Scope, Dest) :-
     udp_socket(S)
       ~> tcp_close_socket(S),
-
-    (   Dest = broadcast(Scope)
-    ->  udp_scope(Scope, subnet(_Subnet, Broadcast, DestPort)),
-        Address = Broadcast:DestPort,
-        tcp_setopt(S, broadcast)
-    ;   Dest = single(Scope, Address)
-    ),
-
     tcp_bind(S, Port),  % find our own ephemeral Port
     debug(udp(broadcast), 'UDP proxy outbound ~p using ~p:~p to ~p',
           [ Term, S, Port, Dest ]),
-
     udp_term_string(Scope, Term, String),
+    udp_send_message(Dest, S, String, Scope).
 
+udp_send_message(single(Address), S, String, _Scope) :-
     safely(udp_send(S, String, Address, [])).
+udp_send_message(broadcast, S, String, Scope) :-
+    udp_scope(Scope, ScopeData),
+    broadcast_message(ScopeData, Scope, S, String).
+
+broadcast_message(broadcast(_Subnet, Broadcast, DestPort), _Scope, S, String) :-
+    tcp_setopt(S, broadcast),
+    udp_send(S, String, Broadcast:DestPort, []).
+broadcast_message(unicast(DestPort), Scope, S, String) :-
+    forall(udp_peer(Scope, IP),
+           safely(udp_send(S, String, IP:DestPort, []))).
 
 % ! udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom,
 %                          +Scope) is nondet.
@@ -535,19 +555,6 @@ udp_br_collect_replies(S, _Port, Timeout, Term:From, Scope) :-
            fail
        ).
 
-%!  udp_host_to_address(?Service, ?Address) is nondet.
-%
-%   locates a UDP service by name. Service   is an atom or grounded term
-%   representing the common name  of  the   service.  Address  is  a UDP
-%   address structure. A server may advertise   its  services by name by
-%   including   the   fact,   udp:host_to_address(+Service,   +Address),
-%   somewhere in its source. This predicate can  also be used to perform
-%   reverse searches. That is it  will  also   resolve  an  Address to a
-%   Service name.
-
-udp_host_to_address(Host, Address) :-
-    broadcast_request(udp_subnet(udp_host_to_address(Host, Address))).
-
 %!  udp_broadcast_initialize(+IPAddress, +Options) is semidet.
 %
 %   Initialized UDP broadcast bridge. IPAddress is the IP address on the
@@ -562,6 +569,16 @@ udp_host_to_address(Host, Address) :-
 %     the the first octet and applies the default mask.
 %     - port(+Port)
 %     Public port to use.  Default is 20005.
+%     - method(+Method)
+%     Method to send a message to multiple peers.  One of
+%       - broadcast
+%       Use UDP broadcast messages to the LAN.  This is the
+%       default
+%       - multicast
+%       Use UDP multicast messages.  This can be used on WAN networks,
+%       provided the intermediate routers understand multicast.
+%       - unicast
+%       Send the messages individually to all registered peers.
 %
 %   For compatibility reasons Options may be the subnet mask.
 
@@ -576,6 +593,12 @@ udp_broadcast_initialize_sync(IP, Options) :-
     udp_broadcast_initialize(IP, [subnet_mask(Options)]).
 udp_broadcast_initialize_sync(IP, Options) :-
     to_ip4(IP, IPAddress),
+    option(method(Method), Options, broadcast),
+    must_be(oneof([broadcast, multicast, unicast]), Method),
+    udp_broadcast_initialize_sync(Method, IPAddress, Options),
+    reload_udp_proxy.
+
+udp_broadcast_initialize_sync(broadcast, IPAddress, Options) :-
     option(subnet_mask(Subnet), Options, _),
     mk_subnet(Subnet, IPAddress, Subnet4),
     option(port(Port), Options, 20005),
@@ -583,9 +606,13 @@ udp_broadcast_initialize_sync(IP, Options) :-
 
     udp_broadcast_address(IPAddress, Subnet4, Broadcast),
     udp_broadcast_close(Scope),
-    assertz(udp_scope(Scope, subnet(Subnet4, Broadcast, Port))),
+    assertz(udp_scope(Scope, broadcast(Subnet4, Broadcast, Port))).
+udp_broadcast_initialize_sync(unicast, _IPAddress, Options) :-
+    option(port(Port), Options, 20005),
+    option(scope(Scope), Options, subnet),
+    udp_broadcast_close(Scope),
+    assertz(udp_scope(Scope, unicast(Port))).
 
-    reload_udp_proxy.
 
 to_ip4(Atomic, ip(A,B,C,D)) :-
     atomic(Atomic),
@@ -613,6 +640,27 @@ default_subnet(ip(A,B,_,_), ip(A,B,0,0)) :-
     between(128,191, A), !.
 default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
     between(192,223, A), !.
+
+
+		 /*******************************
+		 *          UNICAST PEERS	*
+		 *******************************/
+
+%!  udp_peer_add(+Scope, +IP) is det.
+%
+%   Add a peer for a unicast network.
+
+udp_peer_add(Scope, IP) :-
+    to_ip4(IP, IPAddress),
+    assertz(udp_scope_peer(Scope, IPAddress)).
+udp_peer_del(Scope, IP) :-
+    (   ground(IP)
+    ->  to_ip4(IP, IPAddress)
+    ;   IPAddress = IP
+    ),
+    retractall(udp_scope_peer(Scope, IPAddress)).
+udp_peer(Scope, IPAddress) :-
+    udp_scope_peer(Scope, IPAddress).
 
 
 		 /*******************************
