@@ -231,7 +231,7 @@ and subtle differences that must be taken into consideration:
 */
 
 :- multifile
-    udp_term_string_hook/2,                     % ?Term, ?String
+    udp_term_string_hook/3,                     % +Scope, ?Term, ?String
     black_list/1.                               % +Term
 
 %!   ~>(:P, :Q) is nondet.
@@ -355,8 +355,8 @@ dispatch_ready(FileNo) :-
     !,
     udp_receive(Private, Data, From, [max_message_size(65535)]),
     debug(udp(broadcasts), 'Inbound on private port', []),
-    (   in_scope(_Scope, From),
-        udp_term_string(Term, Data) % only accept valid data
+    (   in_scope(Scope, From),
+        udp_term_string(Scope, Term, Data) % only accept valid data
     ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From))
     ;   true
     ).
@@ -366,9 +366,9 @@ dispatch_ready(FileNo) :-
     udp_receive(Public, Data, From, [max_message_size(65535)]),
     debug(udp(broadcasts), 'Inbound on public port for scope ~p', [Scope]),
     (   in_scope(Scope, From),
-        udp_term_string(Term, Data) % only accept valid data
+        udp_term_string(Scope, Term, Data) % only accept valid data
     ->  udp_private_socket(_PrivatePort, Private, _FileNo),
-        with_mutex(udp_broadcast, ld_dispatch(Private, Term, From))
+        with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
     ;   true
     ).
 
@@ -381,23 +381,23 @@ in_scope(Scope, From) :-
           [Scope, From]),
     fail.
 
-%!  ld_dispatch(+PrivateSocket, +Term, +From)
+%!  ld_dispatch(+PrivateSocket, +Term, +From, +Scope)
 %
 %   Locally dispatch Term received from From. If it concerns a broadcast
 %   request, send the replies to PrivateSocket   to  From. The multifile
 %   hook black_list/1 can be used to ignore certain messages.
 
-ld_dispatch(_S, '$udp_request'(Term), _From) :-
+ld_dispatch(_S, '$udp_request'(Term), _From, _Scope) :-
     black_list(Term), !, fail.
-ld_dispatch(_S, Term, _From) :-
+ld_dispatch(_S, Term, _From, _Scope) :-
     black_list(Term), !, fail.
-ld_dispatch(S, '$udp_request'(Term), From) :-
+ld_dispatch(S, '$udp_request'(Term), From, Scope) :-
     !,
     forall(broadcast_request(Term),
-           ( udp_term_string(Term, Message),
+           ( udp_term_string(Scope, Term, Message),
              udp_send(S, Message, From, [])
            )).
-ld_dispatch(_S, Term, _From) :-
+ld_dispatch(_S, Term, _From, _Scope) :-
     safely(broadcast(Term)).
 
 %!  reload_udp_proxy
@@ -463,26 +463,26 @@ udp_broadcast_close(_).
 %   received within TimeOut seconds. If Term is ground it is considered
 %   an asynchronous broadcast and udp_broadcast/3 is deterministic.
 
-udp_broadcast(Term:To, _Scope, _Timeout) :-
+udp_broadcast(Term:To, Scope, _Timeout) :-
     ground(Term), ground(To),           % broadcast to single listener
     !,
-    udp_basic_broadcast(_S, _Port, Term, single(To)),
+    udp_basic_broadcast(_S, _Port, Term, single(Scope, To)),
     !.
 udp_broadcast(Term, Scope, _Timeout) :-
     ground(Term),                       % broadcast to all listeners
     !,
     udp_basic_broadcast(_S, _Port, Term, broadcast(Scope)),
     !.
-udp_broadcast(Term:To, _Scope, Timeout) :-
+udp_broadcast(Term:To, Scope, Timeout) :-
     ground(To),                         % request to single listener
     !,
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), single(To)),
-    udp_br_collect_replies(S, Port, Timeout, Term:To),
+    udp_basic_broadcast(S, Port, '$udp_request'(Term), single(Scope, To)),
+    udp_br_collect_replies(S, Port, Timeout, Term:To, Scope),
     !.
 udp_broadcast(Term:From, Scope, Timeout) :-
     !,                                  % request to all listeners, collect sender
     udp_basic_broadcast(S, Port, '$udp_request'(Term), broadcast(Scope)),
-    udp_br_collect_replies(S, Port, Timeout, Term:From).
+    udp_br_collect_replies(S, Port, Timeout, Term:From, Scope).
 udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
     udp_broadcast(Term:_, Scope, Timeout).
 
@@ -503,23 +503,24 @@ udp_basic_broadcast(S, Port, Term, Dest) :-
     ->  udp_scope(Scope, subnet(_Subnet, Broadcast, DestPort)),
         Address = Broadcast:DestPort,
         tcp_setopt(S, broadcast)
-    ;   Dest = single(Address)
+    ;   Dest = single(Scope, Address)
     ),
 
     tcp_bind(S, Port),  % find our own ephemeral Port
     debug(udp(broadcast), 'UDP proxy outbound ~p using ~p:~p to ~p',
           [ Term, S, Port, Dest ]),
 
-    udp_term_string(Term, String),
+    udp_term_string(Scope, Term, String),
 
     safely(udp_send(S, String, Address, [])).
 
-%!  udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom) is nondet.
+% ! udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom,
+%                          +Scope) is nondet.
 %
 %   Collect replies on Socket for  TimeOut   seconds.  Succeed  for each
 %   received message.
 
-udp_br_collect_replies(S, _Port, Timeout, Term:From) :-
+udp_br_collect_replies(S, _Port, Timeout, Term:From, Scope) :-
     tcp_getopt(S, file_no(Fd)),
     get_time(Start),
     Deadline is Start+Timeout,
@@ -529,7 +530,7 @@ udp_br_collect_replies(S, _Port, Timeout, Term:From) :-
            SingleTMO > 0,
            wait_for_input([Fd], [Fd], SingleTMO)
        ->  udp_receive(S, String, From, [max_message_size(65535)]),
-           safely(udp_term_string(Term, String))
+           safely(udp_term_string(Scope, Term, String))
        ;   !,
            fail
        ).
@@ -618,8 +619,8 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 		 *             HOOKS		*
 		 *******************************/
 
-%!  udp_term_string(+Term, -String) is det.
-%!  udp_term_string(-Term, +String) is semidet.
+%!  udp_term_string(+Scope, +Term, -String) is det.
+%!  udp_term_string(+Scope, -Term, +String) is semidet.
 %
 %   Serialize an arbitrary Prolog  term  as   a  string.  The  string is
 %   prefixed by a magic key to ensure   we only accept messages that are
@@ -632,11 +633,14 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 %   signature. This hook  may  use   alternative  serialization  such as
 %   fast_term_serialized/2,  use  library(ssl)  to    realise  encrypted
 %   messages, etc.
+%
+%   @arg Scope is the scope for which the message is broadcasted.  This
+%   can be used to use different serialization for different scopes.
 
-udp_term_string(Term, String) :-
-    udp_term_string_hook(Term, String),
+udp_term_string(Scope, Term, String) :-
+    udp_term_string_hook(Scope, Term, String),
     !.
-udp_term_string(Term, String) :-
+udp_term_string(_Scope, Term, String) :-
     (   var(String)
     ->  format(string(String), '%-prolog-\n~W',
                [ Term,
