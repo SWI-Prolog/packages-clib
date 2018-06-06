@@ -40,7 +40,6 @@
           ]).
 :- use_module(library(socket)).
 :- use_module(library(broadcast)).
-:- use_module(library(time)).
 :- use_module(library(option)).
 :- use_module(library(apply)).
 
@@ -233,8 +232,7 @@ and subtle differences that must be taken into consideration:
 
 :- multifile
     udp_term_string_hook/2,                     % ?Term, ?String
-    black_list/1,                               % +Term
-    udp:host_to_address/2.                      % +Host, -Address
+    black_list/1.                               % +Term
 
 %!   ~>(:P, :Q) is nondet.
 %
@@ -424,10 +422,6 @@ start_udp_proxy :-
     ;   throw(error(thread_starting_error(udp_listener_daemon2), _))
     ).
 
-broadcast_listener(udp_host_to_address(Host, Addr)) :-
-    udp:host_to_address(Host, Addr).
-broadcast_listener(udp_broadcast_service(Scope, Addr)) :-
-    udp_broadcast_service(Scope, Addr).
 broadcast_listener(udp_subnet(X)) :-
     udp_broadcast(X, udp_subnet, 0.250).
 broadcast_listener(udp_subnet(X, Timeout)) :-
