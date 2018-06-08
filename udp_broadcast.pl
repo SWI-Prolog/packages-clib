@@ -46,6 +46,7 @@
 :- use_module(library(debug)).
 :- use_module(library(error)).
 
+% :- debug(udp(broadcast)).
 
 /** <module> A UDP Broadcast Bridge
 
@@ -380,7 +381,9 @@ udp_socket_file_no(FileNo) :-
 %   socket that is not in broadcast mode.
 
 dispatch_inbound(FileNos) :-
+    debug(udp(broadcast), 'Waiting for ~p', [FileNos]),
     wait_for_input(FileNos, Ready, infinite),
+    debug(udp(broadcast), 'Ready: ~p', [Ready]),
     maplist(dispatch_ready, Ready),
     dispatch_inbound(FileNos).
 
@@ -388,7 +391,7 @@ dispatch_ready(FileNo) :-
     udp_private_socket(_Port, Private, FileNo),
     !,
     udp_receive(Private, Data, From, [max_message_size(65535)]),
-    debug(udp(broadcasts), 'Inbound on private port', []),
+    debug(udp(broadcast), 'Inbound on private port', []),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
     ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
@@ -398,7 +401,7 @@ dispatch_ready(FileNo) :-
     udp_public_socket(Scope, _PublicPort, Public, FileNo),
     !,
     udp_receive(Public, Data, From, [max_message_size(65535)]),
-    debug(udp(broadcasts), 'Inbound on public port for scope ~p', [Scope]),
+    debug(udp(broadcast), 'Inbound on public port for scope ~p', [Scope]),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
     ->  (   udp_scope(Scope, unicast(_))
@@ -414,14 +417,14 @@ in_scope(Scope, Address) :-
     in_scope(ScopeData, Scope, Address),
     !.
 in_scope(Scope, From) :-
-    debug(udp(broadcasts), 'Ignore out-of-scope ~p datagram from ~p',
+    debug(udp(broadcast), 'Ignore out-of-scope ~p datagram from ~p',
           [Scope, From]),
     fail.
 
 in_scope(broadcast(Subnet, Broadcast, _PublicPort), _Scope, IP:_FromPort) :-
     udp_broadcast_address(IP, Subnet, Broadcast).
-in_scope(unicast(_PublicPort), Scope, IP:_FromPort) :-
-    udp_peer(Scope, IP).
+in_scope(unicast(_PublicPort), Scope, IP:_) :-
+    udp_peer(Scope, IP:_).
 
 
 %!  ld_dispatch(+PrivateSocket, +Term, +From, +Scope)
@@ -558,9 +561,10 @@ udp_send_message(broadcast, S, String, Scope) :-
 broadcast_message(broadcast(_Subnet, Broadcast, DestPort), _Scope, S, String) :-
     tcp_setopt(S, broadcast),
     udp_send(S, String, Broadcast:DestPort, []).
-broadcast_message(unicast(DestPort), Scope, S, String) :-
-    forall(udp_peer(Scope, IP),
-           safely(udp_send(S, String, IP:DestPort, []))).
+broadcast_message(unicast(_DestPort), Scope, S, String) :-
+    forall(udp_peer(Scope, Address),
+           ( debug(udp(broadcast), 'Unicast to ~p', [Address]),
+             safely(udp_send(S, String, Address, [])))).
 
 % ! udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom,
 %                          +Scope) is nondet.
@@ -674,24 +678,41 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 		 *          UNICAST PEERS	*
 		 *******************************/
 
-%!  udp_peer_add(+Scope, +IP) is det.
+%!  udp_peer_add(+Scope, +Address) is det.
+%!  udp_peer_del(+Scope, +Address) is det.
+%!  udp_peer(?Scope, ?Address) is nondet.
 %
-%   Add a peer for a unicast network.
+%   Manage and query the set  of  known   peers  for  a unicast network.
+%   Address is either a term  IP:Port  or   a  plain  IP address. In the
+%   latter case the default port registered with the scope is used.
+%
+%   @arg Address has canonical form ip(A,B,C,D):Port.
 
-udp_peer_add(Scope, IP) :-
-    to_ip4(IP, IPAddress),
-    (   udp_scope_peer(Scope, IPAddress)
+udp_peer_add(Scope, Address) :-
+    peer_address(Address, Scope, Canonical),
+    (   udp_scope_peer(Scope, Canonical)
     ->  true
-    ;   assertz(udp_scope_peer(Scope, IPAddress))
+    ;   assertz(udp_scope_peer(Scope, Canonical))
     ).
-udp_peer_del(Scope, IP) :-
-    (   ground(IP)
-    ->  to_ip4(IP, IPAddress)
-    ;   IPAddress = IP
-    ),
-    retractall(udp_scope_peer(Scope, IPAddress)).
+
+udp_peer_del(Scope, Address) :-
+    peer_address(Address, Scope, Canonical),
+    retractall(udp_scope_peer(Scope, Canonical)).
+
 udp_peer(Scope, IPAddress) :-
     udp_scope_peer(Scope, IPAddress).
+
+peer_address(IP:Port, _Scope, IPAddress:Port) :-
+    !,
+    must_be(nonneg, Port),
+    to_ip4(IP, IPAddress).
+peer_address(IP, Scope, IPAddress:Port) :-
+    (   udp_scope(Scope, unicast(Port))
+    ->  true
+    ;   existence_error(udp_scope, Scope)
+    ),
+    to_ip4(IP, IPAddress).
+
 
 
 		 /*******************************
