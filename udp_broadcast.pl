@@ -433,18 +433,24 @@ in_scope(unicast(_PublicPort), Scope, IP:_) :-
 %   request, send the replies to PrivateSocket   to  From. The multifile
 %   hook black_list/1 can be used to ignore certain messages.
 
-ld_dispatch(_S, send(Term), _From, _Scope) :-
-    black_list(Term), !, fail.
-ld_dispatch(_S, request(Term), _From, _Scope) :-
-    black_list(Term), !, fail.
-ld_dispatch(S, request(Term), From, Scope) :-
+ld_dispatch(_S, Term, _From, _Scope) :-
+    blacklisted(Term), !, fail.
+ld_dispatch(S, request(Key, Term), From, Scope) :-
     !,
     forall(broadcast_request(Term),
-           ( udp_term_string(Scope, Term, Message),
+           ( udp_term_string(Scope, reply(Key,Term), Message),
              udp_send(S, Message, From, [])
            )).
 ld_dispatch(_S, send(Term), _From, _Scope) :-
     safely(broadcast(Term)).
+ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
+    reply_queue(Key, Queue),
+    thread_send_message(Queue, Term:From).
+
+blacklisted(send(Term))      :- black_list(Term).
+blacklisted(request(_,Term)) :- black_list(Term).
+blacklisted(reply(_,Term))   :- black_list(Term).
+
 
 %!  reload_udp_proxy
 %
@@ -512,28 +518,44 @@ udp_broadcast_close(_).
 udp_broadcast(Term:To, Scope, _Timeout) :-
     ground(Term), ground(To),           % broadcast to single listener
     !,
-    udp_basic_broadcast(_S, _Port, send(Term), Scope, single(To)),
-    !.
+    udp_basic_broadcast(send(Term), Scope, single(To)).
 udp_broadcast(Term, Scope, _Timeout) :-
     ground(Term),                       % broadcast to all listeners
     !,
-    udp_basic_broadcast(_S, _Port, send(Term), Scope, broadcast),
-    !.
+    udp_basic_broadcast(send(Term), Scope, broadcast).
 udp_broadcast(Term:To, Scope, Timeout) :-
     ground(To),                         % request to single listener
     !,
-    udp_basic_broadcast(S, Port, request(Term), Scope, single(To)),
-    udp_br_collect_replies(S, Port, Timeout, Term:To, Scope),
-    !.
+    setup_call_cleanup(
+        request_queue(Id, Queue),
+        ( udp_basic_broadcast(request(Id, Term), Scope, single(To)),
+          udp_br_collect_replies(Queue, Timeout, Term:To)
+        ),
+        destroy_request_queue(Queue)).
 udp_broadcast(Term:From, Scope, Timeout) :-
     !,                                  % request to all listeners, collect sender
-    udp_basic_broadcast(S, Port, request(Term), Scope, broadcast),
-    udp_br_collect_replies(S, Port, Timeout, Term:From, Scope).
+    setup_call_cleanup(
+        request_queue(Id, Queue),
+        ( udp_basic_broadcast(request(Id, Term), Scope, broadcast),
+          udp_br_collect_replies(Queue, Timeout, Term:From)
+        ),
+        destroy_request_queue(Queue)).
 udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
     udp_broadcast(Term:_, Scope, Timeout).
 
+:- dynamic
+    reply_queue/2.
 
-%!  udp_basic_broadcast(-S, ?Port, +Term, +Dest) is multi.
+request_queue(Id, Queue) :-
+    Id is random(1<<63),
+    message_queue_create(Queue),
+    asserta(reply_queue(Id, Queue)).
+
+destroy_request_queue(Queue) :-         % leave queue to GC
+    retractall(reply_queue(_, Queue)).
+
+
+%!  udp_basic_broadcast(+Term, +Dest) is multi.
 %
 %   Create a UDP private socket and use it   to send Term to Address. If
 %   Address is our broadcast address, set the socket in broadcast mode.
@@ -543,46 +565,40 @@ udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
 %
 %   @arg Dest is one of single(Target) or `broadcast`.
 
-udp_basic_broadcast(S, Port, Term, Scope, Dest) :-
-    udp_socket(S)
-      ~> tcp_close_socket(S),
-    tcp_bind(S, Port),  % find our own ephemeral Port
-    debug(udp(broadcast), 'UDP proxy outbound ~p using ~p:~p to ~p',
-          [ Term, S, Port, Dest ]),
+udp_basic_broadcast(Term, Scope, Dest) :-
+    debug(udp(broadcast), 'UDP proxy outbound ~p to ~p', [Term, Dest]),
     udp_term_string(Scope, Term, String),
-    udp_send_message(Dest, S, String, Scope).
+    udp_send_message(Dest, String, Scope).
 
-udp_send_message(single(Address), S, String, _Scope) :-
+udp_send_message(single(Address), String, Scope) :-
+    (   udp_scope(Scope, unicast(_))
+    ->  udp_public_socket(Scope, _Port, S, _)
+    ;   udp_private_socket(_Port, S, _F)
+    ),
     safely(udp_send(S, String, Address, [])).
-udp_send_message(broadcast, S, String, Scope) :-
-    udp_scope(Scope, ScopeData),
-    broadcast_message(ScopeData, Scope, S, String).
+udp_send_message(broadcast, String, Scope) :-
+    udp_public_socket(Scope, _Port, S, _),
+    (   udp_scope(Scope, unicast(_))
+    ->  forall(udp_peer(Scope, Address),
+               ( debug(udp(broadcast), 'Unicast to ~p', [Address]),
+                 safely(udp_send(S, String, Address, []))))
+    ;   udp_scope(Scope, broadcast(_SubNet, Broadcast, Port)),
+        udp_send(S, String, Broadcast:Port, [])
+    ).
 
-broadcast_message(broadcast(_Subnet, Broadcast, DestPort), _Scope, S, String) :-
-    tcp_setopt(S, broadcast),
-    udp_send(S, String, Broadcast:DestPort, []).
-broadcast_message(unicast(_DestPort), Scope, S, String) :-
-    forall(udp_peer(Scope, Address),
-           ( debug(udp(broadcast), 'Unicast to ~p', [Address]),
-             safely(udp_send(S, String, Address, [])))).
-
-% ! udp_br_collect_replies(+Socket, +Port, +TimeOut, -TermAndFrom,
-%                          +Scope) is nondet.
+% ! udp_br_collect_replies(+Queue, +TimeOut, -TermAndFrom) is nondet.
 %
 %   Collect replies on Socket for  TimeOut   seconds.  Succeed  for each
 %   received message.
 
-udp_br_collect_replies(S, _Port, Timeout, Term:From, Scope) :-
-    tcp_getopt(S, file_no(Fd)),
+udp_br_collect_replies(Queue, Timeout, Reply) :-
     get_time(Start),
     Deadline is Start+Timeout,
     repeat,
-       get_time(Now),
-       (   SingleTMO is Deadline - Now,
-           SingleTMO > 0,
-           wait_for_input([Fd], [Fd], SingleTMO)
-       ->  udp_receive(S, String, From, [max_message_size(65535)]),
-           safely(udp_term_string(Scope, Term, String))
+       (   thread_get_message(Queue, Reply,
+                              [ deadline(Deadline)
+                              ])
+       ->  true
        ;   !,
            fail
        ).
