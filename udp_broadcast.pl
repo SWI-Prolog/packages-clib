@@ -680,7 +680,10 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 
 udp_peer_add(Scope, IP) :-
     to_ip4(IP, IPAddress),
-    assertz(udp_scope_peer(Scope, IPAddress)).
+    (   udp_scope_peer(Scope, IPAddress)
+    ->  true
+    ;   assertz(udp_scope_peer(Scope, IPAddress))
+    ).
 udp_peer_del(Scope, IP) :-
     (   ground(IP)
     ->  to_ip4(IP, IPAddress)
