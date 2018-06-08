@@ -358,6 +358,7 @@ make_public_socket(_, Scope) :-
 make_public_socket(broadcast(_SubNet, _Broadcast, Port), Scope) :-
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
+    tcp_setopt(S, broadcast),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
     assertz(udp_public_socket(Scope, Port, S, F)).
@@ -434,18 +435,22 @@ in_scope(unicast(_PublicPort), Scope, IP:_) :-
 %   hook black_list/1 can be used to ignore certain messages.
 
 ld_dispatch(_S, Term, _From, _Scope) :-
-    blacklisted(Term), !, fail.
+    blacklisted(Term), !.
+ld_dispatch(_S, Term, From, _Scope) :-
+    debug(udp(broadcast), 'ld_dispatch(~p) from ~p', [Term, From]),
+    fail.
 ld_dispatch(S, request(Key, Term), From, Scope) :-
     !,
-    forall(broadcast_request(Term),
-           ( udp_term_string(Scope, reply(Key,Term), Message),
-             udp_send(S, Message, From, [])
-           )).
+    forall(safely(broadcast_request(Term)),
+           safely((udp_term_string(Scope, reply(Key,Term), Message),
+                   udp_send(S, Message, From, [])))).
 ld_dispatch(_S, send(Term), _From, _Scope) :-
     safely(broadcast(Term)).
 ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
-    reply_queue(Key, Queue),
-    thread_send_message(Queue, Term:From).
+    (   reply_queue(Key, Queue)
+    ->  thread_send_message(Queue, Term:From)
+    ;   true
+    ).
 
 blacklisted(send(Term))      :- black_list(Term).
 blacklisted(request(_,Term)) :- black_list(Term).
