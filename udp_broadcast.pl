@@ -328,33 +328,56 @@ udp_inbound_proxy :-
     findall(FileNo, udp_socket_file_no(FileNo), FileNos),
     dispatch_inbound(FileNos).
 
+%!  make_private_socket is det.
+%
+%   Create our private socket. This socket is used for messages that are
+%   directed to me. Note that we only  need this for broadcast networks.
+%   If we use a unicast network we use   our public port to contact this
+%   specific server.
+
 make_private_socket :-
     udp_private_socket(_,_,_),
     !.
 make_private_socket :-
+    udp_scope(_, broadcast(_,_,_)),
+    !,
     udp_socket(S),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
     assertz(udp_private_socket(Port, S, F)).
+make_private_socket.
+
+%!  make_public_socket(+ScopeData, +Scope)
+%
+%   Create the public port Scope.
 
 make_public_socket(_, Scope) :-
     udp_public_socket(Scope, _, _, _),
     !.
-make_public_socket(ScopeData, Scope) :-
-    scope_public_port(ScopeData, Port),
+make_public_socket(broadcast(_SubNet, _Broadcast, Port), Scope) :-
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
     assertz(udp_public_socket(Scope, Port, S, F)).
-
-scope_public_port(broadcast(_SubNet, _Broadcast, Port), Port).
-scope_public_port(unicast(Port), Port).
+make_public_socket(unicast(Port), Scope) :-
+    udp_socket(S),
+    tcp_bind(S, Port),
+    tcp_getopt(S, file_no(F)),
+    assertz(udp_public_socket(Scope, Port, S, F)).
 
 udp_socket_file_no(FileNo) :-
     udp_private_socket(_,_,FileNo).
 udp_socket_file_no(FileNo) :-
     udp_public_socket(_,_,_,FileNo).
+
+%!  dispatch_inbound(+FileNos)
+%
+%   Dispatch inbound traffic. This loop   uses  wait_for_input/3 to wait
+%   for one or more UDP sockets and   dispatches  the requests using the
+%   internal broadcast service. For an  incomming broadcast _request_ we
+%   send the reply only to the  requester   and  therefore we must use a
+%   socket that is not in broadcast mode.
 
 dispatch_inbound(FileNos) :-
     wait_for_input(FileNos, Ready, infinite),
@@ -368,7 +391,7 @@ dispatch_ready(FileNo) :-
     debug(udp(broadcasts), 'Inbound on private port', []),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
-    ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From))
+    ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
     ;   true
     ).
 dispatch_ready(FileNo) :-
@@ -378,8 +401,11 @@ dispatch_ready(FileNo) :-
     debug(udp(broadcasts), 'Inbound on public port for scope ~p', [Scope]),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
-    ->  udp_private_socket(_PrivatePort, Private, _FileNo),
-        with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
+    ->  (   udp_scope(Scope, unicast(_))
+        ->  with_mutex(udp_broadcast, ld_dispatch(Public, Term, From, Scope))
+        ;   udp_private_socket(_PrivatePort, Private, _FileNo),
+            with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
+        )
     ;   true
     ).
 
@@ -511,6 +537,8 @@ udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
 %
 %   This predicate succeeds with a choice   point. Committing the choice
 %   point closes S.
+%
+%   @arg Dest is one of single(Target) or `broadcast`.
 
 udp_basic_broadcast(S, Port, Term, Scope, Dest) :-
     udp_socket(S)
