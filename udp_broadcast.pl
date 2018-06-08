@@ -418,7 +418,7 @@ in_scope(Scope, From) :-
           [Scope, From]),
     fail.
 
-in_scope(broadcasts(Subnet, Broadcast, _PublicPort), _Scope, IP:_FromPort) :-
+in_scope(broadcast(Subnet, Broadcast, _PublicPort), _Scope, IP:_FromPort) :-
     udp_broadcast_address(IP, Subnet, Broadcast).
 in_scope(unicast(_PublicPort), Scope, IP:_FromPort) :-
     udp_peer(Scope, IP).
