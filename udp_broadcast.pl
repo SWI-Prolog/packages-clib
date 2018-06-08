@@ -433,17 +433,17 @@ in_scope(unicast(_PublicPort), Scope, IP:_) :-
 %   request, send the replies to PrivateSocket   to  From. The multifile
 %   hook black_list/1 can be used to ignore certain messages.
 
-ld_dispatch(_S, '$udp_request'(Term), _From, _Scope) :-
+ld_dispatch(_S, send(Term), _From, _Scope) :-
     black_list(Term), !, fail.
-ld_dispatch(_S, Term, _From, _Scope) :-
+ld_dispatch(_S, request(Term), _From, _Scope) :-
     black_list(Term), !, fail.
-ld_dispatch(S, '$udp_request'(Term), From, Scope) :-
+ld_dispatch(S, request(Term), From, Scope) :-
     !,
     forall(broadcast_request(Term),
            ( udp_term_string(Scope, Term, Message),
              udp_send(S, Message, From, [])
            )).
-ld_dispatch(_S, Term, _From, _Scope) :-
+ld_dispatch(_S, send(Term), _From, _Scope) :-
     safely(broadcast(Term)).
 
 %!  reload_udp_proxy
@@ -512,22 +512,22 @@ udp_broadcast_close(_).
 udp_broadcast(Term:To, Scope, _Timeout) :-
     ground(Term), ground(To),           % broadcast to single listener
     !,
-    udp_basic_broadcast(_S, _Port, Term, Scope, single(To)),
+    udp_basic_broadcast(_S, _Port, send(Term), Scope, single(To)),
     !.
 udp_broadcast(Term, Scope, _Timeout) :-
     ground(Term),                       % broadcast to all listeners
     !,
-    udp_basic_broadcast(_S, _Port, Term, Scope, broadcast),
+    udp_basic_broadcast(_S, _Port, send(Term), Scope, broadcast),
     !.
 udp_broadcast(Term:To, Scope, Timeout) :-
     ground(To),                         % request to single listener
     !,
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), Scope, single(To)),
+    udp_basic_broadcast(S, Port, request(Term), Scope, single(To)),
     udp_br_collect_replies(S, Port, Timeout, Term:To, Scope),
     !.
 udp_broadcast(Term:From, Scope, Timeout) :-
     !,                                  % request to all listeners, collect sender
-    udp_basic_broadcast(S, Port, '$udp_request'(Term), Scope, broadcast),
+    udp_basic_broadcast(S, Port, request(Term), Scope, broadcast),
     udp_br_collect_replies(S, Port, Timeout, Term:From, Scope).
 udp_broadcast(Term, Scope, Timeout) :-  % request to all listeners
     udp_broadcast(Term:_, Scope, Timeout).
