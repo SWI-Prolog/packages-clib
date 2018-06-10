@@ -345,6 +345,7 @@ make_private_socket :-
     udp_socket(S),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
+    tcp_setopt(S, broadcast),
     assertz(udp_private_socket(Port, S, F)).
 make_private_socket.
 
@@ -358,7 +359,6 @@ make_public_socket(_, Scope) :-
 make_public_socket(broadcast(_SubNet, _Broadcast, Port), Scope) :-
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
-    tcp_setopt(S, broadcast),
     tcp_bind(S, Port),
     tcp_getopt(S, file_no(F)),
     assertz(udp_public_socket(Scope, Port, S, F)).
@@ -402,7 +402,8 @@ dispatch_ready(FileNo) :-
     udp_public_socket(Scope, _PublicPort, Public, FileNo),
     !,
     udp_receive(Public, Data, From, [max_message_size(65535)]),
-    debug(udp(broadcast), 'Inbound on public port for scope ~p', [Scope]),
+    debug(udp(broadcast), 'Inbound on public port from ~p for scope ~p',
+          [From, Scope]),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
     ->  (   udp_scope(Scope, unicast(_))
@@ -582,12 +583,13 @@ udp_send_message(single(Address), String, Scope) :-
     ),
     safely(udp_send(S, String, Address, [])).
 udp_send_message(broadcast, String, Scope) :-
-    udp_public_socket(Scope, _Port, S, _),
     (   udp_scope(Scope, unicast(_))
-    ->  forall(udp_peer(Scope, Address),
+    ->  udp_public_socket(Scope, _Port, S, _),
+        forall(udp_peer(Scope, Address),
                ( debug(udp(broadcast), 'Unicast to ~p', [Address]),
                  safely(udp_send(S, String, Address, []))))
-    ;   udp_scope(Scope, broadcast(_SubNet, Broadcast, Port)),
+    ;   udp_scope(Scope, broadcast(_SubNet, Broadcast, Port))
+    ->  udp_private_socket(_PrivatePort, S, _F),
         udp_send(S, String, Broadcast:Port, [])
     ).
 
