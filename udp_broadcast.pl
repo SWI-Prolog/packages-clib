@@ -347,6 +347,13 @@ make_private_socket :-
     tcp_getopt(S, file_no(F)),
     tcp_setopt(S, broadcast),
     assertz(udp_private_socket(Port, S, F)).
+make_private_socket :-
+    udp_scope(_, multicast(_,_)),
+    !,
+    udp_socket(S),
+    tcp_bind(S, Port),
+    tcp_getopt(S, file_no(F)),
+    assertz(udp_private_socket(Port, S, F)).
 make_private_socket.
 
 %!  make_public_socket(+ScopeData, +Scope)
@@ -360,6 +367,13 @@ make_public_socket(broadcast(_SubNet, _Broadcast, Port), Scope) :-
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
     tcp_bind(S, Port),
+    tcp_getopt(S, file_no(F)),
+    assertz(udp_public_socket(Scope, Port, S, F)).
+make_public_socket(multicast(Group, Port), Scope) :-
+    udp_socket(S),
+    tcp_setopt(S, reuseaddr),
+    tcp_bind(S, Port),
+    tcp_setopt(S, ip_add_membership(Group)),
     tcp_getopt(S, file_no(F)),
     assertz(udp_public_socket(Scope, Port, S, F)).
 make_public_socket(unicast(Port), Scope) :-
@@ -429,6 +443,7 @@ in_scope(Scope, From) :-
 
 in_scope(broadcast(Subnet, Broadcast, _PublicPort), _Scope, IP:_FromPort) :-
     udp_broadcast_address(IP, Subnet, Broadcast).
+in_scope(multicast(_Group, _Port), _Scope, _From).
 in_scope(unicast(_PublicPort), Scope, IP:_) :-
     udp_peer(Scope, IP:_).
 
@@ -595,6 +610,9 @@ udp_send_message(broadcast, String, Scope) :-
     ;   udp_scope(Scope, broadcast(_SubNet, Broadcast, Port))
     ->  udp_private_socket(_PrivatePort, S, _F),
         udp_send(S, String, Broadcast:Port, [])
+    ;   udp_scope(Scope, multicast(Group, Port))
+    ->  udp_private_socket(_PrivatePort, S, _F),
+        udp_send(S, String, Group:Port, [])
     ).
 
 % ! udp_br_collect_replies(+Queue, +TimeOut, -TermAndFrom) is nondet.
@@ -671,7 +689,12 @@ udp_broadcast_initialize_sync(unicast, _IPAddress, Options) :-
     option(scope(Scope), Options, subnet),
     udp_broadcast_close(Scope),
     assertz(udp_scope(Scope, unicast(Port))).
-
+udp_broadcast_initialize_sync(multicast, IPAddress, Options) :-
+    option(port(Port), Options, 20005),
+    option(scope(Scope), Options, subnet),
+    udp_broadcast_close(Scope),
+    multicast_address(IPAddress),
+    assertz(udp_scope(Scope, multicast(IPAddress, Port))).
 
 to_ip4(Atomic, ip(A,B,C,D)) :-
     atomic(Atomic),
@@ -699,6 +722,12 @@ default_subnet(ip(A,B,_,_), ip(A,B,0,0)) :-
     between(128,191, A), !.
 default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
     between(192,223, A), !.
+
+multicast_address(ip(A,_,_,_)) :-
+    between(224, 239, A),
+    !.
+multicast_address(IP) :-
+    domain_error(multicast_network, IP).
 
 
 		 /*******************************
