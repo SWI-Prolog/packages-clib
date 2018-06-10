@@ -58,10 +58,9 @@ broadcast library removes that restriction.   With  this library loaded,
 any member on your local IP subnetwork that also has this library loaded
 may hear and respond to your broadcasts.
 
-This  module  has  only  two  public  predicates.  When  the  module  is
-initialized using udp_broadcast_initialize/2, it starts   a two listener
-threads  that  listen  for  broadcasts  from  others,  received  as  UDP
-datagrams.
+Except for initialization and,  in  the   case  of  a  _unicast_ network
+managing the set of peers,   communication  happens through broadcast/1,
+broadcast_request/1 and listen/1,2,3.
 
 Unlike TIPC broadcast, UDP broadcast has only one scope, =udp_subnet=. A
 broadcast/1 or broadcast_request/1 that is not  directed to the listener
@@ -236,6 +235,7 @@ and subtle differences that must be taken into consideration:
 
 :- multifile
     udp_term_string_hook/3,                     % +Scope, ?Term, ?String
+    udp_unicast_join_hook/3,                    % +Scope, +From, +Data
     black_list/1.                               % +Term
 
 %!   ~>(:P, :Q) is nondet.
@@ -320,7 +320,7 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 
 :- dynamic
     udp_private_socket/3,                       % Port, Socket, FileNo
-    udp_public_socket/4.
+    udp_public_socket/4.                        % Scope, Port, Socket, FileNo
 
 udp_inbound_proxy :-
     make_private_socket,
@@ -411,6 +411,10 @@ dispatch_ready(FileNo) :-
         ;   udp_private_socket(_PrivatePort, Private, _FileNo),
             with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
         )
+    ;   udp_scope(Scope, unicast(_)),
+        udp_term_string(Scope, Term, Data),
+        unicast_out_of_scope_request(Scope, From, Term)
+    ->  true
     ;   true
     ).
 
@@ -419,7 +423,7 @@ in_scope(Scope, Address) :-
     in_scope(ScopeData, Scope, Address),
     !.
 in_scope(Scope, From) :-
-    debug(udp(broadcast), 'Ignore out-of-scope ~p datagram from ~p',
+    debug(udp(broadcast), 'Out-of-scope ~p datagram from ~p',
           [Scope, From]),
     fail.
 
@@ -702,7 +706,7 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 		 *******************************/
 
 %!  udp_peer_add(+Scope, +Address) is det.
-%!  udp_peer_del(+Scope, +Address) is det.
+%!  udp_peer_del(+Scope, ?Address) is det.
 %!  udp_peer(?Scope, ?Address) is nondet.
 %
 %   Manage and query the set  of  known   peers  for  a unicast network.
@@ -712,6 +716,7 @@ default_subnet(ip(A,B,C,_), ip(A,B,C,0)) :-
 %   @arg Address has canonical form ip(A,B,C,D):Port.
 
 udp_peer_add(Scope, Address) :-
+    must_be(ground, Address),
     peer_address(Address, Scope, Canonical),
     (   udp_scope_peer(Scope, Canonical)
     ->  true
@@ -727,7 +732,6 @@ udp_peer(Scope, IPAddress) :-
 
 peer_address(IP:Port, _Scope, IPAddress:Port) :-
     !,
-    must_be(nonneg, Port),
     to_ip4(IP, IPAddress).
 peer_address(IP, Scope, IPAddress:Port) :-
     (   udp_scope(Scope, unicast(Port))
@@ -777,3 +781,46 @@ udp_term_string(_Scope, Term, String) :-
                     ])
     ).
 
+%!  unicast_out_of_scope_request(+Scope, +From, +Data) is semidet.
+
+%!  udp_unicast_join_hook(+Scope, +From, +Data) is semidet.
+%
+%   This multifile hook is called if an   UDP package is received on the
+%   port of the unicast network identified by  Scope. From is the origin
+%   IP and port and Data is  the   message  data that is deserialized as
+%   defined for the scope (see udp_term_string/3).
+%
+%   This hook is intended to initiate a  new node joining the network of
+%   peers. We could in theory also  omit   the  in-scope  test and use a
+%   normal broadcast to join. Using a different channal however provides
+%   a basic level of security. A   possibe  implementation is below. The
+%   first fragment is a hook  added  to   the  server,  the  second is a
+%   predicate added to a client and the   last  initiates the request in
+%   the client. The excanged term (join(X)) can   be  used to exchange a
+%   welcome handshake.
+%
+%
+%   ```
+%   :- multifile udp_broadcast:udp_unicast_join_hook/3.
+%   udp_broadcast:udp_unicast_join_hook(Scope, From, join(welcome)) :-
+%       udp_peer_add(Scope, From),
+%   ```
+%
+%   ```
+%   join_request(Scope, Address, Reply) :-
+%       udp_peer_add(Scope, Address),
+%       broadcast_request(udp(Scope, join(X))).
+%   ```
+%
+%   ```
+%   ?- join_request(myscope, "1.2.3.4":10001, Reply).
+%   Reply = welcome.
+%   ```
+
+unicast_out_of_scope_request(Scope, From, send(Term)) :-
+    udp_unicast_join_hook(Scope, From, Term).
+unicast_out_of_scope_request(Scope, From, request(Key, Term)) :-
+    udp_unicast_join_hook(Scope, From, Term),
+    udp_public_socket(Scope, _Port, Socket, _FileNo),
+    safely((udp_term_string(Scope, reply(Key,Term), Message),
+            udp_send(Socket, Message, From, []))).
