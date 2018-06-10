@@ -90,7 +90,8 @@ static atom_t ATOM_string;		/* "string" */
 static atom_t ATOM_codes;		/* "codes" */
 static atom_t ATOM_max_message_size;    /* "message_size" */
 static atom_t ATOM_file_no;		/* "file_no" */
-
+static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
+static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
 
@@ -247,6 +248,36 @@ pl_setopt(term_t Socket, term_t opt)
     { if ( nbio_setopt(socket, TCP_NONBLOCK) == 0 )
 	return TRUE;
       return FALSE;
+#ifdef IP_ADD_MEMBERSHIP
+    } else if ( (a == ATOM_ip_add_membership || a == ATOM_ip_drop_membership)
+		&& arity >= 1 )
+    { struct ip_mreqn mreq;
+      term_t arg = PL_new_term_ref();
+      int opname = (a == ATOM_ip_add_membership) ? IP_ADD_MEMBERSHIP
+					         : IP_DROP_MEMBERSHIP;
+
+      _PL_get_arg(1, opt, arg);
+      memset(&mreq, 0, sizeof(mreq));
+      if ( !nbio_get_ip(arg, &mreq.imr_multiaddr) )
+	return PL_domain_error("ip", arg);
+      if ( arity >= 2 )
+      { _PL_get_arg(2, opt, arg);
+	if ( !nbio_get_ip(arg, &mreq.imr_address) )
+	  return PL_domain_error("ip", arg);
+      } else
+	mreq.imr_address.s_addr = htonl(INADDR_ANY);
+      if ( arity == 3 )
+      { _PL_get_arg(3, opt, arg);
+	if ( !PL_get_integer(arg, &mreq.imr_ifindex) )
+	  return FALSE;
+      }
+
+      if ( setsockopt(nbio_fd(socket), IPPROTO_IP, opname,
+		      &mreq, sizeof(mreq)) < 0 )
+	return nbio_error(GET_H_ERRNO, TCP_HERRNO);
+      else
+	return TRUE;
+#endif
     }
   }
 
@@ -737,19 +768,21 @@ install_t
 install_socket(void)
 { nbio_init("socket");
 
-  ATOM_reuseaddr        = PL_new_atom("reuseaddr");
-  ATOM_bindtodevice     = PL_new_atom("bindtodevice");
-  ATOM_broadcast        = PL_new_atom("broadcast");
-  ATOM_nodelay	        = PL_new_atom("nodelay");
-  ATOM_dispatch	        = PL_new_atom("dispatch");
-  ATOM_nonblock	        = PL_new_atom("nonblock");
-  ATOM_infinite	        = PL_new_atom("infinite");
-  ATOM_as	        = PL_new_atom("as");
-  ATOM_atom	        = PL_new_atom("atom");
-  ATOM_string	        = PL_new_atom("string");
-  ATOM_codes	        = PL_new_atom("codes");
-  ATOM_max_message_size = PL_new_atom("max_message_size");
-  ATOM_file_no		= PL_new_atom("file_no");
+  ATOM_reuseaddr          = PL_new_atom("reuseaddr");
+  ATOM_bindtodevice       = PL_new_atom("bindtodevice");
+  ATOM_broadcast          = PL_new_atom("broadcast");
+  ATOM_nodelay	          = PL_new_atom("nodelay");
+  ATOM_dispatch	          = PL_new_atom("dispatch");
+  ATOM_nonblock	          = PL_new_atom("nonblock");
+  ATOM_infinite	          = PL_new_atom("infinite");
+  ATOM_as	          = PL_new_atom("as");
+  ATOM_atom	          = PL_new_atom("atom");
+  ATOM_string	          = PL_new_atom("string");
+  ATOM_codes	          = PL_new_atom("codes");
+  ATOM_max_message_size   = PL_new_atom("max_message_size");
+  ATOM_file_no		  = PL_new_atom("file_no");
+  ATOM_ip_add_membership  = PL_new_atom("ip_add_membership");
+  ATOM_ip_drop_membership = PL_new_atom("ip_drop_membership");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 

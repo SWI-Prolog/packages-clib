@@ -511,6 +511,15 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :-
 %     matching the address. The address is normally the address of
 %     the local subnet (i.e. 192.168.1.255).  See udp_send/4.
 %
+%     - ip_add_membership(+MultiCastGroup)
+%     - ip_add_membership(+MultiCastGroup, +LocalInterface)
+%     - ip_add_membership(+MultiCastGroup, +LocalInterface, +InterfaceIndex)
+%     - ip_drop_membership(+MultiCastGroup)
+%     - ip_drop_membership(+MultiCastGroup, +LocalInterface)
+%     - ip_drop_membership(+MultiCastGroup, +LocalInterface, +InterfaceIndex)
+%     Join/leave a multicast group.  Calls setsockopt() with the
+%     corresponding arguments.
+%
 %     - dispatch(+Boolean)
 %     In GUI environments (using XPCE or the Windows =swipl-win.exe=
 %     executable) this flags defines whether or not any events are
