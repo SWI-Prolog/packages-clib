@@ -35,6 +35,8 @@
 
 :- module(udp_broadcast,
           [ udp_broadcast_initialize/2,         % +IPAddress, +Options
+            udp_broadcast_close/1,		% +Scope
+
             udp_peer_add/2,                     % +Scope, +IP
             udp_peer_del/2,                     % +Scope, ?IP
             udp_peer/2                          % +Scope, -IP
@@ -343,14 +345,25 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
 
 :- dynamic
     udp_private_socket/3,                       % Port, Socket, FileNo
-    udp_public_socket/4.                        % Scope, Port, Socket, FileNo
+    udp_public_socket/4,                        % Scope, Port, Socket, FileNo
+    udp_closed/1.				% Scope
 
 udp_inbound_proxy :-
     make_private_socket,
     forall(udp_scope(Scope, ScopeData),
            make_public_socket(ScopeData, Scope)),
+    retractall(udp_closed(_)),
     findall(FileNo, udp_socket_file_no(FileNo), FileNos),
-    dispatch_inbound(FileNos).
+    catch(dispatch_inbound(FileNos),
+          E, dispatch_exception(E)),
+    udp_inbound_proxy.
+
+dispatch_exception(E) :-
+    E = error(_,_),
+    !,
+    print_message(warning, E).
+dispatch_exception(_).
+
 
 %!  make_private_socket is det.
 %
@@ -360,8 +373,16 @@ udp_inbound_proxy :-
 %   specific server.
 
 make_private_socket :-
-    udp_private_socket(_,_,_),
-    !.
+    udp_private_socket(_Port, S, _F),
+    !,
+    (   (   udp_scope(Scope, broadcast(_,_,_))
+        ;   udp_scope(Scope, multicast(_,_))
+        ),
+        \+ udp_closed(Scope)
+    ->  true
+    ;   tcp_close_socket(S),
+        retractall(udp_private_socket(_,_,_))
+    ).
 make_private_socket :-
     udp_scope(_, broadcast(_,_,_)),
     !,
@@ -384,8 +405,13 @@ make_private_socket.
 %   Create the public port Scope.
 
 make_public_socket(_, Scope) :-
-    udp_public_socket(Scope, _, _, _),
-    !.
+    udp_public_socket(Scope, _Port, S, _),
+    !,
+    (   udp_closed(Scope)
+    ->  tcp_close_socket(S),
+        retractall(udp_public_socket(Scope, _, _, _))
+    ;   true
+    ).
 make_public_socket(broadcast(_SubNet, _Broadcast, Port), Scope) :-
     udp_socket(S),
     tcp_setopt(S, reuseaddr),
@@ -531,7 +557,7 @@ reload_outbound_proxy :-
            udp_broadcast(Message, subnet, Timeout)).
 
 reload_inbound_proxy :-
-    catch(thread_signal(udp_inbound_bridge, reload_inbound),
+    catch(thread_signal(udp_inbound_bridge, throw(udp_reload)),
           error(existence_error(thread, _),_),
           fail),
     !.
@@ -548,7 +574,8 @@ reload_inbound_proxy :-
 udp_broadcast_close(Scope) :-
     udp_scope(Scope, _ScopeData),
     !,
-    format(user_error, 'Need to close UDP scope ~p~n', [Scope]).
+    assert(udp_closed(Scope)),
+    reload_udp_proxy.
 udp_broadcast_close(_).
 
 
