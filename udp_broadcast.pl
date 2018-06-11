@@ -58,24 +58,44 @@ broadcast library removes that restriction.   With  this library loaded,
 any member on your local IP subnetwork that also has this library loaded
 may hear and respond to your broadcasts.
 
-Except for initialization and,  in  the   case  of  a  _unicast_ network
-managing the set of peers,   communication  happens through broadcast/1,
+This library support three styles of networking as described below. Each
+of these networks have their own   advantages  and disadvantages. Please
+study the literature to understand the consequences.
+
+  $ broadcast :
+  Broadcast messages are sent to the LAN subnet. The broadcast
+  implementation uses two UDP ports: a public to address the whole
+  group and a private one to address a specific node.  Broadcasting
+  is generally a good choice if the subnet is small and traffic is
+  low.
+
+  $ unicast :
+  Unicast sends copies of packages to known peers.  Unicast networks
+  can easily be routed.  The unicast version uses a single UDP port
+  per node.  Unicast is generally a good choice for a small party,
+  in particular if the peers are in different networks.
+
+  $ multicast :
+  Multicast is like broadcast, but it can be configured to
+  work accross networks and may work more efficiently on VLAN networks.
+  Like the broadcast setup, two UDP ports are used.  Multicasting can
+  in general deliver the most efficient LAN and WAN networks, but
+  requires properly configured routing between the peers.
+
+After initialization and, in the case   of  a _unicast_ network managing
+the  set  of  peers,   communication    happens   through   broadcast/1,
 broadcast_request/1 and listen/1,2,3.
 
-Unlike TIPC broadcast, UDP broadcast has only one scope, =udp_subnet=. A
-broadcast/1 or broadcast_request/1 that is not  directed to the listener
-above, behaves as usual and is confined   to the instance of Prolog that
-originated it. But when so directed, the   broadcast will be sent to all
-participating systems, including  itself,  by   way  of  UDP's multicast
-addressing facility. A UDP broadcast  or   broadcast  request  takes the
-typical form: =|broadcast(udp(+Scope, +Term,   +Timeout))|=.  To prevent
-the potential for feedback loops, the   scope qualifier is stripped from
-the message before transmission. The timeout   is optional. It specifies
-the amount to time to wait  for  replies   to  arrive  in  response to a
-broadcast_request/1. The default period is 0.250 seconds. The timeout is
-ignored for broadcasts.
+A broadcast/1 or broadcast_request/1 of the   shape  udp(Scope, Term) or
+udp(Scope, Term, TimeOut) is forwarded over the UDP network to all peers
+that joined the same `Scope`.  To   prevent  the  potential for feedback
+loops, only the plain `Term`  is   broadcasted  locally.  The timeout is
+optional. It specifies the amount to time  to wait for replies to arrive
+in response to a  broadcast_request/1.  The   default  period  is  0.250
+seconds. The timeout is ignored for broadcasts.
 
-An example of three separate processes cooperating on the same Node:
+An example of three separate processes   cooperating in the same _scope_
+called `peers`:
 
 ==
 Process A:
@@ -94,7 +114,7 @@ Process B:
 
 Process C:
 
-   ?- findall(X, broadcast_request(udp(subnet, number(X))), Xs).
+   ?- findall(X, broadcast_request(udp(peers, number(X))), Xs).
    Xs = [1, 2, 3, 4, 5, 7, 8, 9].
 
    ?-
@@ -135,7 +155,7 @@ Host A Process 2:
    ?- listen(number(X), between(1, 5, X)).
    true.
 
-   ?- bagof(X, broadcast_request(udp(subnet,number(X):From,1)), Xs).
+   ?- bagof(X, broadcast_request(udp(peers,number(X):From,1)), Xs).
    From = ip(192, 168, 1, 103):34855,
    Xs = [7, 8, 9] ;
    From = ip(192, 168, 1, 103):56331,
@@ -156,7 +176,8 @@ and subtle differences that must be taken into consideration:
     * Prolog's broadcast_request/1 is nondet. It sends the request,
     then evaluates the replies synchronously, backtracking as needed
     until a satisfactory reply is received. The remaining potential
-    replies are not evaluated. This is not so when UDP is involved.
+    replies are not evaluated.  With UDP, all peers will send all
+    answers to the query.  The receiver may however stop listening.
 
     * A UDP broadcast/1 is completely asynchronous.
 
@@ -210,11 +231,13 @@ and subtle differences that must be taken into consideration:
 
     * Prolog terms are sent to others after first converting them to
     atoms using term_string/3.  Serialization does not deal with cycles,
-    attributes or sharing.
+    attributes or sharing.   The hook udp_term_string_hook/3 may be
+    defined to change the message serialization and support different
+    message formats and/or encryption.
 
     * The broadcast model is based on anonymity and a presumption of
     trust--a perfect recipe for compromise. UDP is an Internet protocol.
-    A UDP broadcast listener exposes a public port (20005), which is
+    A UDP broadcast listener exposes a public port, which is
     static and shared by all listeners, and a private port, which is
     semi-static and unique to the listener instance. Both can be seen
     from off-cluster nodes and networks. Usage of this module exposes
@@ -785,7 +808,7 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %   In mode (+,-), Term is written with the options ignore_ops(true) and
 %   quoted(true).
 %
-%   This predicate first calls  udp_term_string_hook/2   with  the  same
+%   This predicate first calls  udp_term_string_hook/3   with  the  same
 %   signature. This hook  may  use   alternative  serialization  such as
 %   fast_term_serialized/2,  use  library(ssl)  to    realise  encrypted
 %   messages, etc.
