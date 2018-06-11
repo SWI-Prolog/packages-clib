@@ -50,7 +50,7 @@
 
 % :- debug(udp(broadcast)).
 
-/** <module> A UDP Broadcast Bridge
+/** <module> A UDP broadcast proxy
 
 SWI-Prolog's broadcast library provides a  means   that  may  be used to
 facilitate publish and subscribe communication regimes between anonymous
@@ -164,8 +164,13 @@ Host A Process 2:
    Xs = [1, 2, 3, 4, 5] ;
    From = ip(192, 168, 1, 104):3217,
    Xs = [1, 2, 3, 4, 5].
-
 ==
+
+All incomming trafic is handled  by  a   single  thread  with  the alias
+`udp_inbound_proxy`. This thread also performs  the internal dispatching
+using broadcast/1 and broadcast_request/1. Future   versions may provide
+for handling these requests in seperate threads.
+
 
 ## Caveats {#udp-broadcase-caveats}
 
@@ -173,7 +178,8 @@ While the implementation is mostly transparent, there are some important
 and subtle differences that must be taken into consideration:
 
     * UDP broadcast requires an initialization step in order to
-    launch the broadcast listener bridge. See udp_broadcast_initialize/2.
+    launch the broadcast listener proxy. See
+    udp_broadcast_initialize/2.
 
     * Prolog's broadcast_request/1 is nondet. It sends the request,
     then evaluates the replies synchronously, backtracking as needed
@@ -296,7 +302,7 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     udp_scope/2,
     udp_scope_peer/2.
 %
-%  Here's a UDP bridge to Prolog's broadcast library
+%  Here's a UDP proxy to Prolog's broadcast library
 %
 %  A sender may extend a broadcast  to  a   subnet  of  a UDP network by
 %  specifying a =|udp_subnet|= scoping qualifier   in his/her broadcast.
@@ -433,7 +439,7 @@ dispatch_ready(FileNo) :-
     debug(udp(broadcast), 'Inbound on private port', []),
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
-    ->  with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
+    ->  ld_dispatch(Private, Term, From, Scope)
     ;   true
     ).
 dispatch_ready(FileNo) :-
@@ -445,9 +451,9 @@ dispatch_ready(FileNo) :-
     (   in_scope(Scope, From),
         udp_term_string(Scope, Term, Data) % only accept valid data
     ->  (   udp_scope(Scope, unicast(_))
-        ->  with_mutex(udp_broadcast, ld_dispatch(Public, Term, From, Scope))
+        ->  ld_dispatch(Public, Term, From, Scope)
         ;   udp_private_socket(_PrivatePort, Private, _FileNo),
-            with_mutex(udp_broadcast, ld_dispatch(Private, Term, From, Scope))
+            ld_dispatch(Private, Term, From, Scope)
         )
     ;   udp_scope(Scope, unicast(_)),
         udp_term_string(Scope, Term, Data),
@@ -478,11 +484,11 @@ in_scope(unicast(_PublicPort), Scope, IP:_) :-
 %   request, send the replies to PrivateSocket   to  From. The multifile
 %   hook black_list/1 can be used to ignore certain messages.
 
-ld_dispatch(_S, Term, _From, _Scope) :-
-    blacklisted(Term), !.
 ld_dispatch(_S, Term, From, _Scope) :-
     debug(udp(broadcast), 'ld_dispatch(~p) from ~p', [Term, From]),
     fail.
+ld_dispatch(_S, Term, _From, _Scope) :-
+    blacklisted(Term), !.
 ld_dispatch(S, request(Key, Term), From, Scope) :-
     !,
     forall(safely(broadcast_request(Term)),
@@ -492,7 +498,7 @@ ld_dispatch(_S, send(Term), _From, _Scope) :-
     safely(broadcast(Term)).
 ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
     (   reply_queue(Key, Queue)
-    ->  thread_send_message(Queue, Term:From)
+    ->  safely(thread_send_message(Queue, Term:From))
     ;   true
     ).
 
@@ -532,13 +538,13 @@ reload_outbound_proxy :-
            udp_broadcast(Message, subnet, Timeout)).
 
 reload_inbound_proxy :-
-    catch(thread_signal(udp_inbound_bridge, throw(udp_reload)),
+    catch(thread_signal(udp_inbound_proxy, throw(udp_reload)),
           error(existence_error(thread, _),_),
           fail),
     !.
 reload_inbound_proxy :-
     thread_create(udp_inbound_proxy, _,
-                  [ alias(udp_inbound_bridge),
+                  [ alias(udp_inbound_proxy),
                     detached(true)
                   ]).
 
