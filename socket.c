@@ -77,7 +77,7 @@
 #define GET_H_ERRNO h_errno
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #define HAVE_IP_MREQN 1
 #endif
 
@@ -187,9 +187,7 @@ pl_host_to_address(term_t Host, term_t Ip)
 
 #ifndef HAVE_IP_MREQN
 #define ip_mreqn ip_mreq
-#ifdef __WINDOWS__
-#define imr_address imr_multiaddr
-#endif
+#define imr_address imr_interface
 #endif
 
 
