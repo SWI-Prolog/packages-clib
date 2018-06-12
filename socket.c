@@ -77,6 +77,10 @@
 #define GET_H_ERRNO h_errno
 #endif
 
+#ifdef __linux__
+#define HAVE_IP_MREQN 1
+#endif
+
 static atom_t ATOM_reuseaddr;		/* "reuseaddr" */
 static atom_t ATOM_bindtodevice;	/* "bindtodevice" */
 static atom_t ATOM_broadcast;		/* "broadcast" */
@@ -181,6 +185,14 @@ pl_host_to_address(term_t Host, term_t Ip)
 }
 
 
+#ifndef HAVE_IP_MREQN
+#define ip_mreqn ip_mreq
+#ifdef __WINDOWS__
+#define imr_address imr_multiaddr
+#endif
+#endif
+
+
 static foreign_t
 pl_setopt(term_t Socket, term_t opt)
 { int socket;
@@ -266,14 +278,18 @@ pl_setopt(term_t Socket, term_t opt)
 	  return PL_domain_error("ip", arg);
       } else
 	mreq.imr_address.s_addr = htonl(INADDR_ANY);
+#ifdef HAVE_IP_MREQN
       if ( arity == 3 )
       { _PL_get_arg(3, opt, arg);
 	if ( !PL_get_integer(arg, &mreq.imr_ifindex) )
 	  return FALSE;
       }
+#endif
+      if ( arity > 3 )
+	goto not_implemented;
 
       if ( setsockopt(nbio_fd(socket), IPPROTO_IP, opname,
-		      &mreq, sizeof(mreq)) < 0 )
+		      (void*)&mreq, sizeof(mreq)) < 0 )
 	return nbio_error(GET_H_ERRNO, TCP_HERRNO);
       else
 	return TRUE;
