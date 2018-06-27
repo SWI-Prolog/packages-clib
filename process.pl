@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2014, University of Amsterdam
+    Copyright (c)  2008-2018, University of Amsterdam
                               VU University Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -345,8 +346,10 @@ process_release(PID) :-
 %       Do/do not release the process.  We do not support this flag
 %       and a domain_error is raised if release(false) is provided.
 %
-%   @param  Status is one of exit(Code) or killed(Signal), where
-%           Code and Signal are integers.
+%   @arg  Status is one of exit(Code) or killed(Signal), where
+%         Code and Signal are integers.  If the `timeout` option
+%         is used Status is unified with `timeout` after the wait
+%         timed out.
 
 process_wait(PID, Status) :-
     process_wait(PID, Status, []).
