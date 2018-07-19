@@ -806,6 +806,19 @@ peer_address(IP, Scope, IPAddress:Port) :-
 		 *             HOOKS		*
 		 *******************************/
 
+%!  udp_term_string_hook(+Scope, +Term, -String) is det.
+%!  udp_term_string_hook(+Scope, -Term, +String) is semidet.
+%
+%   Hook  for  serializing  the  message    Term.   The  default  writes
+%   =|%prolog\n|=, followed by the Prolog term  in quoted notation while
+%   ignoring operators. This hook may use alternative serialization such
+%   as fast_term_serialized/2, use  library(ssl)   to  realise encrypted
+%   messages, etc.
+%
+%   @arg Scope is the scope for which the message is broadcasted.  This
+%   can be used to use different serialization for different scopes.
+
+
 %!  udp_term_string(+Scope, +Term, -String) is det.
 %!  udp_term_string(+Scope, -Term, +String) is semidet.
 %
@@ -816,13 +829,7 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %   In mode (+,-), Term is written with the options ignore_ops(true) and
 %   quoted(true).
 %
-%   This predicate first calls  udp_term_string_hook/3   with  the  same
-%   signature. This hook  may  use   alternative  serialization  such as
-%   fast_term_serialized/2,  use  library(ssl)  to    realise  encrypted
-%   messages, etc.
-%
-%   @arg Scope is the scope for which the message is broadcasted.  This
-%   can be used to use different serialization for different scopes.
+%   This predicate first calls  udp_term_string_hook/3.
 
 udp_term_string(Scope, Term, String) :-
     udp_term_string_hook(Scope, Term, String),
