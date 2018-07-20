@@ -817,7 +817,17 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %
 %   @arg Scope is the scope for which the message is broadcasted.  This
 %   can be used to use different serialization for different scopes.
-
+%   @arg Term encapsulates the term broadcasted by the application as
+%   follows:
+%
+%     - send(ApplTerm)
+%       Is sent by broadcast(udp(Scope, ApplTerm))
+%     - request(Id,ApplTerm)
+%       Is sent by broadcast_request/1, where Id is a unique large
+%       (64 bit) integer.
+%     - reply(Id,ApplTerm)
+%       Is sent to reply on a broadcast_request/1 request that has
+%       been received.  Arguments are the same as above.
 
 %!  udp_term_string(+Scope, +Term, -String) is det.
 %!  udp_term_string(+Scope, -Term, +String) is semidet.
