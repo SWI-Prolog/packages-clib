@@ -96,12 +96,9 @@ if(HAVE_LIBNSL)
   set(SOCKET_LIBRARIES ${SOCKET_LIBRARIES} -lnsl)
 endif()
 
-add_library(libsocket MODULE error.c socket.c nonblockio.c)
-set_target_properties(libsocket PROPERTIES OUTPUT_NAME "socket" PREFIX "")
-target_link_libraries(libsocket ${SOCKET_LIBRARIES} ${SWIPL_LIBRARIES})
-
-install(TARGETS libsocket
-	LIBRARY DESTINATION ${SWIPL_INSTALL_MODULES})
-install(FILES socket.pl
-	DESTINATION ${SWIPL_INSTALL_LIBRARY})
+swipl_foreign_module(
+    socket
+    C_SOURCES error.c socket.c nonblockio.c
+    C_LIBS ${SOCKET_LIBRARIES}
+    PL_LIBS socket.pl)
 endif(HAVE_SOCKET)
