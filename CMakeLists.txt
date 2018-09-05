@@ -138,3 +138,8 @@ swipl_plugin(
     C_LIBS ${SOCKET_LIBRARIES}
     PL_LIBS socket.pl)
 endif(HAVE_SOCKET)
+
+################
+# Tests
+
+test_libs(cgi crypt memfile process readutil socket stream time uri)
