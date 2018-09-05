@@ -35,6 +35,11 @@ if(NOT DEFINED UUID_H)
 endif(NOT DEFINED UUID_H)
 
 check_library_exists(crypt crypt  "" HAVE_LIBCRYPT)
+if(HAVE_LIBCRYPT)
+  set(CRYPT_LIBS -lcrypt)
+else()
+  set(CRYPT_SOURCE bsd-crypt.c)
+endif()
 
 check_function_exists(syslog HAVE_SYSLOG)
 
@@ -87,6 +92,20 @@ configure_file(config.h.cmake config.h)
 
 ################
 # Setup the targets
+
+swipl_foreign_module(cgi     C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)
+swipl_foreign_module(memfile C_SOURCES error.c memfile.c    PL_LIBS memfile.pl)
+swipl_foreign_module(time    C_SOURCES error.c time.c       PL_LIBS time.pl)
+
+if(UNIX)
+swipl_foreign_module(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
+swipl_foreign_module(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
+endif(UNIX)
+
+swipl_foreign_module(crypt
+		     C_SOURCES error.c crypt.c md5.c md5passwd.c
+		     C_LIBS ${CRYPT_LIBS}
+		     PL_LIBS crypt.pl)
 
 if(HAVE_SOCKET)
 if(HAVE_LIBSOCKET)
