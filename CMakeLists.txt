@@ -116,6 +116,13 @@ swipl_plugin(crypt
 	     C_SOURCES error.c crypt.c md5.c md5passwd.c
 	     C_LIBS ${CRYPT_LIBS}
 	     PL_LIBS crypt.pl)
+swipl_plugin(hashstream
+	     C_SOURCES hash_stream.c md5.c sha1/sha1.c sha1/sha2.c
+	     PL_LIBS hash_stream.pl)
+swipl_plugin(sha4pl
+	     C_SOURCES error.c sha4pl.c sha1/sha1.c sha1/sha2.c
+	               sha1/hmac_sha1.c sha1/hmac_sha256.c
+	     PL_LIBS sha.pl)
 
 if(HAVE_SOCKET)
 if(HAVE_LIBSOCKET)
