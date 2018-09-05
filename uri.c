@@ -32,9 +32,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 #ifdef __WINDOWS__
 #define inline __inline
 #endif

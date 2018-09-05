@@ -35,13 +35,11 @@
 
 #define O_DEBUG 1			/* provides time:time_debug(+Level) */
 //#define O_SAFE 1			/* extra safety checks */
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
-#include <error.h>
+#include "error.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>

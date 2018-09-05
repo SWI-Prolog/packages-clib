@@ -33,9 +33,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 /*#define O_DEBUG 1*/
 #define _GNU_SOURCE			/* get pipe2() */

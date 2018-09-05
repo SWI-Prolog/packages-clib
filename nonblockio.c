@@ -115,9 +115,7 @@ In the Unix version we simply call PL_dispatch() before doing recv() and
 leave the details to this function.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #if defined(__MINGW32__)
 #define __try
