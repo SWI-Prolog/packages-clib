@@ -62,6 +62,7 @@
 #cmakedefine SIZEOF_LONG_LONG
 #cmakedefine STACK_DIRECTION
 #cmakedefine STDC_HEADERS
-#cmakedefine UUID_H
+#cmakedefine HAVE_UUID_H
+#cmakedefine HAVE_OSSP_UUID_H
 #cmakedefine _REENTRANT
 #cmakedefine size_t

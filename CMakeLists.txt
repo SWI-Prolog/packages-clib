@@ -21,18 +21,10 @@ if(NOT DEFINED LIB_UUID)
   set(LIB_UUID ${LIB_UUID} CACHE INTERNAL "Name of UUID library")
 endif(NOT DEFINED LIB_UUID)
 
-if(NOT DEFINED UUID_H)
-  check_include_file(ossp/uuid.h HAVE_OSSP_UUID_H)
-  if(HAVE_OSSP_UUID_H)
-    set(UUID_H "<ossp/uuid.h>")
-  else()
-    check_include_file(uuid.h HAVE_UUID_H)
-    if(HAVE_UUID_H)
-      set(UUID_H "<uuid.h>")
-    endif()
-    set(UUID_H ${UUID_H} CACHE INTERNAL "UUID header")
-  endif()
-endif(NOT DEFINED UUID_H)
+check_include_file(ossp/uuid.h HAVE_OSSP_UUID_H)
+if(NOT HAVE_OSSP_UUID_H)
+  check_include_file(uuid.h HAVE_UUID_H)
+endif()
 
 check_library_exists(crypt crypt  "" HAVE_LIBCRYPT)
 if(HAVE_LIBCRYPT)
@@ -100,14 +92,25 @@ swipl_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
 swipl_plugin(rlimit     C_SOURCES error.c rlimit.c     PL_LIBS rlimit.pl)
 swipl_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
 swipl_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
-swipl_plugin(syslog     C_SOURCES syslog.c             PL_LIBS syslog.pl)
-swipl_plugin(uri        C_SOURCES uri.c                PL_LIBS uri.pl)
-swipl_plugin(readutil   C_SOURCES readutil.c	       PL_LIBS)
+swipl_plugin(mallocinfo C_SOURCES error.c mallocinfo.c PL_LIBS mallocinfo.pl)
+
+swipl_plugin(syslog        C_SOURCES syslog.c        PL_LIBS syslog.pl)
+swipl_plugin(uri           C_SOURCES uri.c           PL_LIBS uri.pl)
+swipl_plugin(readutil      C_SOURCES readutil.c	     PL_LIBS)
+swipl_plugin(prolog_stream C_SOURCES prolog_stream.c PL_LIBS prolog_stream.pl)
+swipl_plugin(md54pl        C_SOURCES md54pl.c md5.c  PL_LIBS md5.pl)
 
 if(UNIX)
 swipl_plugin(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
 swipl_plugin(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
 endif(UNIX)
+
+if((HAVE_OSSP_UUID_H OR HAVE_UUID_H) AND LIB_UUID)
+swipl_plugin(uuid
+	     C_SOURCES uuid.c
+	     C_LIBS ${LIB_UUID}
+	     PL_LIBS uuid.pl)
+endif()
 
 swipl_plugin(crypt
 	     C_SOURCES error.c crypt.c md5.c md5passwd.c
