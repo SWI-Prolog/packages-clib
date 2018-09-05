@@ -93,19 +93,26 @@ configure_file(config.h.cmake config.h)
 ################
 # Setup the targets
 
-swipl_foreign_module(cgi     C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)
-swipl_foreign_module(memfile C_SOURCES error.c memfile.c    PL_LIBS memfile.pl)
-swipl_foreign_module(time    C_SOURCES error.c time.c       PL_LIBS time.pl)
+swipl_plugin(cgi        C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)
+swipl_plugin(memfile    C_SOURCES error.c memfile.c    PL_LIBS memfile.pl)
+swipl_plugin(time       C_SOURCES error.c time.c       PL_LIBS time.pl)
+swipl_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
+swipl_plugin(rlimit     C_SOURCES error.c rlimit.c     PL_LIBS rlimit.pl)
+swipl_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
+swipl_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
+swipl_plugin(syslog     C_SOURCES syslog.c             PL_LIBS syslog.pl)
+swipl_plugin(uri        C_SOURCES uri.c                PL_LIBS uri.pl)
+swipl_plugin(readutil   C_SOURCES readutil.c	       PL_LIBS)
 
 if(UNIX)
-swipl_foreign_module(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
-swipl_foreign_module(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
+swipl_plugin(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
+swipl_plugin(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
 endif(UNIX)
 
-swipl_foreign_module(crypt
-		     C_SOURCES error.c crypt.c md5.c md5passwd.c
-		     C_LIBS ${CRYPT_LIBS}
-		     PL_LIBS crypt.pl)
+swipl_plugin(crypt
+	     C_SOURCES error.c crypt.c md5.c md5passwd.c
+	     C_LIBS ${CRYPT_LIBS}
+	     PL_LIBS crypt.pl)
 
 if(HAVE_SOCKET)
 if(HAVE_LIBSOCKET)
@@ -115,7 +122,7 @@ if(HAVE_LIBNSL)
   set(SOCKET_LIBRARIES ${SOCKET_LIBRARIES} -lnsl)
 endif()
 
-swipl_foreign_module(
+swipl_plugin(
     socket
     C_SOURCES error.c socket.c nonblockio.c
     C_LIBS ${SOCKET_LIBRARIES}
