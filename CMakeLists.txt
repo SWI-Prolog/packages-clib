@@ -100,7 +100,7 @@ swipl_plugin(
     socket
     C_SOURCES error.c socket.c nonblockio.c
     C_LIBS ${SOCKET_LIBRARIES}
-    PL_LIBS socket.pl)
+    PL_LIBS socket.pl streampool.pl prolog_server.pl)
 endif(HAVE_SOCKET)
 
 ################
