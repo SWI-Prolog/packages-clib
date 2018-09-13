@@ -107,3 +107,11 @@ endif(HAVE_SOCKET)
 # Tests
 
 test_libs(cgi crypt memfile process readutil socket stream time uri)
+
+################
+# Documentation
+
+pkg_doc(clib
+	SOURCES process.pl uri.pl filesex.pl uid.pl udp_broadcast.pl
+	        uuid.pl unix.pl syslog.pl socket.pl prolog_stream.pl md5.pl
+	        hash_stream.pl)
