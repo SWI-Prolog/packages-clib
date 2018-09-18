@@ -3,25 +3,7 @@ project(swipl-clib)
 
 include("../cmake/PrologPackage.cmake")
 include(Sockets)
-
-if(NOT DEFINED LIB_UUID)
-  message("-- Looking for UUID library and headers")
-  check_library_exists(ossp-uuid uuid_create "" HAVE_LIBOSSP_UUID)
-  if(HAVE_LIBOSSP_UUID)
-    set(LIB_UUID -lossp-uuid)
-  else()
-    check_library_exists(uuid    uuid_create "" HAVE_LIBUUID)
-    if(HAVE_LIBUUID)
-      set(LIB_UUID -luuid)
-    endif()
-  endif()
-  set(LIB_UUID ${LIB_UUID} CACHE INTERNAL "Name of UUID library")
-endif(NOT DEFINED LIB_UUID)
-
-check_include_file(ossp/uuid.h HAVE_OSSP_UUID_H)
-if(NOT HAVE_OSSP_UUID_H)
-  check_include_file(uuid.h HAVE_UUID_H)
-endif()
+find_package(LibUUID)
 
 check_library_exists(crypt crypt  "" HAVE_LIBCRYPT)
 if(HAVE_LIBCRYPT)
@@ -71,11 +53,13 @@ swipl_plugin(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
 swipl_plugin(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
 endif(UNIX)
 
-if((HAVE_OSSP_UUID_H OR HAVE_UUID_H) AND LIB_UUID)
+if(LIBUUID_FOUND)
 swipl_plugin(uuid
 	     C_SOURCES uuid.c
-	     C_LIBS ${LIB_UUID}
+	     C_LIBS ${UUID_LIBRARY}
 	     PL_LIBS uuid.pl)
+target_include_directories(plugin_uuid BEFORE PRIVATE
+			   ${LIBUUID_INCLUDE_DIR})
 endif()
 
 swipl_plugin(crypt

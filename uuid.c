@@ -34,11 +34,7 @@
 */
 
 #include <config.h>
-#if defined(HAVE_OSSP_UUID_H)
-#include <ossp/uuid.h>
-#elif defined(HAVE_UUID_H)
 #include <uuid.h>
-#endif
 
 #include <SWI-Prolog.h>
 #include <SWI-Stream.h>
