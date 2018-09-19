@@ -39,6 +39,11 @@
 #include <SWI-Prolog.h>
 #include <SWI-Stream.h>
 #include <assert.h>
+#if defined(HAVE_OSSP_UUID_H)
+#include <ossp/uuid.h>
+#else
+#include <uuid.h>
+#endif
 
 /* Seems to be defined in some MinGW installations.  The
  * ossp-uuid header defines the types using typedef, so
