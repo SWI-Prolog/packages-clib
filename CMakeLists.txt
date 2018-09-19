@@ -37,22 +37,20 @@ swipl_plugin(time       C_SOURCES error.c time.c       PL_LIBS time.pl)
 swipl_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
 swipl_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
 swipl_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
-if(HAVE_GETRLIMIT)
-swipl_plugin(rlimit     C_SOURCES error.c rlimit.c     PL_LIBS rlimit.pl)
-endif()
 if(HAVE_MALLINFO)
 swipl_plugin(mallocinfo C_SOURCES error.c mallocinfo.c PL_LIBS mallocinfo.pl)
 endif()
 
-swipl_plugin(syslog        C_SOURCES syslog.c        PL_LIBS syslog.pl)
 swipl_plugin(uri           C_SOURCES uri.c           PL_LIBS uri.pl)
 swipl_plugin(readutil      C_SOURCES readutil.c	     PL_LIBS)
 swipl_plugin(prolog_stream C_SOURCES prolog_stream.c PL_LIBS prolog_stream.pl)
 swipl_plugin(md54pl        C_SOURCES md54pl.c md5.c  PL_LIBS md5.pl)
 
 if(UNIX)
-swipl_plugin(unix C_SOURCES error.c unix.c PL_LIBS unix.pl)
-swipl_plugin(uid  C_SOURCES error.c uid.c  PL_LIBS uid.pl)
+swipl_plugin(unix   C_SOURCES error.c unix.c   PL_LIBS unix.pl)
+swipl_plugin(uid    C_SOURCES error.c uid.c    PL_LIBS uid.pl)
+swipl_plugin(rlimit C_SOURCES error.c rlimit.c PL_LIBS rlimit.pl)
+swipl_plugin(syslog C_SOURCES syslog.c         PL_LIBS syslog.pl)
 endif(UNIX)
 
 if(LIBUUID_FOUND)
@@ -65,7 +63,7 @@ target_include_directories(plugin_uuid BEFORE PRIVATE
 endif()
 
 swipl_plugin(crypt
-	     C_SOURCES error.c crypt.c md5.c md5passwd.c
+	     C_SOURCES error.c crypt.c md5.c md5passwd.c ${CRYPT_SOURCE}
 	     C_LIBS ${CRYPT_LIBS}
 	     PL_LIBS crypt.pl)
 swipl_plugin(hashstream
