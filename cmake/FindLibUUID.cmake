@@ -6,10 +6,18 @@ find_path(LIBUUID_INCLUDE_DIR
 	  PATH_SUFFIXES ossp
 	  HINTS ${PC_LIBUUID_INCLUDEDIR}
 	        ${PC_LIBUUID_INCLUDE_DIRS})
+
+# MinGW version seems very aggressive finding uuid.h from our version,
+# but libuuid.a from the system directory.  As ossp-uuid is not part
+# of most defaults, we'll try ignoring this.
+
+string(REPLACE "/include" "/lib" i_libuuid_libdir ${LIBUUID_INCLUDE_DIR})
 find_library(UUID_LIBRARY
 	     NAMES ossp-uuid uuid
-	     HINTS ${PC_LIBXML_LIBDIR}
-	           ${PC_LIBXML_LIBRARY_DIRS})
+	     HINTS ${i_libuuid_libdir}
+	           ${PC_LIBUUID_LIBDIR}
+	           ${PC_LIBUUID_LIBRARY_DIRS}
+	     NO_CMAKE_SYSTEM_PATH)
 
 include(FindPackageHandleStandardArgs)
 
