@@ -75,13 +75,6 @@ swipl_plugin(sha4pl
 	     PL_LIBS sha.pl)
 
 if(HAVE_SOCKET)
-if(HAVE_LIBSOCKET)
-  set(SOCKET_LIBRARIES ${SOCKET_LIBRARIES} -lsocket)
-endif()
-if(HAVE_LIBNSL)
-  set(SOCKET_LIBRARIES ${SOCKET_LIBRARIES} -lnsl)
-endif()
-
 swipl_plugin(
     socket
     C_SOURCES error.c socket.c nonblockio.c
