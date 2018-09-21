@@ -18,6 +18,10 @@ find_library(UUID_LIBRARY
 	           ${PC_LIBUUID_LIBDIR}
 	           ${PC_LIBUUID_LIBRARY_DIRS}
 	     NO_CMAKE_SYSTEM_PATH)
+if(NOT UUID_LIBRARY)
+  find_library(UUID_LIBRARY
+	       NAMES ossp-uuid uuid)
+endif()
 
 include(FindPackageHandleStandardArgs)
 
