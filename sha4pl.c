@@ -33,9 +33,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #define _ISOC99_SOURCE
 #define USE_SHA256 1

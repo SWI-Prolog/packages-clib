@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2012-2015, VU University Amsterdam
+    Copyright (c)  2012-2018, VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -33,15 +34,20 @@
 */
 
 #include <config.h>
-#ifdef UUID_H
-#include UUID_H
-#else
+#ifdef HAVE_OSSP_UUID_H
 #include <ossp/uuid.h>
+#else
+#include <uuid.h>
 #endif
 
 #include <SWI-Prolog.h>
 #include <SWI-Stream.h>
 #include <assert.h>
+#if defined(HAVE_OSSP_UUID_H)
+#include <ossp/uuid.h>
+#else
+#include <uuid.h>
+#endif
 
 /* Seems to be defined in some MinGW installations.  The
  * ossp-uuid header defines the types using typedef, so

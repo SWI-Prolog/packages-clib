@@ -14,9 +14,7 @@
 static char rcsid[] = "$Header$";
 #endif /* LIBC_SCCS and not lint */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>

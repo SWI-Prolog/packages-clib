@@ -33,7 +33,7 @@
  */
 
 /* JW: Added to make this file compile as-is for SWI-Prolog */
-#define __RCSID(s) static char sccsid[] = s
+#define __RCSID(s) /*static char sccsid[] = s*/
 #define DES_ONLY
 #define CRYPT_ONLY
 static int des_setkey(const char *key);

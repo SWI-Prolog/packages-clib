@@ -54,19 +54,9 @@ fi
 if test x"$LIBUUID" = "x"; then
   AC_MSG_WARN([ Cannot find libossp-uuid or libuuid -- dropping uuid.pl])
 else
-  if test x"$UUID_H" = "x"; then
-  AC_CHECK_HEADER(ossp/uuid.h,
-		  [ UUID_H=ossp/uuid.h ],
-		  [],
-		  [/*first*/])
-  fi
-  if test x"$UUID_H" = "x"; then
-  AC_CHECK_HEADER(uuid.h,
-		  [ UUID_H=uuid.h ],
-		  [],
-		  [/*first*/])
-  fi
-  if test x"$UUID_H" = "x"; then
+  AC_CHECK_HEADERS(ossp/uuid.h uuid.h)
+  if test x"$ac_cv_header_ossp_uuid_h" = "x" -a
+          x"$ac_cv_header_uuid_h" = "x"; then
     AC_MSG_WARN([ Cannot find uuid.h -- dropping uuid.pl])
   else
     AC_DEFINE_UNQUOTED([UUID_H], [<$UUID_H>],

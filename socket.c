@@ -36,9 +36,7 @@
 
 #define O_DEBUG 1
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #ifdef __GNUC__
 # define alloca __builtin_alloca
