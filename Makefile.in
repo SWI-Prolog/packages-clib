@@ -84,7 +84,7 @@ uri.@SO@:	$(URIOBJ)
 uid.@SO@:	$(UIDOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(UIDOBJ) $(LIBPLSO)
 uuid.@SO@:	$(UUIDOBJ)
-		$(LD) $(LDSOFLAGS) -o $@ $(UUIDOBJ) @LIBUUID@ $(LIBPLSO)
+		$(LD) $(LDSOFLAGS) -o $@ $(UUIDOBJ) @LIBUUID_LDFLAGS@ @LIBUUID@ $(LIBPLSO)
 md54pl.@SO@:	$(MD5OBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(MD5OBJ) $(LIBPLSO)
 hashstream.@SO@: $(HASHSTREAMOBJ)
@@ -96,6 +96,9 @@ sha1/hmac_sha1.o:
 		$(CC) -c $(CFLAGS) -DUSE_SHA1 -o $@ sha1/hmac.c
 sha1/hmac_sha256.o:
 		$(CC) -c $(CFLAGS) -DUSE_SHA256 -o $@ sha1/hmac.c
+
+uuid.o:
+		$(CC) -c $(CFLAGS) @LIBUUID_CFLAGS@ -o $@ uuid.c
 
 install:	$(TARGETS)
 		mkdir -p $(DESTDIR)$(SOLIBDIR)

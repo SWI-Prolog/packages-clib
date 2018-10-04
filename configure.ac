@@ -10,6 +10,8 @@ AC_SUBST(NETLIBS)
 AC_SUBST(CRYPTLIBS)
 AC_SUBST(CRYPTOBJ)
 AC_SUBST(LIBUUID)
+AC_SUBST(LIBUUID_CFLAGS)
+AC_SUBST(LIBUUID_LDFLAGS)
 
 m4_include([../ac_swi_c.m4])
 
@@ -41,30 +43,25 @@ AC_CHECK_FUNC(gethostent, [], [
 dnl Configure UUID library.  We use the OSSP UUID library, but it seems
 dnl to be installed in various places.
 
-if test x"$LIBUUID" = "x"; then
-AC_CHECK_LIB(ossp-uuid, uuid_create,
-	     [ LIBUUID=-lossp-uuid
-	     ])
-fi
-if test x"$LIBUUID" = "x"; then
-AC_CHECK_LIB(uuid, uuid_create,
-	     [ LIBUUID=-luuid
-	     ])
-fi
-if test x"$LIBUUID" = "x"; then
-  AC_MSG_WARN([ Cannot find libossp-uuid or libuuid -- dropping uuid.pl])
-else
-  AC_CHECK_HEADERS(ossp/uuid.h uuid.h)
-  if test x"$ac_cv_header_ossp_uuid_h" = "x" -a
-          x"$ac_cv_header_uuid_h" = "x"; then
-    AC_MSG_WARN([ Cannot find uuid.h -- dropping uuid.pl])
-  else
-    AC_DEFINE_UNQUOTED([UUID_H], [<$UUID_H>],
-	      [ Define to name of the UUID header file. ])
-    TARGETS="$TARGETS uuid.$SO"
-  fi
-fi
+AC_MSG_CHECKING(ossp-uuid)
+AC_PATH_PROG(UUID_CONFIG, uuid-config, :)
+if test "$UUID_CONFIG" != ":"; then
+  LIBUUID="$($UUID_CONFIG --libs)"
+  LIBUUID_CFLAGS="$($UUID_CONFIG --cflags)"
+  LIBUUID_LDFLAGS="$($UUID_CONFIG --ldflags)"
 
+  oldlibs="$LIBS"
+  uuidlib=$(echo $LIBUUID | sed 's/-l//')
+  AC_CHECK_LIB($uuidlib, uuid_create,
+	       [ TARGETS="$TARGETS uuid.$SO"
+		 AC_MSG_RESULT(OSSP-UUID at $LIBUUID_CFLAGS $LIBUUID_LDFLAGS $LIBUUID)
+	       ],
+	       [ AC_MSG_RESULT(no)
+	       ])
+  LIBS=$oldlibs
+else
+  AC_MSG_RESULT(no)
+fi
 
 oldlibs="$LIBS"
 AC_CHECK_LIB(crypt, crypt)
