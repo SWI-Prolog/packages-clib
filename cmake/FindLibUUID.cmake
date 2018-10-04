@@ -1,3 +1,31 @@
+if(NOT UUID_LIBRARY)
+
+find_program(
+    UUID_CONFIG
+    uuid-config
+    DOC "OSSP uuid config tool")
+
+if(UUID_CONFIG)
+  exec_program(${UUID_CONFIG} ARGS --version OUTPUT_VARIABLE UUID_VERSION)
+  if(UUID_VERSION MATCHES "OSSP")
+    exec_program(${UUID_CONFIG} ARGS --includedir
+		 OUTPUT_VARIABLE LIBUUID_INCLUDE_DIR)
+    exec_program(${UUID_CONFIG} ARGS --libdir
+		 OUTPUT_VARIABLE LIBUUID_LIBRARY_DIR)
+    exec_program(${UUID_CONFIG} ARGS --libs
+		 OUTPUT_VARIABLE LIBUUID_LIBFLAG)
+
+    string(REPLACE "-l" "" LIBUUID_LIB ${LIBUUID_LIBFLAG})
+    find_library(UUID_LIBRARY
+		 NAMES ${LIBUUID_LIB}
+		 PATHS ${LIBUUID_LIBRARY_DIR}
+		 NO_DEFAULT_PATH)
+
+    set(LIBUUID_INCLUDE_DIR ${LIBUUID_INCLUDE_DIR} CACHE INTERNAL
+	"Directory holding OSSP UUID <uuid.h>")
+  endif()
+else(UUID_CONFIG)
+
 find_package(PkgConfig QUIET)
 pkg_check_modules(PC_LIBUUID QUIET ossp-uuid)
 
@@ -23,6 +51,8 @@ if(NOT UUID_LIBRARY)
 	       NAMES ossp-uuid uuid)
 endif()
 
+endif(UUID_CONFIG)
+
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(
@@ -32,3 +62,4 @@ find_package_handle_standard_args(
 mark_as_advanced(LIBUUID_INCLUDE_DIR
 		 UUID_LIBRARY)
 
+endif(NOT UUID_LIBRARY)
