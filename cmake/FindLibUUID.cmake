@@ -58,13 +58,13 @@ endif()
 
 endif(UUID_CONFIG)
 
+mark_as_advanced(LIBUUID_INCLUDE_DIR
+		 UUID_LIBRARY)
+
+endif(NOT UUID_LIBRARY)
+
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(
     LibUUID
     REQUIRED_VARS LIBUUID_INCLUDE_DIR UUID_LIBRARY)
-
-mark_as_advanced(LIBUUID_INCLUDE_DIR
-		 UUID_LIBRARY)
-
-endif(NOT UUID_LIBRARY)
