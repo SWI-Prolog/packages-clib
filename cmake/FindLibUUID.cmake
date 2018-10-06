@@ -4,6 +4,7 @@ find_program(
     UUID_CONFIG
     uuid-config
     DOC "OSSP uuid config tool")
+mark_as_advanced(UUID_CONFIG)
 
 if(UUID_CONFIG)
   exec_program(${UUID_CONFIG} ARGS --version OUTPUT_VARIABLE UUID_VERSION)
