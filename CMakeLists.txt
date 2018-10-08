@@ -35,8 +35,11 @@ configure_file(config.h.cmake config.h)
 # Setup the targets
 
 set(plugins)
+set(pllibs)
 function(clib_plugin name)
-  set(plugins ${plugins} ${name} PARENT_SCOPE)
+  cmake_parse_arguments(my "" "" "C_SOURCES;PL_LIBS;C_LIBS;C_INCLUDE_DIR" ${ARGN})
+  set(plugins ${plugins} ${name}       PARENT_SCOPE)
+  set(pllibs  ${pllibs}  ${my_PL_LIBS} PARENT_SCOPE)
   swipl_plugin(${name} ${ARGN})
 endfunction()
 
@@ -63,12 +66,11 @@ clib_plugin(syslog C_SOURCES syslog.c         PL_LIBS syslog.pl)
 endif(UNIX)
 
 if(LIBUUID_FOUND)
-clib_plugin(uuid
-	     C_SOURCES uuid.c
-	     C_LIBS ${UUID_LIBRARY}
-	     PL_LIBS uuid.pl)
-target_include_directories(plugin_uuid BEFORE PRIVATE
-			   ${LIBUUID_INCLUDE_DIR})
+  clib_plugin(uuid
+	      C_SOURCES uuid.c
+	      C_LIBS ${UUID_LIBRARY}
+	      C_INCLUDE_DIR ${LIBUUID_INCLUDE_DIR}
+	      PL_LIBS uuid.pl)
 endif()
 
 clib_plugin(crypt
@@ -99,8 +101,20 @@ test_libs(cgi crypt memfile process readutil socket stream time uri)
 ################
 # Documentation
 
+# Files that have PlDoc comments whose TeX file is included in clib.tex
+set(pldoc_files process.pl uri.pl filesex.pl uid.pl udp_broadcast.pl
+    uuid.pl unix.pl syslog.pl socket.pl prolog_stream.pl md5.pl
+    hash_stream.pl)
+
+# Filter the ones we will build
+set(pldoc_ok)
+foreach(f ${pldoc_files})
+  list(FIND pllibs ${f} idx)		# IN_LIST is cmake >= 3.3
+  if(idx GREATER_EQUAL 0)
+    set(pldoc_ok ${pldoc_ok} ${f})
+  endif()
+endforeach()
+
 pkg_doc(clib
-	SOURCES process.pl uri.pl filesex.pl uid.pl udp_broadcast.pl
-	        uuid.pl unix.pl syslog.pl socket.pl prolog_stream.pl md5.pl
-	        hash_stream.pl
+	SOURCES ${pldoc_ok}
 	DEPENDS ${plugins})

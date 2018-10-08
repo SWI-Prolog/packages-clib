@@ -64,8 +64,8 @@ verification, \pllib{sha} providing cryptographic hash functions and
 
 \input{process.tex}
 \input{filesex.tex}
-\input{uid.tex}
-\input{syslog.tex}
+\InputIfFileExists{uid.tex}{}{}
+\InputIfFileExists{syslog.tex}{}{}
 \input{socket.tex}
 
 \subsection{UDP protocol support}
@@ -340,7 +340,7 @@ important to you, use crypto_password_hash/2 provided by library
 \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
 \end{description}
 
-\input{uuid.tex}
+\InputIfFileExists{uuid.tex}{}{}
 
 \section{SHA* Secure Hash Algorithms}
 \label{sec:sha}
@@ -671,7 +671,7 @@ long-running foreign code and system calls is undefined. Blocking I/O
 can be handled using the timeout option of read_term/3.
 \end{description}
 
-\input{unix.tex}
+\InputIfFileExists{unix.tex}{}{}
 
 \section{Limiting process resources}
 \label{sec:limit-process-resources}
