@@ -39,6 +39,7 @@
             chmod/2,                    % +File, +Mode
             relative_file_name/3,       % ?AbsPath, +RelTo, ?RelPath
             directory_file_path/3,      % +Dir, +File, -Path
+            directory_member/3,		% +Dir, -Member, +Options
             copy_file/2,                % +From, +To
             make_directory_path/1,      % +Directory
             copy_directory/2,           % +Source, +Destination
@@ -206,7 +207,125 @@ strip_trailing_slash(Dir0, Dir) :-
     ).
 
 
-%!  copy_file(From, To) is det.
+%!  directory_member(+Directory, -Member, +Options) is nondet.
+%
+%   True when Member is a path inside Directory.  Options defined are:
+%
+%     - recursive(+Boolean)
+%       If `true` (default `false`), recurse into subdirectories
+%     - follow_links(+Boolean)
+%       If `true` (default), follow symbolic links.
+%     - file_type(+Type)
+%       See absolute_file_name/3.
+%     - file_errors(+Errors)
+%       How to handle errors.  One of `fail`, `warning` or `error`.
+%       Default is `warning`.  Errors notably happen of a directory is
+%       unreadable or a link points to nowhere.
+%     - access(+Access)
+%       Only return entries with Access
+%     - matches(+GlobPattern)
+%       Only return files that match GlobPattern.
+%     - exclude(+GlobPattern)
+%       Exclude files matching GlobPattern.
+%     - hidden(+Boolean)
+%       If `true` (default), also return _hidden_ files.
+%
+%   This predicate is safe against cycles   introduced by symbolic links
+%   to directories.
+%
+%   The idea for a non-deterministic file   search  predicate comes from
+%   Nicos Angelopoulos.
+
+directory_member(Directory, Member, Options) :-
+    dict_create(Dict, options, Options),
+    (   Dict.get(recursive) == true,
+        \+ Dict.get(follow_links) == false
+    ->  empty_nb_set(Visited),
+        DictOptions = Dict.put(visited, Visited)
+    ;   DictOptions = Dict
+    ),
+    directory_member_dict(Directory, Member, DictOptions).
+
+directory_member_dict(Directory, Member, Dict) :-
+    directory_files(Directory, Files, Dict),
+    member(Entry, Files),
+    directory_file_path(Directory, Entry, AbsEntry),
+    \+ special(Entry),
+    filter_link(AbsEntry, Dict),
+    (   exists_directory(AbsEntry)
+    ->  (   filter_dir_member(AbsEntry, Dict),
+            Member = AbsEntry
+        ;   Dict.get(recursive) == true,
+            no_link_cycle(AbsEntry, Dict),
+            directory_member_dict(AbsEntry, Member, Dict)
+        )
+    ;   filter_dir_member(AbsEntry, Dict),
+        Member = AbsEntry
+    ).
+
+directory_files(Directory, Files, Dict) :-
+    Errors = Dict.get(file_errors),
+    !,
+    errors_directory_files(Errors, Directory, Files).
+directory_files(Directory, Files, _Dict) :-
+    errors_directory_files(warning, Directory, Files).
+
+errors_directory_files(fail, Directory, Files) :-
+    catch(directory_files(Directory, Files), _, fail).
+errors_directory_files(warning, Directory, Files) :-
+    catch(directory_files(Directory, Files), E,
+          (   print_message(warning, E),
+              fail)).
+errors_directory_files(error, Directory, Files) :-
+    directory_files(Directory, Files).
+
+
+filter_link(File, Dict) :-
+    \+ ( Dict.get(follow_links) == false,
+         read_link(File, _, _)
+       ).
+
+no_link_cycle(Directory, Dict) :-
+    Visited = Dict.get(visited),
+    !,
+    absolute_file_name(Directory, Canonical,
+                       [ file_type(directory)
+                       ]),
+    add_nb_set(Canonical, Visited, true).
+no_link_cycle(_, _).
+
+filter_dir_member(Entry, Dict) :-
+    Exclude = Dict.get(exclude),
+    wildcard_match(Exclude, Entry),
+    !, fail.
+filter_dir_member(Entry, Dict) :-
+    Include = Dict.get(matches),
+    \+ wildcard_match(Include, Entry),
+    !, fail.
+filter_dir_member(Entry, Dict) :-
+    Type = Dict.get(file_type),
+    \+ matches_type(Type, Entry),
+    !, fail.
+filter_dir_member(Entry, Dict) :-
+    Access = Dict.get(access),
+    \+ access_file(Entry, Access),
+    !, fail.
+filter_dir_member(Entry, Dict) :-
+    false == Dict.get(hidden),
+    sub_atom(Entry, 0, _, _, '.'),
+    !, fail.
+filter_dir_member(_, _).
+
+matches_type(directory, Entry) :-
+    !,
+    exists_directory(Entry).
+matches_type(Type, Entry) :-
+    \+ exists_directory(Entry),
+    prolog_file_type(Ext, Type),
+    file_name_extension(_, Ext, Entry).
+
+
+%!  copy_file(+From, +To) is det.
 %
 %   Copy a file into a new file or  directory. The data is copied as
 %   binary data.
