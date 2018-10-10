@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2017, University of Amsterdam
-                              Vu University Amsterdam
+    Copyright (c)  2002-2018, University of Amsterdam
+                              VU University Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -61,6 +62,18 @@ operating system primitives through shell/1  or process_create/3 because
 dependency  on  operating   system   commands    and   (3)   using   the
 implementations from this library is usually faster.
 */
+
+:- predicate_options(directory_member/3, 3,
+                     [ recursive(boolean),
+                       follow_links(boolean),
+                       file_type(atom),
+                       extensions(list(atom)),
+                       file_errors(oneof([fail,warning,error])),
+                       access(oneof([read,write,execute])),
+                       matches(text),
+                       exclude(text),
+                       hidden(boolean)
+                     ]).
 
 
 :- use_foreign_library(foreign(files), install_files).
@@ -217,6 +230,8 @@ strip_trailing_slash(Dir0, Dir) :-
 %       If `true` (default), follow symbolic links.
 %     - file_type(+Type)
 %       See absolute_file_name/3.
+%     - extensions(+List)
+%       Only return entries whose extension appears in List.
 %     - file_errors(+Errors)
 %       How to handle errors.  One of `fail`, `warning` or `error`.
 %       Default is `warning`.  Errors notably happen of a directory is
@@ -249,13 +264,14 @@ directory_member(Directory, Member, Options) :-
 directory_member_dict(Directory, Member, Dict) :-
     directory_files(Directory, Files, Dict),
     member(Entry, Files),
-    directory_file_path(Directory, Entry, AbsEntry),
     \+ special(Entry),
+    directory_file_path(Directory, Entry, AbsEntry),
     filter_link(AbsEntry, Dict),
     (   exists_directory(AbsEntry)
     ->  (   filter_dir_member(AbsEntry, Dict),
             Member = AbsEntry
         ;   Dict.get(recursive) == true,
+            \+ hidden_file(Entry, Dict),
             no_link_cycle(AbsEntry, Dict),
             directory_member_dict(AbsEntry, Member, Dict)
         )
@@ -294,6 +310,10 @@ no_link_cycle(Directory, Dict) :-
     add_nb_set(Canonical, Visited, true).
 no_link_cycle(_, _).
 
+hidden_file(Entry, Dict) :-
+    false == Dict.get(hidden),
+    sub_atom(Entry, 0, _, _, '.').
+
 filter_dir_member(Entry, Dict) :-
     Exclude = Dict.get(exclude),
     wildcard_match(Exclude, Entry),
@@ -307,12 +327,16 @@ filter_dir_member(Entry, Dict) :-
     \+ matches_type(Type, Entry),
     !, fail.
 filter_dir_member(Entry, Dict) :-
+    ExtList = Dict.get(extensions),
+    file_name_extension(_, Ext, Entry),
+    \+ memberchk(Ext, ExtList),
+    !, fail.
+filter_dir_member(Entry, Dict) :-
     Access = Dict.get(access),
     \+ access_file(Entry, Access),
     !, fail.
 filter_dir_member(Entry, Dict) :-
-    false == Dict.get(hidden),
-    sub_atom(Entry, 0, _, _, '.'),
+    hidden_file(Entry, Dict),
     !, fail.
 filter_dir_member(_, _).
 
