@@ -72,6 +72,7 @@ implementations from this library is usually faster.
                        access(oneof([read,write,execute])),
                        matches(text),
                        exclude(text),
+                       exclude_directory(text),
                        hidden(boolean)
                      ]).
 
@@ -242,6 +243,8 @@ strip_trailing_slash(Dir0, Dir) :-
 %       Only return files that match GlobPattern.
 %     - exclude(+GlobPattern)
 %       Exclude files matching GlobPattern.
+%     - exclude_directory(+GlobPattern)
+%       Do not recurse into directories matching GlobPattern.
 %     - hidden(+Boolean)
 %       If `true` (default), also return _hidden_ files.
 %
@@ -268,14 +271,15 @@ directory_member_dict(Directory, Member, Dict) :-
     directory_file_path(Directory, Entry, AbsEntry),
     filter_link(AbsEntry, Dict),
     (   exists_directory(AbsEntry)
-    ->  (   filter_dir_member(AbsEntry, Dict),
+    ->  (   filter_dir_member(AbsEntry, Entry, Dict),
             Member = AbsEntry
-        ;   Dict.get(recursive) == true,
+        ;   filter_directory(Entry, Dict),
+            Dict.get(recursive) == true,
             \+ hidden_file(Entry, Dict),
             no_link_cycle(AbsEntry, Dict),
             directory_member_dict(AbsEntry, Member, Dict)
         )
-    ;   filter_dir_member(AbsEntry, Dict),
+    ;   filter_dir_member(AbsEntry, Entry, Dict),
         Member = AbsEntry
     ).
 
@@ -314,31 +318,35 @@ hidden_file(Entry, Dict) :-
     false == Dict.get(hidden),
     sub_atom(Entry, 0, _, _, '.').
 
-filter_dir_member(Entry, Dict) :-
+%!  filter_dir_member(+Absolute, +BaseName, +Options)
+%
+%   True when the given file satisfies the filter expressions.
+
+filter_dir_member(_AbsEntry, Entry, Dict) :-
     Exclude = Dict.get(exclude),
     wildcard_match(Exclude, Entry),
     !, fail.
-filter_dir_member(Entry, Dict) :-
+filter_dir_member(_AbsEntry, Entry, Dict) :-
     Include = Dict.get(matches),
     \+ wildcard_match(Include, Entry),
     !, fail.
-filter_dir_member(Entry, Dict) :-
+filter_dir_member(AbsEntry, _Entry, Dict) :-
     Type = Dict.get(file_type),
-    \+ matches_type(Type, Entry),
+    \+ matches_type(Type, AbsEntry),
     !, fail.
-filter_dir_member(Entry, Dict) :-
+filter_dir_member(_AbsEntry, Entry, Dict) :-
     ExtList = Dict.get(extensions),
     file_name_extension(_, Ext, Entry),
     \+ memberchk(Ext, ExtList),
     !, fail.
-filter_dir_member(Entry, Dict) :-
+filter_dir_member(AbsEntry, _Entry, Dict) :-
     Access = Dict.get(access),
-    \+ access_file(Entry, Access),
+    \+ access_file(AbsEntry, Access),
     !, fail.
-filter_dir_member(Entry, Dict) :-
+filter_dir_member(_AbsEntry, Entry, Dict) :-
     hidden_file(Entry, Dict),
     !, fail.
-filter_dir_member(_, _).
+filter_dir_member(_, _, _).
 
 matches_type(directory, Entry) :-
     !,
@@ -347,6 +355,17 @@ matches_type(Type, Entry) :-
     \+ exists_directory(Entry),
     prolog_file_type(Ext, Type),
     file_name_extension(_, Ext, Entry).
+
+
+%!  filter_directory(+Entry, +Dict) is semidet.
+%
+%   Implement the exclude_directory(+GlobPattern) option.
+
+filter_directory(Entry, Dict) :-
+    Exclude = Dict.get(exclude_directory),
+    wildcard_match(Exclude, Entry),
+    !, fail.
+filter_directory(_, _).
 
 
 %!  copy_file(+From, +To) is det.
