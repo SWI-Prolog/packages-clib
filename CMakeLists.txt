@@ -115,6 +115,9 @@ foreach(f ${pldoc_files})
   endif()
 endforeach()
 
+add_custom_target(clib)
+add_dependencies(clib ${plugins})
+
 pkg_doc(clib
 	SOURCES ${pldoc_ok}
 	DEPENDS ${plugins})
