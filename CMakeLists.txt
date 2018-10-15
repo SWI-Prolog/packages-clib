@@ -44,8 +44,8 @@ function(clib_plugin name)
 endfunction()
 
 clib_plugin(cgi        C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)
-clib_plugin(memfile    C_SOURCES error.c memfile.c    PL_LIBS memfile.pl)
-clib_plugin(time       C_SOURCES error.c time.c       PL_LIBS time.pl)
+clib_plugin(memfile    C_SOURCES error.c memfile.c    PL_LIBS memfile.pl THREADED)
+clib_plugin(time       C_SOURCES error.c time.c       PL_LIBS time.pl THREADED)
 clib_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
 clib_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
 clib_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
@@ -53,7 +53,7 @@ if(HAVE_MALLINFO)
 clib_plugin(mallocinfo C_SOURCES error.c mallocinfo.c PL_LIBS mallocinfo.pl)
 endif()
 
-clib_plugin(uri           C_SOURCES uri.c           PL_LIBS uri.pl)
+clib_plugin(uri           C_SOURCES uri.c           PL_LIBS uri.pl THREADED)
 clib_plugin(readutil      C_SOURCES readutil.c	    PL_LIBS)
 clib_plugin(prolog_stream C_SOURCES prolog_stream.c PL_LIBS prolog_stream.pl)
 clib_plugin(md54pl        C_SOURCES md54pl.c md5.c  PL_LIBS md5.pl)
@@ -75,7 +75,7 @@ endif()
 
 clib_plugin(crypt
 	     C_SOURCES error.c crypt.c md5.c md5passwd.c ${CRYPT_SOURCE}
-	     C_LIBS ${CRYPT_LIBS}
+	     THREADED C_LIBS ${CRYPT_LIBS}
 	     PL_LIBS crypt.pl)
 clib_plugin(hashstream
 	     C_SOURCES hash_stream.c md5.c sha1/sha1.c sha1/sha2.c
