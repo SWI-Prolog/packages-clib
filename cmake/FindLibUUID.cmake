@@ -1,12 +1,19 @@
 if(NOT UUID_LIBRARY)
 
-find_program(
-    UUID_CONFIG
-    uuid-config
-    DOC "OSSP uuid config tool")
+if(EXISTS ${LibUUID_ROOT}/bin/uuid-config)
+  set(UUID_CONFIG ${LibUUID_ROOT}/bin/uuid-config CACHE FILEPATH
+      "Path name for ossp-uuid library config tool")
+else()
+  find_program(
+      UUID_CONFIG
+      uuid-config
+      PATH_SUFFIXES ""
+      DOC "OSSP uuid config tool")
+endif()
 mark_as_advanced(UUID_CONFIG)
 
 if(UUID_CONFIG)
+  message("-- Using ${UUID_CONFIG} to find ossp-uuid")
   exec_program(${UUID_CONFIG} ARGS --version OUTPUT_VARIABLE UUID_VERSION)
   if(UUID_VERSION MATCHES "OSSP")
     exec_program(${UUID_CONFIG} ARGS --includedir
