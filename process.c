@@ -1460,10 +1460,6 @@ wait_for_process(process_context *pc)
 }
 
 
-#ifndef HAVE_VFORK
-#define vfork fork
-#endif
-
 static int
 close_ok(int fd)
 { int rc;
@@ -1480,9 +1476,91 @@ close_ok(int fd)
 
 
 static int
-do_create_process(p_options *info)
+process_parent_side(p_options *info, int pid)
+{ int rc = TRUE;
+
+  if ( info->pipes > 0 && info->pid == 0 )
+  { IOSTREAM *s;			/* no pid(Pid): wait */
+    process_context *pc = PL_malloc(sizeof(*pc));
+    DEBUG(Sdprintf("Wait on pipes\n"));
+
+    memset(pc, 0, sizeof(*pc));
+    pc->magic = PROCESS_MAGIC;
+    pc->pid = pid;
+    pc->exe_name = info->exe_name;
+    PL_register_atom(pc->exe_name);
+
+    if ( info->streams[0].type == std_pipe )
+    { close_ok(info->streams[0].fd[0]);
+      if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
+	rc = PL_unify_stream(info->streams[0].term, s);
+      else
+	close_ok(info->streams[0].fd[1]);
+    }
+    if ( info->streams[1].type == std_pipe )
+    { close_ok(info->streams[1].fd[1]);
+      if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
+	rc = PL_unify_stream(info->streams[1].term, s);
+      else
+	close_ok(info->streams[1].fd[0]);
+    }
+    if ( info->streams[2].type == std_pipe &&
+	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
+    { close_ok(info->streams[2].fd[1]);
+      if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
+	rc = PL_unify_stream(info->streams[2].term, s);
+      else
+	close_ok(info->streams[2].fd[0]);
+    }
+
+    return rc;
+  } else if ( info->pipes > 0 )
+  { IOSTREAM *s;
+
+    if ( info->streams[0].type == std_pipe )
+    { close_ok(info->streams[0].fd[0]);
+      if ( (s = Sfdopen(info->streams[0].fd[1], "w")) )
+	rc = PL_unify_stream(info->streams[0].term, s);
+      else
+	close_ok(info->streams[0].fd[1]);
+    }
+    if ( info->streams[1].type == std_pipe )
+    { close_ok(info->streams[1].fd[1]);
+      if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
+	rc = PL_unify_stream(info->streams[1].term, s);
+      else
+	close_ok(info->streams[1].fd[0]);
+    }
+    if ( info->streams[2].type == std_pipe &&
+	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
+    { close_ok(info->streams[2].fd[1]);
+      if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
+	PL_unify_stream(info->streams[2].term, s);
+      else
+	close_ok(info->streams[2].fd[0]);
+    }
+  }
+
+  assert(rc);				/* What else? */
+#ifndef HAVE_PRCTL /* Then we must do this manually */
+  if ( !info->detached )
+    register_process(pid);
+#endif
+  if ( info->pid )
+    return PL_unify_integer(info->pid, pid);
+
+  return wait_success(info->exe_name, pid);
+}
+
+
+#ifndef HAVE_VFORK
+#define vfork fork
+#endif
+
+static int
+do_create_process_fork(p_options *info, int use_v)
 { int pid;
-  if ( !(pid=vfork()) )			/* child */
+  if ( !(pid= use_v ? vfork() : fork()) )	/* child */
   { int fd;
 
     PL_cleanup_fork();
@@ -1574,81 +1652,99 @@ do_create_process(p_options *info)
 
     return pl_error(NULL, 0, "fork", ERR_ERRNO, errno, "fork", "process", exe);
   } else
-  { int rc = TRUE;
-
-    if ( info->pipes > 0 && info->pid == 0 )
-    { IOSTREAM *s;			/* no pid(Pid): wait */
-      process_context *pc = PL_malloc(sizeof(*pc));
-      DEBUG(Sdprintf("Wait on pipes\n"));
-
-      memset(pc, 0, sizeof(*pc));
-      pc->magic = PROCESS_MAGIC;
-      pc->pid = pid;
-      pc->exe_name = info->exe_name;
-      PL_register_atom(pc->exe_name);
-
-      if ( info->streams[0].type == std_pipe )
-      { close_ok(info->streams[0].fd[0]);
-	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
-	  rc = PL_unify_stream(info->streams[0].term, s);
-	else
-	  close_ok(info->streams[0].fd[1]);
-      }
-      if ( info->streams[1].type == std_pipe )
-      { close_ok(info->streams[1].fd[1]);
-	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
-	  rc = PL_unify_stream(info->streams[1].term, s);
-	else
-	  close_ok(info->streams[1].fd[0]);
-      }
-      if ( info->streams[2].type == std_pipe &&
-           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
-      { close_ok(info->streams[2].fd[1]);
-	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
-	  rc = PL_unify_stream(info->streams[2].term, s);
-	else
-	  close_ok(info->streams[2].fd[0]);
-      }
-
-      return rc;
-    } else if ( info->pipes > 0 )
-    { IOSTREAM *s;
-
-      if ( info->streams[0].type == std_pipe )
-      { close_ok(info->streams[0].fd[0]);
-	if ( (s = Sfdopen(info->streams[0].fd[1], "w")) )
-	  rc = PL_unify_stream(info->streams[0].term, s);
-	else
-	  close_ok(info->streams[0].fd[1]);
-      }
-      if ( info->streams[1].type == std_pipe )
-      { close_ok(info->streams[1].fd[1]);
-	if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
-	  rc = PL_unify_stream(info->streams[1].term, s);
-	else
-	  close_ok(info->streams[1].fd[0]);
-      }
-      if ( info->streams[2].type == std_pipe &&
-           ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
-      { close_ok(info->streams[2].fd[1]);
-	if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
-	  PL_unify_stream(info->streams[2].term, s);
-	else
-	  close_ok(info->streams[2].fd[0]);
-      }
-    }
-
-    assert(rc);				/* What else? */
-#ifndef HAVE_PRCTL /* Then we must do this manually */
-    if ( !info->detached )
-      register_process(pid);
-#endif
-    if ( info->pid )
-      return PL_unify_integer(info->pid, pid);
-
-    return wait_success(info->exe_name, pid);
+  { return process_parent_side(info, pid);
   }
 }
+
+
+#ifdef HAVE_POSIX_SPAWN
+#include <spawn.h>
+
+static int do_create_process_fork(p_options *info, int use_v);
+
+static int
+do_create_process(p_options *info)
+{ pid_t pid;
+  posix_spawn_file_actions_t file_actions;
+  posix_spawnattr_t attr;
+  int rc;
+
+  if ( info->cwd )
+    return do_create_process_fork(info, TRUE);
+
+  posix_spawn_file_actions_init(&file_actions);
+  posix_spawnattr_init(&attr);
+
+  if ( info->detached )
+    posix_spawnattr_setpgroup(&attr, 0);
+
+  switch( info->streams[0].type )	/* stdin */
+  { case std_pipe:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
+      if ( !info->streams[0].cloexec )
+	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
+      break;
+    case std_null:
+      posix_spawn_file_actions_addopen(&file_actions, 0,
+				       "/dev/null", O_RDONLY, 0);
+      break;
+    case std_std:
+      break;
+  }
+					/* stdout */
+  switch( info->streams[1].type )
+  { case std_pipe:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
+      if ( !info->streams[1].cloexec )
+	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
+      break;
+    case std_null:
+      posix_spawn_file_actions_addopen(&file_actions, 1,
+				       "/dev/null", O_WRONLY, 0);
+      break;
+    case std_std:
+      break;
+  }
+				      /* stderr */
+  switch( info->streams[2].type )
+  { case std_pipe:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
+      if ( !info->streams[2].cloexec )
+	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
+      break;
+    case std_null:
+      posix_spawn_file_actions_addopen(&file_actions, 2,
+				       "/dev/null", O_WRONLY, 0);
+      break;
+    case std_std:
+      break;
+  }
+
+  rc = posix_spawn(&pid, info->exe,
+		   &file_actions, &attr,
+		   info->argv, info->envp);
+
+  posix_spawn_file_actions_destroy(&file_actions);
+  posix_spawnattr_destroy(&attr);
+
+  if ( rc == 0 )
+  { return process_parent_side(info, pid);
+  } else
+  { term_t exe = PL_new_term_ref();
+    PL_put_atom_chars(exe, info->exe);
+
+    return pl_error(NULL, 0, "spawn", ERR_ERRNO, errno, "fork", "process", exe);
+  }
+}
+
+#else /*HAVE_POSIX_SPAWN*/
+
+static int
+do_create_process(p_options *info)
+{ return do_create_process_fork(info, TRUE);
+}
+
+#endif /*HAVE_POSIX_SPAWN*/
 
 #endif /*__WINDOWS__*/
 
