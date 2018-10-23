@@ -45,10 +45,11 @@
             process_kill/1,             % +PID
             process_group_kill/1,       % +PID
             process_group_kill/2,       % +PID, +Signal
-            process_kill/2              % +PID, +Signal
+            process_kill/2,             % +PID, +Signal
+
+            process_set_method/1        % +CreateMethod
           ]).
 :- use_module(library(shlib)).
-:- use_module(library(lists)).
 :- use_module(library(option)).
 
 :- use_foreign_library(foreign(process)).
@@ -383,6 +384,34 @@ process_kill(PID) :-
 
 process_group_kill(PID) :-
     process_group_kill(PID, term).
+
+
+%!  process_set_method(+Method) is det.
+%
+%   Determine how the process is created on  Unix systems. Method is one
+%   of `spawn` (default), `fork` or `vfork`.   If  the method is `spawn`
+%   but this cannot be used because it is either not supported by the OS
+%   or the cwd(Dir) option is given `fork` is used.
+%
+%   The problem is to be understood   as  follows. The official portable
+%   and safe method to create a process is using the fork() system call.
+%   This call however copies the process   page tables and get seriously
+%   slow  as  the  (Prolog)  process  is   multiple  giga  bytes  large.
+%   Alternatively, we may use vfork() which   avoids copying the process
+%   space. But, the safe usage as guaranteed   by  the POSIX standard of
+%   vfork() is insufficient for our purposes.  On practical systems your
+%   mileage may vary. Modern posix   systems also provide posix_spawn(),
+%   which provides a safe and portable   alternative  for the fork() and
+%   exec() sequence that may be implemented using   fork()  or may use a
+%   fast  but  safe  alternative.  Unfortunately  posix_spawn()  doesn't
+%   support the option to specify the   working  directory for the child
+%   and we cannot use working_directory/2 as   the  working directory is
+%   shared between threads.
+%
+%   Summarizing, the default is  safe  and  tries   to  be  as  fast  as
+%   possible. On some scenarios and on some   OSes  it is possible to do
+%   better. It is generally a good  idea   to  avoid  using the cwd(Dir)
+%   option of process_create/3 as without we can use posix_spawn().
 
 
                  /*******************************

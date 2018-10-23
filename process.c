@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2015, University of Amsterdam
+    Copyright (c)  2000-2018, University of Amsterdam
                               VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -185,6 +186,14 @@ typedef struct wait_options
   int	 release;
 } wait_options;
 
+
+typedef enum create_method
+{ PCREATE_SPAWN,
+  PCREATE_VFORK,
+  PCREATE_FORK
+} create_method;
+
+static create_method create_process_method = PCREATE_SPAWN;
 
 #ifdef __WINDOWS__
 static int win_command_line(term_t t, int arity,
@@ -1558,9 +1567,15 @@ process_parent_side(p_options *info, int pid)
 #endif
 
 static int
-do_create_process_fork(p_options *info, int use_v)
+do_create_process_fork(p_options *info, create_method method)
 { int pid;
-  if ( !(pid= use_v ? vfork() : fork()) )	/* child */
+
+  if ( method == PCREATE_VFORK )
+    pid = vfork();
+  else
+    pid = fork();
+
+  if ( pid == 0 )				/* child */
   { int fd;
 
     PL_cleanup_fork();
@@ -1660,8 +1675,6 @@ do_create_process_fork(p_options *info, int use_v)
 #ifdef HAVE_POSIX_SPAWN
 #include <spawn.h>
 
-static int do_create_process_fork(p_options *info, int use_v);
-
 static int
 do_create_process(p_options *info)
 { pid_t pid;
@@ -1669,8 +1682,8 @@ do_create_process(p_options *info)
   posix_spawnattr_t attr;
   int rc;
 
-  if ( info->cwd )
-    return do_create_process_fork(info, TRUE);
+  if ( info->cwd || create_process_method != PCREATE_SPAWN )
+    return do_create_process_fork(info, create_process_method);
 
   posix_spawn_file_actions_init(&file_actions);
   posix_spawnattr_init(&attr);
@@ -1741,7 +1754,7 @@ do_create_process(p_options *info)
 
 static int
 do_create_process(p_options *info)
-{ return do_create_process_fork(info, TRUE);
+{ return do_create_process_fork(info, create_process_method);
 }
 
 #endif /*HAVE_POSIX_SPAWN*/
@@ -1953,7 +1966,25 @@ process_group_kill(term_t pid, term_t signal)
 }
 
 
+static foreign_t
+process_set_method(term_t how)
+{ char *s;
 
+  if ( PL_get_chars(how, &s, CVT_ATOM|CVT_EXCEPTION) )
+  { if ( strcmp(s, "fork") == 0 )
+      create_process_method = PCREATE_FORK;
+    else if ( strcmp(s, "vfork") == 0 )
+      create_process_method = PCREATE_VFORK;
+    else if ( strcmp(s, "spawn") == 0 )
+      create_process_method = PCREATE_SPAWN;
+    else
+      return PL_domain_error("process_create_method", how);
+
+    return TRUE;
+  }
+
+  return FALSE;
+}
 
 #define MKATOM(n) ATOM_ ## n = PL_new_atom(#n)
 #define MKFUNCTOR(n,a) FUNCTOR_ ## n ## a = PL_new_functor(PL_new_atom(#n), a)
@@ -1991,8 +2022,9 @@ install_process()
 
   FUNCTOR_eq2 = PL_new_functor(PL_new_atom("="), 2);
 
-  PL_register_foreign("process_create", 2, process_create, 0);
-  PL_register_foreign("process_wait", 3, process_wait, 0);
-  PL_register_foreign("process_kill", 2, process_kill, 0);
+  PL_register_foreign("process_create",	    2, process_create,	   0);
+  PL_register_foreign("process_wait",	    3, process_wait,	   0);
+  PL_register_foreign("process_kill",	    2, process_kill,	   0);
   PL_register_foreign("process_group_kill", 2, process_group_kill, 0);
+  PL_register_foreign("process_set_method", 1, process_set_method, 0);
 }
