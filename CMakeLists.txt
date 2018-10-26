@@ -110,7 +110,7 @@ set(pldoc_files process.pl uri.pl filesex.pl uid.pl udp_broadcast.pl
 set(pldoc_ok)
 foreach(f ${pldoc_files})
   list(FIND pllibs ${f} idx)		# IN_LIST is cmake >= 3.3
-  if(idx GREATER_EQUAL 0)
+  if(NOT idx EQUAL -1)
     set(pldoc_ok ${pldoc_ok} ${f})
   endif()
 endforeach()
