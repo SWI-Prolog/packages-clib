@@ -235,8 +235,8 @@ strip_trailing_slash(Dir0, Dir) :-
 %       Only return entries whose extension appears in List.
 %     - file_errors(+Errors)
 %       How to handle errors.  One of `fail`, `warning` or `error`.
-%       Default is `warning`.  Errors notably happen of a directory is
-%       unreadable or a link points to nowhere.
+%       Default is `warning`.  Errors notably happen if a directory is
+%       unreadable or a link points nowhere.
 %     - access(+Access)
 %       Only return entries with Access
 %     - matches(+GlobPattern)
