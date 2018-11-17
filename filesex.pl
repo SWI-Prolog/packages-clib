@@ -120,26 +120,34 @@ implementations from this library is usually faster.
 %   @error  domain_error(link_type, Type) if the requested link-type
 %           is unknown or not supported on the target OS.
 
-%!  relative_file_name(+Path:atom, +RelTo:atom, -RelPath:atom) is det.
-%!  relative_file_name(-Path:atom, +RelTo:atom, +RelPath:atom) is det.
+%!  relative_file_name(+Path:atom, +RelToFile:atom, -RelPath:atom) is det.
+%!  relative_file_name(-Path:atom, +RelToFile:atom, +RelPath:atom) is det.
 %
-%   True when RelPath is Path, relative to RelTo. Path and RelTo are
-%   first handed to absolute_file_name/2, which   makes the absolute
-%   *and* canonical. Below are two examples:
+%   True when RelPath is Path, relative to the _file_ RelToFile. Path and
+%   RelTo are first handed to absolute_file_name/2, which makes the
+%   absolute *and* canonical. Below are two examples:
 %
-%   ==
+%   ```
 %   ?- relative_file_name('/home/janw/nice',
 %                         '/home/janw/deep/dir/file', Path).
 %   Path = '../../nice'.
 %
 %   ?- relative_file_name(Path, '/home/janw/deep/dir/file', '../../nice').
 %   Path = '/home/janw/nice'.
-%   ==
+%   ```
+%
+%   Add a terminating `/` to get a path relative to a _directory_, e.g.
+%
+%       ?- relative_file_name('/home/janw/deep/dir/file', './', Path).
+%       Path = 'deep/dir/file'.
 %
 %   @param  All paths must be in canonical POSIX notation, i.e.,
 %           using / to separate segments in the path.  See
 %           prolog_to_os_filename/2.
-%   @bug    This predicate is defined as a _syntactical_ operation.
+%   @bug    It would probably have been cleaner to use a directory
+%	    as second argument.  We can not do such dynamically as this
+%	    predicate is defined as a _syntactical_ operation, which
+%	    implies it may be used for non-existing paths and URLs.
 
 relative_file_name(Path, RelTo, RelPath) :- % +,+,-
     nonvar(Path),
