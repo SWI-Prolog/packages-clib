@@ -37,6 +37,7 @@
 #include <config.h>
 
 /*#define O_DEBUG 1*/
+#undef O_DEBUG
 #define _GNU_SOURCE			/* get pipe2() */
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
