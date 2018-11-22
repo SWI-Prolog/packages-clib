@@ -1691,9 +1691,12 @@ do_create_process_fork(p_options *info, create_method method)
     }
 
     if ( info->envp )
-      execve(info->exe, info->argv, info->envp);
-    else
-      execv(info->exe, info->argv);
+    { execve(info->exe, info->argv, info->envp);
+    } else
+    { extern char **environ;
+
+      execve(info->exe, info->argv, environ);
+    }
 
     perror(info->exe);
     exit(1);
