@@ -51,6 +51,8 @@
           ]).
 :- use_module(library(shlib)).
 :- use_module(library(option)).
+:- use_module(library(error)).
+:- use_module(library(apply)).
 
 :- use_foreign_library(foreign(process)).
 
@@ -60,6 +62,7 @@
                        stderr(any),
                        cwd(atom),
                        env(list(any)),
+                       environment(list(any)),
                        priority(+integer),
                        process(-integer),
                        detached(+boolean),
@@ -101,7 +104,9 @@ following finds the executable for =ls=:
     current implementation uses setsid() on Unix systems.
 
     * An extra option env([Name=Value, ...]) is added to
-    process_create/3.
+    process_create/3.  As of version 4.1 SICStus added
+    environment(List) which _modifies_ the environment.  A
+    compatible option was added to SWI-Prolog 7.7.23.
 
 @tbd    Implement detached option in process_create/3
 @compat SICStus 4
@@ -149,10 +154,13 @@ following finds the executable for =ls=:
 %       compound specification, which is converted using
 %       absolute_file_name/3.
 %       * env(+List)
-%       Specify the environment for the new process.  List is
-%       a list of Name=Value terms.  Note that the current
-%       implementation does not pass any environment variables.
-%       If unspecified, the environment is inherited from the
+%       As environment(List), but _only_ the specified variables
+%       are passed, i.e., no variables are _inherited_.
+%       * environment(+List)
+%       Specify _additional_ environment variables for the new process.
+%       List is a list of `Name=Value` terms, where `Value` is expanded
+%       the same way as the Args argument. If neither `env` nor
+%       `environment` is passed the environment is inherited from the
 %       Prolog process.
 %       * process(-PID)
 %       Unify PID with the process id of the created process.
@@ -238,6 +246,8 @@ following finds the executable for =ls=:
 %           exit(Code) or killed(Signal).  Raised if the process
 %           is waited for (i.e., Options does not include
 %           process(-PID)), and does not exit with status 0.
+%   @bug    On Windows, environment(List) is handled as env(List),
+%           i.e., the environment is not inherited.
 
 process_create(Exe, Args, Options) :-
     exe_options(ExeOptions),
@@ -247,7 +257,9 @@ process_create(Exe, Args, Options) :-
     prolog_to_os_filename(PlProg, Prog),
     Term =.. [Prog|Av],
     expand_cwd_option(Options, Options1),
-    process_create(Term, Options1).
+    expand_env_option(env, Options1, Options2),
+    expand_env_option(environment, Options2, Options3),
+    process_create(Term, Options3).
 
 exe_options(Options) :-
     current_prolog_flag(windows, true),
@@ -269,6 +281,18 @@ expand_cwd_option(Options0, Options) :-
     ).
 expand_cwd_option(Options, Options).
 
+expand_env_option(Name, Options0, Options) :-
+    Term =.. [Name,Value0],
+    select_option(Term, Options0, Options1),
+    !,
+    must_be(list, Value0),
+    maplist(map_env, Value0, Value),
+    NewOption =.. [Name,Value],
+    Options = [NewOption|Options1].
+expand_env_option(_, Options, Options).
+
+map_env(Name=Value0, Name=Value) :-
+    map_arg(Value0, Value).
 
 %!  map_arg(+ArgIn, -Arg) is det.
 %

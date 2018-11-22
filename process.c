@@ -81,6 +81,7 @@ static atom_t ATOM_process;
 static atom_t ATOM_detached;
 static atom_t ATOM_cwd;
 static atom_t ATOM_env;
+static atom_t ATOM_environment;
 static atom_t ATOM_priority;
 static atom_t ATOM_window;
 static atom_t ATOM_timeout;
@@ -271,8 +272,24 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 #define ECHARS(s) s
 #endif
 
+#ifndef __WINDOWS__
 static int
-parse_environment(term_t t, p_options *info)
+already_in_env(const char *env, const char *e)
+{ for(; *env; env += strlen(env)+1)
+  { const char *s, *q;
+
+    for(s=env, q=e; *s && *q && *s == *q && *s != '=' && *q != '='; s++,q++)
+      ;
+    if (*s == *q && *s == '=' )
+      return TRUE;
+  }
+
+  return FALSE;
+}
+#endif
+
+static int
+parse_environment(term_t t, p_options *info, int pass)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
   term_t tmp  = PL_new_term_ref();
@@ -309,6 +326,21 @@ parse_environment(term_t t, p_options *info)
 
   if ( !PL_get_nil_ex(tail) )
     return FALSE;
+
+#ifndef __WINDOWS__
+  if ( pass )
+  { extern char **environ;
+    char **e;
+
+    for(e=environ; e && *e; e++)
+    { if ( !already_in_env(eb->buffer, *e) )
+      { add_ecbuf(eb, *e, strlen(*e));
+	add_ecbuf(eb, ECHARS("\0"), 1);
+	count++;
+      }
+    }
+  }
+#endif /*__WINDOWS__*/
 
 #ifdef __WINDOWS__
   add_ecbuf(eb, ECHARS("\0"), 1);
@@ -405,7 +437,10 @@ parse_options(term_t options, p_options *info)
     { if ( !PL_get_bool_ex(arg, &info->window) )
 	return FALSE;
     } else if ( name == ATOM_env )
-    { if ( !parse_environment(arg, info) )
+    { if ( !parse_environment(arg, info, FALSE) )
+	return FALSE;
+    } else if ( name == ATOM_environment )
+    { if ( !parse_environment(arg, info, TRUE) )
 	return FALSE;
     } else if ( name == ATOM_priority )
     { int tmp;
@@ -2008,6 +2043,7 @@ install_process()
   MKATOM(detached);
   MKATOM(cwd);
   MKATOM(env);
+  MKATOM(environment);
   MKATOM(priority);
   MKATOM(window);
   MKATOM(timeout);
