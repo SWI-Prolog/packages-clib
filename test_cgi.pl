@@ -37,10 +37,9 @@
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '.')).
 :- asserta(user:file_search_path(library, '../plunit')).
-
 :- use_module(library(plunit)).
-:- use_module(cgi).
-:- use_module(uri).
+:- use_module(library(cgi)).
+:- use_module(library(uri)).
 
 test_cgi :-
     run_tests([ cgi

@@ -37,9 +37,10 @@
           [ test_memfile/0
           ]).
 :- asserta(user:file_search_path(foreign, '.')).
+:- asserta(user:file_search_path(library, '.')).
 :- asserta(user:file_search_path(library, '../plunit')).
 
-:- use_module(memfile).
+:- use_module(library(memfile)).
 :- use_module(library(utf8)).
 :- use_module(library(plunit)).
 :- use_module(library(debug)).

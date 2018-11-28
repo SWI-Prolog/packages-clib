@@ -42,7 +42,7 @@
 
 :- use_module(library(plunit)).
 :- use_module(library(debug)).
-:- use_module(prolog_stream).
+:- use_module(library(prolog_stream)).
 
 test_stream :-
     run_tests([ prolog_stream

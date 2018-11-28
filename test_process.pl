@@ -46,7 +46,7 @@
 :- use_module(library(debug)).
 :- use_module(library(apply)).
 :- use_module(library(readutil)).
-:- use_module(process).
+:- use_module(library(process)).
 
 test_process :-
     run_tests([ process_create,
@@ -119,9 +119,7 @@ test(cwd, [true, condition(current_prolog_flag(windows, true))]) :-
     same_file(CWD, Tmp).
 
 tmp_dir(Dir) :-
-    getenv('TEMP', Dir),
-    !.
-tmp_dir('/tmp').
+    current_prolog_flag(tmp_dir, Dir).
 
 :- end_tests(process_create).
 

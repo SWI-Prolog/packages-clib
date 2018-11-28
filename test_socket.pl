@@ -39,11 +39,11 @@
             client/1                    % +Address
           ]).
 
+:- asserta(user:file_search_path(library, '.')).
 :- asserta(user:file_search_path(foreign, '.')).
 
-:- use_module(socket).
-:- use_module(user:socket).             % debugging
-:- use_module(streampool).
+:- use_module(library(socket)).
+:- use_module(library(streampool)).
 :- use_module(library(debug)).
 
 test_socket :-
