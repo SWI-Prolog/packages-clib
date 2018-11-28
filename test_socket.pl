@@ -41,9 +41,12 @@
 
 :- asserta(user:file_search_path(foreign, '.')).
 
-:- use_module(socket).
-:- use_module(user:socket).             % debugging
-:- use_module(streampool).
+:- prolog_load_context(directory, D),
+   asserta(user:file_search_path(library, D)),
+   atom_concat(D, '/..', DD),
+   asserta(user:file_search_path(library, DD)).
+:- use_module(library(socket)).
+:- use_module(library(streampool)).
 :- use_module(library(debug)).
 
 test_socket :-

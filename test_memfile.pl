@@ -39,7 +39,11 @@
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '../plunit')).
 
-:- use_module(memfile).
+:- prolog_load_context(directory, D),
+   asserta(user:file_search_path(library, D)),
+   atom_concat(D, '/..', DD),
+   asserta(user:file_search_path(library, DD)).
+:- use_module(library(memfile)).
 :- use_module(library(utf8)).
 :- use_module(library(plunit)).
 :- use_module(library(debug)).
