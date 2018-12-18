@@ -361,7 +361,7 @@ matches_type(directory, Entry) :-
     exists_directory(Entry).
 matches_type(Type, Entry) :-
     \+ exists_directory(Entry),
-    prolog_file_type(Ext, Type),
+    user:prolog_file_type(Ext, Type),
     file_name_extension(_, Ext, Entry).
 
 
