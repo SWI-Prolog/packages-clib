@@ -147,6 +147,24 @@ in case of failure or exceptions.
           ...
   ==
 
+## Socket exceptions			{#socket-exceptions}
+
+Errors that are trapped by  the  low-level   library  are  mapped  to an
+exception of the shape below. In this term,  `Code` is a lower case atom
+that corresponds to the C macro name,   e.g., `epipe` for a broken pipe.
+`Message` is the human readable string for   the  error code returned by
+the OS or  the  same  as  `Code`  if   the  OS  does  not  provide  this
+functionality. Note that `Code` is derived from   a static set of macros
+that may or may not be defines for the   target OS. If the macro name is
+not known, `Code` is =|ERROR_nnn|=, where _nnn_ is an integer.
+
+    error(socket_error(Code, Message), _)
+
+Note that on Windows `Code` is a ``wsa*``   code  which makes it hard to
+write portable code that handles specific   socket errors. Even on POSIX
+systems the exact set of errors  produced   by  the network stack is not
+defined.
+
 ## TCP socket predicates                {#socket-predicates}
 */
 
@@ -647,13 +665,13 @@ negotiate_socks_connection(Host:Port, StreamPair):-
 The C-layer generates exceptions of the  following format, where Message
 is extracted from the operating system.
 
-        error(socket_error(Message), _)
+        error(socket_error(Code, Message), _)
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 :- multifile
     prolog:error_message//1.
 
-prolog:error_message(socket_error(Message)) -->
+prolog:error_message(socket_error(_Code, Message)) -->
     [ 'Socket error: ~w'-[Message] ].
 prolog:error_message(socks_error(Error)) -->
     socks_error(Error).

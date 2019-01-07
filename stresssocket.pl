@@ -323,14 +323,14 @@ test_impl(nohost) :-
     tcp_socket(S),
     catch(tcp_connect(S, 'foo.bar':80), E, true),
     tcp_close_socket(S),
-    assertion(E =@= error(socket_error('Host not found'), _)).
+    assertion(E =@= error(socket_error(eai_noname, _), _)).
 
 test_impl(noport) :-
     tcp_socket(S),
     catch(call_with_time_limit(5, tcp_connect(S, localhost:4321)),
           E, true),
     tcp_close_socket(S),
-    assertion(E = error(socket_error(_), _)).
+    assertion(E = error(socket_error(_,_), _)).
 
 
                  /*******************************

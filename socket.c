@@ -141,11 +141,12 @@ pl_host_to_address(term_t Host, term_t Ip)
   if ( PL_get_atom_chars(Host, &host_name) )
   { struct addrinfo hints;
     struct addrinfo *res;
+    int rc;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
 
-    if ( getaddrinfo(host_name, NULL, &hints, &res) == 0 )
+    if ( (rc=getaddrinfo(host_name, NULL, &hints, &res)) == 0 )
     { int rc;
 
       switch( res->ai_family )
@@ -168,7 +169,7 @@ pl_host_to_address(term_t Host, term_t Ip)
 
       return rc;
     } else
-    { return nbio_error(GET_H_ERRNO, TCP_HERRNO);
+    { return nbio_error(rc, TCP_GAI_ERRNO);
     }
   } else if ( nbio_get_ip(Ip, &ip) )
   { struct hostent *host;
@@ -286,7 +287,7 @@ pl_setopt(term_t Socket, term_t opt)
 
       if ( setsockopt(nbio_fd(socket), IPPROTO_IP, opname,
 		      (void*)&mreq, sizeof(mreq)) < 0 )
-	return nbio_error(GET_H_ERRNO, TCP_HERRNO);
+	return nbio_error(GET_ERRNO, TCP_ERRNO);
       else
 	return TRUE;
 #endif
@@ -588,7 +589,7 @@ pl_gethostname(term_t name)
 	hname = PL_new_atom(buf);
 
     } else
-    { return nbio_error(GET_H_ERRNO, TCP_HERRNO);
+    { return nbio_error(GET_ERRNO, TCP_ERRNO);
     }
   }
 

@@ -58,7 +58,7 @@ error_symbol(int code, const error_symbol_t *set)
       return es->symbol;
   }
 
-  sprintf(tmp, "unknown error code %d", code);
+  sprintf(tmp, "ERROR_%d", code);
   return (const char*) tmp;
 }
 

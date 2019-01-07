@@ -962,72 +962,32 @@ WinSockError(unsigned long error)
 		 *     POSIX SOCKET ERRORS	*
 		 *******************************/
 
-#ifdef HAVE_H_ERRNO
-typedef struct
-{ int code;
-  const char *string;
-} error_codes;
+#include "esymbols.ic"
 
+#ifndef __WINDOWS__
 #ifndef HAVE_HSTRERROR
 #define hstrerror my_hstrerror
 
-static error_codes h_errno_codes[] = {
-#ifdef HOST_NOT_FOUND
-    { HOST_NOT_FOUND, "Host not found" },
-#endif
-#ifdef TRY_AGAIN
-    { TRY_AGAIN, "Try Again" },
-#endif
-#ifdef NO_RECOVERY
-    { NO_RECOVERY, "No Recovery" },
-#endif
-#ifdef NO_DATA
-    { NO_DATA, "No Data" },
-#endif
-#ifdef NO_ADDRESS
-    { NO_ADDRESS, "No Address" },
-#endif
-    { 0, NULL }
-};
-
 static const char *
 hstrerror(int code)
-{ static char msgbuf[100];
-  const error_codes *map = h_errno_codes;
-  const char *msg;
-
-  while( map->code && map->code != code )
-    map++;
-
-  if ( map->code )
-  { msg = map->string;
-  } else
-  { sprintf(msgbuf, "Unknown error %d", code);
-    msg = msgbuf;
-  }
-
-  return msg;
+{ return error_symbol(code, h_errno_symbols);
 }
 #endif /*HAVE_HSTRERROR*/
 
-#else /*HAVE_H_ERRNO*/
-#define hstrerror my_hstrerror
+#ifndef HAVE_GAI_STRERROR
+#define gai_strerror my_gai_strerror
 
 static const char *
-hstrerror(int code)
-{ static char msgbuf[100];
-
-  sprintf(msgbuf, "Unknown error %d", code);
-  msg = msgbuf;
-
-  return msg;
+gai_strerror(int code)
+{ return error_symbol(code, gai_errno_symbols);
 }
-
-#endif /*HAVE_H_ERRNO*/
+#endif /*HAVE_HAVE_GAI_STRERROR*/
+#endif /*__WINDOWS__*/
 
 int
 nbio_error(int code, nbio_error_map mapid)
 { const char *msg;
+  const char *symbol;
   term_t except = PL_new_term_ref();
 
   if ( code == EPLEXCEPTION )
@@ -1035,16 +995,20 @@ nbio_error(int code, nbio_error_map mapid)
 
 #ifdef __WINDOWS__
   msg = WinSockError(code);
+  symbol = error_symbol(code, wsa_errno_symbols);
 #else
   switch( mapid )
-  { case TCP_HERRNO:
+  { case TCP_ERRNO:
       msg = strerror(code);
+      symbol = error_symbol(code, errno_symbols);
       break;
-    case TCP_ERRNO:
+    case TCP_HERRNO:
       msg = hstrerror(code);
+      symbol = error_symbol(code, h_errno_symbols);
       break;
     case TCP_GAI_ERRNO:
       msg = gai_strerror(code);
+      symbol = error_symbol(code, gai_errno_symbols);
       break;
     default:
       assert(0);
@@ -1055,7 +1019,8 @@ nbio_error(int code, nbio_error_map mapid)
 
   return ( PL_unify_term(except,
 			 CompoundArg("error", 2),
-			   CompoundArg("socket_error", 1),
+			   CompoundArg("socket_error", 2),
+			     AtomArg(symbol),
 			     AtomArg(msg),
 			   PL_VARIABLE) &&
 	   PL_raise_exception(except)
