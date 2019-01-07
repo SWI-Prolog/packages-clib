@@ -1,0 +1,650 @@
+/*  Part of SWI-Prolog
+
+    Author:        Jan Wielemaker
+    E-mail:        J.Wielemaker@vu.nl
+    WWW:           http://www.swi-prolog.org
+    Copyright (c)  2019, VU University Amsterdam
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+*/
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Below are the error codes as  defined  in   Linux,  which  we  hope is a
+superset  for  most   POSIX   systems.    They   are   converted   using
+`scripts/esymbols.pl` in SWI-Prolog's main repository and based on
+
+  - errno -l
+  - man gai_strerror, extracted by pattern
+  - man hstrerror, extracted by hand
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+typedef struct error_symbol_t
+{ int   code;
+  char *symbol;
+} error_symbol_t;
+
+static const char *
+error_symbol(int code, const error_symbol_t *set)
+{ const error_symbol_t *es;
+  static char tmp[100];
+
+  for(es=set; es->code; es++)
+  { if ( es->code == code )
+      return es->symbol;
+  }
+
+  sprintf(tmp, "unknown error code %d", code);
+  return (const char*) tmp;
+}
+
+#ifdef __WINDOWS__
+
+static const error_symbol_t wsa_errno_symbols[] =
+{
+#ifdef WSAEACCES
+  { WSAEACCES, "wsaeacces" },
+#endif
+#ifdef WSAEADDRINUSE
+  { WSAEADDRINUSE, "wsaeaddrinuse" },
+#endif
+#ifdef WSAEADDRNOTAVAIL
+  { WSAEADDRNOTAVAIL, "wsaeaddrnotavail" },
+#endif
+#ifdef WSAEAFNOSUPPORT
+  { WSAEAFNOSUPPORT, "wsaeafnosupport" },
+#endif
+#ifdef WSAEALREADY
+  { WSAEALREADY, "wsaealready" },
+#endif
+#ifdef WSAECONNABORTED
+  { WSAECONNABORTED, "wsaeconnaborted" },
+#endif
+#ifdef WSAECONNREFUSED
+  { WSAECONNREFUSED, "wsaeconnrefused" },
+#endif
+#ifdef WSAECONNRESET
+  { WSAECONNRESET, "wsaeconnreset" },
+#endif
+#ifdef WSAEDESTADDRREQ
+  { WSAEDESTADDRREQ, "wsaedestaddrreq" },
+#endif
+#ifdef WSAEFAULT
+  { WSAEFAULT, "wsaefault" },
+#endif
+#ifdef WSAEHOSTDOWN
+  { WSAEHOSTDOWN, "wsaehostdown" },
+#endif
+#ifdef WSAEHOSTUNREACH
+  { WSAEHOSTUNREACH, "wsaehostunreach" },
+#endif
+#ifdef WSAEINPROGRESS
+  { WSAEINPROGRESS, "wsaeinprogress" },
+#endif
+#ifdef WSAEINTR
+  { WSAEINTR, "wsaeintr" },
+#endif
+#ifdef WSAEINVAL
+  { WSAEINVAL, "wsaeinval" },
+#endif
+#ifdef WSAEISCONN
+  { WSAEISCONN, "wsaeisconn" },
+#endif
+#ifdef WSAEMFILE
+  { WSAEMFILE, "wsaemfile" },
+#endif
+#ifdef WSAEMSGSIZE
+  { WSAEMSGSIZE, "wsaemsgsize" },
+#endif
+#ifdef WSAENETDOWN
+  { WSAENETDOWN, "wsaenetdown" },
+#endif
+#ifdef WSAENETRESET
+  { WSAENETRESET, "wsaenetreset" },
+#endif
+#ifdef WSAENETUNREACH
+  { WSAENETUNREACH, "wsaenetunreach" },
+#endif
+#ifdef WSAENOBUFS
+  { WSAENOBUFS, "wsaenobufs" },
+#endif
+#ifdef WSAENOPROTOOPT
+  { WSAENOPROTOOPT, "wsaenoprotoopt" },
+#endif
+#ifdef WSAENOTCONN
+  { WSAENOTCONN, "wsaenotconn" },
+#endif
+#ifdef WSAENOTSOCK
+  { WSAENOTSOCK, "wsaenotsock" },
+#endif
+#ifdef WSAEOPNOTSUPP
+  { WSAEOPNOTSUPP, "wsaeopnotsupp" },
+#endif
+#ifdef WSAEPFNOSUPPORT
+  { WSAEPFNOSUPPORT, "wsaepfnosupport" },
+#endif
+#ifdef WSAEPROCLIM
+  { WSAEPROCLIM, "wsaeproclim" },
+#endif
+#ifdef WSAEPROTONOSUPPORT
+  { WSAEPROTONOSUPPORT, "wsaeprotonosupport" },
+#endif
+#ifdef WSAEPROTOTYPE
+  { WSAEPROTOTYPE, "wsaeprototype" },
+#endif
+#ifdef WSAESHUTDOWN
+  { WSAESHUTDOWN, "wsaeshutdown" },
+#endif
+#ifdef WSAESOCKTNOSUPPORT
+  { WSAESOCKTNOSUPPORT, "wsaesocktnosupport" },
+#endif
+#ifdef WSAETIMEDOUT
+  { WSAETIMEDOUT, "wsaetimedout" },
+#endif
+#ifdef WSAEWOULDBLOCK
+  { WSAEWOULDBLOCK, "wsaewouldblock" },
+#endif
+#ifdef WSAEDISCON
+  { WSAEDISCON, "wsaediscon" },
+#endif
+#ifdef WSANOTINITIALISED
+  { WSANOTINITIALISED, "wsanotinitialised" },
+#endif
+#ifdef WSAHOST_NOT_FOUND
+  { WSAHOST_NOT_FOUND, "wsahost_not_found" },
+#endif
+#ifdef WSANO_DATA
+  { WSANO_DATA, "wsano_data" },
+#endif
+  { 0, NULL }
+};
+
+#else /*__WINDOWS__*/
+
+static const error_symbol_t errno_symbols[] =
+{
+#ifdef EPERM
+  { EPERM, "eperm" },
+#endif
+#ifdef ENOENT
+  { ENOENT, "enoent" },
+#endif
+#ifdef ESRCH
+  { ESRCH, "esrch" },
+#endif
+#ifdef EINTR
+  { EINTR, "eintr" },
+#endif
+#ifdef EIO
+  { EIO, "eio" },
+#endif
+#ifdef ENXIO
+  { ENXIO, "enxio" },
+#endif
+#ifdef E2BIG
+  { E2BIG, "e2big" },
+#endif
+#ifdef ENOEXEC
+  { ENOEXEC, "enoexec" },
+#endif
+#ifdef EBADF
+  { EBADF, "ebadf" },
+#endif
+#ifdef ECHILD
+  { ECHILD, "echild" },
+#endif
+#ifdef EAGAIN
+  { EAGAIN, "eagain" },
+#endif
+#ifdef ENOMEM
+  { ENOMEM, "enomem" },
+#endif
+#ifdef EACCES
+  { EACCES, "eacces" },
+#endif
+#ifdef EFAULT
+  { EFAULT, "efault" },
+#endif
+#ifdef ENOTBLK
+  { ENOTBLK, "enotblk" },
+#endif
+#ifdef EBUSY
+  { EBUSY, "ebusy" },
+#endif
+#ifdef EEXIST
+  { EEXIST, "eexist" },
+#endif
+#ifdef EXDEV
+  { EXDEV, "exdev" },
+#endif
+#ifdef ENODEV
+  { ENODEV, "enodev" },
+#endif
+#ifdef ENOTDIR
+  { ENOTDIR, "enotdir" },
+#endif
+#ifdef EISDIR
+  { EISDIR, "eisdir" },
+#endif
+#ifdef EINVAL
+  { EINVAL, "einval" },
+#endif
+#ifdef ENFILE
+  { ENFILE, "enfile" },
+#endif
+#ifdef EMFILE
+  { EMFILE, "emfile" },
+#endif
+#ifdef ENOTTY
+  { ENOTTY, "enotty" },
+#endif
+#ifdef ETXTBSY
+  { ETXTBSY, "etxtbsy" },
+#endif
+#ifdef EFBIG
+  { EFBIG, "efbig" },
+#endif
+#ifdef ENOSPC
+  { ENOSPC, "enospc" },
+#endif
+#ifdef ESPIPE
+  { ESPIPE, "espipe" },
+#endif
+#ifdef EROFS
+  { EROFS, "erofs" },
+#endif
+#ifdef EMLINK
+  { EMLINK, "emlink" },
+#endif
+#ifdef EPIPE
+  { EPIPE, "epipe" },
+#endif
+#ifdef EDOM
+  { EDOM, "edom" },
+#endif
+#ifdef ERANGE
+  { ERANGE, "erange" },
+#endif
+#ifdef EDEADLK
+  { EDEADLK, "edeadlk" },
+#endif
+#ifdef ENAMETOOLONG
+  { ENAMETOOLONG, "enametoolong" },
+#endif
+#ifdef ENOLCK
+  { ENOLCK, "enolck" },
+#endif
+#ifdef ENOSYS
+  { ENOSYS, "enosys" },
+#endif
+#ifdef ENOTEMPTY
+  { ENOTEMPTY, "enotempty" },
+#endif
+#ifdef ELOOP
+  { ELOOP, "eloop" },
+#endif
+#ifdef EWOULDBLOCK
+  { EWOULDBLOCK, "ewouldblock" },
+#endif
+#ifdef ENOMSG
+  { ENOMSG, "enomsg" },
+#endif
+#ifdef EIDRM
+  { EIDRM, "eidrm" },
+#endif
+#ifdef ECHRNG
+  { ECHRNG, "echrng" },
+#endif
+#ifdef EL2NSYNC
+  { EL2NSYNC, "el2nsync" },
+#endif
+#ifdef EL3HLT
+  { EL3HLT, "el3hlt" },
+#endif
+#ifdef EL3RST
+  { EL3RST, "el3rst" },
+#endif
+#ifdef ELNRNG
+  { ELNRNG, "elnrng" },
+#endif
+#ifdef EUNATCH
+  { EUNATCH, "eunatch" },
+#endif
+#ifdef ENOCSI
+  { ENOCSI, "enocsi" },
+#endif
+#ifdef EL2HLT
+  { EL2HLT, "el2hlt" },
+#endif
+#ifdef EBADE
+  { EBADE, "ebade" },
+#endif
+#ifdef EBADR
+  { EBADR, "ebadr" },
+#endif
+#ifdef EXFULL
+  { EXFULL, "exfull" },
+#endif
+#ifdef ENOANO
+  { ENOANO, "enoano" },
+#endif
+#ifdef EBADRQC
+  { EBADRQC, "ebadrqc" },
+#endif
+#ifdef EBADSLT
+  { EBADSLT, "ebadslt" },
+#endif
+#ifdef EDEADLOCK
+  { EDEADLOCK, "edeadlock" },
+#endif
+#ifdef EBFONT
+  { EBFONT, "ebfont" },
+#endif
+#ifdef ENOSTR
+  { ENOSTR, "enostr" },
+#endif
+#ifdef ENODATA
+  { ENODATA, "enodata" },
+#endif
+#ifdef ETIME
+  { ETIME, "etime" },
+#endif
+#ifdef ENOSR
+  { ENOSR, "enosr" },
+#endif
+#ifdef ENONET
+  { ENONET, "enonet" },
+#endif
+#ifdef ENOPKG
+  { ENOPKG, "enopkg" },
+#endif
+#ifdef EREMOTE
+  { EREMOTE, "eremote" },
+#endif
+#ifdef ENOLINK
+  { ENOLINK, "enolink" },
+#endif
+#ifdef EADV
+  { EADV, "eadv" },
+#endif
+#ifdef ESRMNT
+  { ESRMNT, "esrmnt" },
+#endif
+#ifdef ECOMM
+  { ECOMM, "ecomm" },
+#endif
+#ifdef EPROTO
+  { EPROTO, "eproto" },
+#endif
+#ifdef EMULTIHOP
+  { EMULTIHOP, "emultihop" },
+#endif
+#ifdef EDOTDOT
+  { EDOTDOT, "edotdot" },
+#endif
+#ifdef EBADMSG
+  { EBADMSG, "ebadmsg" },
+#endif
+#ifdef EOVERFLOW
+  { EOVERFLOW, "eoverflow" },
+#endif
+#ifdef ENOTUNIQ
+  { ENOTUNIQ, "enotuniq" },
+#endif
+#ifdef EBADFD
+  { EBADFD, "ebadfd" },
+#endif
+#ifdef EREMCHG
+  { EREMCHG, "eremchg" },
+#endif
+#ifdef ELIBACC
+  { ELIBACC, "elibacc" },
+#endif
+#ifdef ELIBBAD
+  { ELIBBAD, "elibbad" },
+#endif
+#ifdef ELIBSCN
+  { ELIBSCN, "elibscn" },
+#endif
+#ifdef ELIBMAX
+  { ELIBMAX, "elibmax" },
+#endif
+#ifdef ELIBEXEC
+  { ELIBEXEC, "elibexec" },
+#endif
+#ifdef EILSEQ
+  { EILSEQ, "eilseq" },
+#endif
+#ifdef ERESTART
+  { ERESTART, "erestart" },
+#endif
+#ifdef ESTRPIPE
+  { ESTRPIPE, "estrpipe" },
+#endif
+#ifdef EUSERS
+  { EUSERS, "eusers" },
+#endif
+#ifdef ENOTSOCK
+  { ENOTSOCK, "enotsock" },
+#endif
+#ifdef EDESTADDRREQ
+  { EDESTADDRREQ, "edestaddrreq" },
+#endif
+#ifdef EMSGSIZE
+  { EMSGSIZE, "emsgsize" },
+#endif
+#ifdef EPROTOTYPE
+  { EPROTOTYPE, "eprototype" },
+#endif
+#ifdef ENOPROTOOPT
+  { ENOPROTOOPT, "enoprotoopt" },
+#endif
+#ifdef EPROTONOSUPPORT
+  { EPROTONOSUPPORT, "eprotonosupport" },
+#endif
+#ifdef ESOCKTNOSUPPORT
+  { ESOCKTNOSUPPORT, "esocktnosupport" },
+#endif
+#ifdef EOPNOTSUPP
+  { EOPNOTSUPP, "eopnotsupp" },
+#endif
+#ifdef EPFNOSUPPORT
+  { EPFNOSUPPORT, "epfnosupport" },
+#endif
+#ifdef EAFNOSUPPORT
+  { EAFNOSUPPORT, "eafnosupport" },
+#endif
+#ifdef EADDRINUSE
+  { EADDRINUSE, "eaddrinuse" },
+#endif
+#ifdef EADDRNOTAVAIL
+  { EADDRNOTAVAIL, "eaddrnotavail" },
+#endif
+#ifdef ENETDOWN
+  { ENETDOWN, "enetdown" },
+#endif
+#ifdef ENETUNREACH
+  { ENETUNREACH, "enetunreach" },
+#endif
+#ifdef ENETRESET
+  { ENETRESET, "enetreset" },
+#endif
+#ifdef ECONNABORTED
+  { ECONNABORTED, "econnaborted" },
+#endif
+#ifdef ECONNRESET
+  { ECONNRESET, "econnreset" },
+#endif
+#ifdef ENOBUFS
+  { ENOBUFS, "enobufs" },
+#endif
+#ifdef EISCONN
+  { EISCONN, "eisconn" },
+#endif
+#ifdef ENOTCONN
+  { ENOTCONN, "enotconn" },
+#endif
+#ifdef ESHUTDOWN
+  { ESHUTDOWN, "eshutdown" },
+#endif
+#ifdef ETOOMANYREFS
+  { ETOOMANYREFS, "etoomanyrefs" },
+#endif
+#ifdef ETIMEDOUT
+  { ETIMEDOUT, "etimedout" },
+#endif
+#ifdef ECONNREFUSED
+  { ECONNREFUSED, "econnrefused" },
+#endif
+#ifdef EHOSTDOWN
+  { EHOSTDOWN, "ehostdown" },
+#endif
+#ifdef EHOSTUNREACH
+  { EHOSTUNREACH, "ehostunreach" },
+#endif
+#ifdef EALREADY
+  { EALREADY, "ealready" },
+#endif
+#ifdef EINPROGRESS
+  { EINPROGRESS, "einprogress" },
+#endif
+#ifdef ESTALE
+  { ESTALE, "estale" },
+#endif
+#ifdef EUCLEAN
+  { EUCLEAN, "euclean" },
+#endif
+#ifdef ENOTNAM
+  { ENOTNAM, "enotnam" },
+#endif
+#ifdef ENAVAIL
+  { ENAVAIL, "enavail" },
+#endif
+#ifdef EISNAM
+  { EISNAM, "eisnam" },
+#endif
+#ifdef EREMOTEIO
+  { EREMOTEIO, "eremoteio" },
+#endif
+#ifdef EDQUOT
+  { EDQUOT, "edquot" },
+#endif
+#ifdef ENOMEDIUM
+  { ENOMEDIUM, "enomedium" },
+#endif
+#ifdef EMEDIUMTYPE
+  { EMEDIUMTYPE, "emediumtype" },
+#endif
+#ifdef ECANCELED
+  { ECANCELED, "ecanceled" },
+#endif
+#ifdef ENOKEY
+  { ENOKEY, "enokey" },
+#endif
+#ifdef EKEYEXPIRED
+  { EKEYEXPIRED, "ekeyexpired" },
+#endif
+#ifdef EKEYREVOKED
+  { EKEYREVOKED, "ekeyrevoked" },
+#endif
+#ifdef EKEYREJECTED
+  { EKEYREJECTED, "ekeyrejected" },
+#endif
+#ifdef EOWNERDEAD
+  { EOWNERDEAD, "eownerdead" },
+#endif
+#ifdef ENOTRECOVERABLE
+  { ENOTRECOVERABLE, "enotrecoverable" },
+#endif
+#ifdef ERFKILL
+  { ERFKILL, "erfkill" },
+#endif
+#ifdef EHWPOISON
+  { EHWPOISON, "ehwpoison" },
+#endif
+#ifdef ENOTSUP
+  { ENOTSUP, "enotsup" },
+#endif
+  { 0, NULL }
+};
+
+static const error_symbol_t gai_errno_symbols[] =
+{
+#ifdef EAI_ADDRFAMILY
+  { EAI_ADDRFAMILY, "eai_addrfamily" },
+#endif
+#ifdef EAI_AGAIN
+  { EAI_AGAIN, "eai_again" },
+#endif
+#ifdef EAI_BADFLAGS
+  { EAI_BADFLAGS, "eai_badflags" },
+#endif
+#ifdef EAI_FAIL
+  { EAI_FAIL, "eai_fail" },
+#endif
+#ifdef EAI_FAMILY
+  { EAI_FAMILY, "eai_family" },
+#endif
+#ifdef EAI_MEMORY
+  { EAI_MEMORY, "eai_memory" },
+#endif
+#ifdef EAI_NODATA
+  { EAI_NODATA, "eai_nodata" },
+#endif
+#ifdef EAI_NONAME
+  { EAI_NONAME, "eai_noname" },
+#endif
+#ifdef EAI_SERVICE
+  { EAI_SERVICE, "eai_service" },
+#endif
+#ifdef EAI_SOCKTYPE
+  { EAI_SOCKTYPE, "eai_socktype" },
+#endif
+#ifdef EAI_SYSTEM
+  { EAI_SYSTEM, "eai_system" },
+#endif
+  { 0, NULL }
+};
+
+static const error_symbol_t h_errno_symbols[] =
+{
+#ifdef HOST_NOT_FOUND
+  { HOST_NOT_FOUND, "host_not_found" },
+#endif
+#ifdef NO_DATA
+  { NO_DATA, "no_data" },
+#endif
+#ifdef NO_RECOVERY
+  { NO_RECOVERY, "no_recovery" },
+#endif
+#ifdef TRY_AGAIN
+  { TRY_AGAIN, "try_again" },
+#endif
+  { 0, NULL }
+};
+
+#endif /*__WINDOWS__*/
