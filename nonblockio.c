@@ -958,11 +958,18 @@ WinSockError(unsigned long error)
 #endif /*BILLY_GETS_BETTER*/
 #endif /*__WINDOWS__*/
 
+		 /*******************************
+		 *     POSIX SOCKET ERRORS	*
+		 *******************************/
+
 #ifdef HAVE_H_ERRNO
 typedef struct
 { int code;
   const char *string;
 } error_codes;
+
+#ifndef HAVE_HSTRERROR
+#define hstrerror my_hstrerror
 
 static error_codes h_errno_codes[] = {
 #ifdef HOST_NOT_FOUND
@@ -980,73 +987,85 @@ static error_codes h_errno_codes[] = {
 #ifdef NO_ADDRESS
     { NO_ADDRESS, "No Address" },
 #endif
-    {0, NULL}
+    { 0, NULL }
 };
 
+static const char *
+hstrerror(int code)
+{ static char msgbuf[100];
+  const error_codes *map = h_errno_codes;
+  const char *msg;
+
+  while( map->code && map->code != code )
+    map++;
+
+  if ( map->code )
+  { msg = map->string;
+  } else
+  { sprintf(msgbuf, "Unknown error %d", code);
+    msg = msgbuf;
+  }
+
+  return msg;
+}
+#endif /*HAVE_HSTRERROR*/
+
 #else /*HAVE_H_ERRNO*/
-#define h_errno_codes NULL
-typedef void * error_codes;
+#define hstrerror my_hstrerror
+
+static const char *
+hstrerror(int code)
+{ static char msgbuf[100];
+
+  sprintf(msgbuf, "Unknown error %d", code);
+  msg = msgbuf;
+
+  return msg;
+}
+
 #endif /*HAVE_H_ERRNO*/
 
 int
 nbio_error(int code, nbio_error_map mapid)
 { const char *msg;
   term_t except = PL_new_term_ref();
-#ifdef HAVE_H_ERRNO
-  error_codes *map;
-#endif
 
   if ( code == EPLEXCEPTION )
     return FALSE;
 
-#ifdef HAVE_H_ERRNO
-  switch( mapid )
-  { case TCP_HERRNO:
-      map = h_errno_codes;
-      break;
-    default:
-      map = NULL;
-  }
-#endif
-
-  {
 #ifdef __WINDOWS__
   msg = WinSockError(code);
 #else
-
-#ifdef HAVE_H_ERRNO
-  static char msgbuf[100];
-
-  if ( map )
-  { while( map->code && map->code != code )
-      map++;
-    if ( map->code )
-      msg = map->string;
-    else
-    { sprintf(msgbuf, "Unknown error %d", code);
-      msg = msgbuf;
-    }
-  } else
-#endif
-    msg = strerror(code);
-#endif /*__WINDOWS__*/
-
-  if ( !PL_unify_term(except,
-		      CompoundArg("error", 2),
-		        CompoundArg("socket_error", 1),
-		          AtomArg(msg),
-		        PL_VARIABLE) )
-    return FALSE;
+  switch( mapid )
+  { case TCP_HERRNO:
+      msg = strerror(code);
+      break;
+    case TCP_ERRNO:
+      msg = hstrerror(code);
+      break;
+    case TCP_GAI_ERRNO:
+      msg = gai_strerror(code);
+      break;
+    default:
+      assert(0);
+      msg = NULL;
+      break;
   }
+#endif
 
-  return PL_raise_exception(except);
+  return ( PL_unify_term(except,
+			 CompoundArg("error", 2),
+			   CompoundArg("socket_error", 1),
+			     AtomArg(msg),
+			   PL_VARIABLE) &&
+	   PL_raise_exception(except)
+	 );
 }
 
 
 const char *
 nbio_last_error(nbio_sock_t socket)
-{
-  return NULL;
+{ return NULL;
 }
 
 
@@ -1180,7 +1199,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 
       if( setsockopt(s->socket, SOL_SOCKET, SO_REUSEADDR,
 		     (const char *)&val, sizeof(val)) == -1 )
-      { nbio_error(GET_H_ERRNO, TCP_HERRNO);
+      { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
       } else
 	rc = 0;
@@ -1214,7 +1233,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 #endif
       if ( setsockopt(s->socket, IPPROTO_TCP, TCP_NODELAY,
 		      (const char *)&val, sizeof(val)) == -1 )
-      { nbio_error(GET_H_ERRNO, TCP_HERRNO);
+      { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
       } else
       { rc = 0;
@@ -1232,7 +1251,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 
       if ( setsockopt(s->socket, SOL_SOCKET, SO_BROADCAST,
 		     (const char *)&val, sizeof(val)) == -1 )
-      { nbio_error(GET_H_ERRNO, TCP_HERRNO);
+      { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
       } else
 	rc = 0;
@@ -1343,11 +1362,12 @@ nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr, term_t *varport)
     if ( PL_get_atom_chars(arg, &hostName) )
     { struct addrinfo hints;
       struct addrinfo *res;
+      int rc;
 
       memset(&hints, 0, sizeof(hints));
       hints.ai_family = AF_INET;
-      if ( getaddrinfo(hostName, NULL, &hints, &res) !=  0) /* see (*) */
-	return nbio_error(GET_H_ERRNO, TCP_HERRNO);
+      if ( (rc=getaddrinfo(hostName, NULL, &hints, &res)) !=  0) /* see (*) */
+	return nbio_error(rc, TCP_GAI_ERRNO);
       assert(res->ai_family == AF_INET);
       memcpy(&addr->sin_addr,
 	     &((struct sockaddr_in*)res->ai_addr)->sin_addr,

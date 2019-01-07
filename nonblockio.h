@@ -83,7 +83,8 @@ typedef int SOCKET;
 
 typedef enum
 { TCP_ERRNO,
-  TCP_HERRNO
+  TCP_HERRNO,
+  TCP_GAI_ERRNO
 } nbio_error_map;
 
 typedef enum				/* nbio_setopt() commands */
