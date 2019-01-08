@@ -96,43 +96,97 @@ static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
 static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
+static int get_socket_from_stream(term_t t, IOSTREAM **s, nbio_sock_t *sp);
+
 
 		 /*******************************
-		 *	     CONVERSION		*
+		 *	      SYMBOL		*
 		 *******************************/
 
-NBIO_EXPORT(int)
-tcp_get_socket(term_t Socket, nbio_sock_t *id)
-{ IOSTREAM *s;
+static void
+acquire_socket_symbol(atom_t symbol)
+{ nbio_sock_t s = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
-  if ( PL_is_functor(Socket, FUNCTOR_socket1) )
-  { term_t a = PL_new_term_ref();
-    void *ptr;
+  nbio_set_symbol(s, symbol);
+}
 
-    _PL_get_arg(1, Socket, a);
-    if ( PL_get_pointer(a, &ptr) )
-    { *id = ptr;
-      return TRUE;
-    }
-  }
+static int
+release_socket_symbol(atom_t symbol)
+{ nbio_sock_t s = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
-  if ( PL_get_stream_handle(Socket, &s) )
-  { *id = s->handle;				/* TBD: Verify type */
+  freeSocket(s);
+  return TRUE;
+}
 
-    return TRUE;
-  }
+static int
+compare_socket_symbols(atom_t a, atom_t b)
+{ nbio_sock_t sa = *(nbio_sock_t*)PL_blob_data(a, NULL, NULL);
+  nbio_sock_t sb = *(nbio_sock_t*)PL_blob_data(b, NULL, NULL);
 
-  return pl_error(NULL, 0, NULL, ERR_ARGTYPE, -1, Socket, "socket");
+  return ( sa > sb ?  1 :
+	   sa < sb ? -1 : 0
+	 );
 }
 
 
 static int
-tcp_unify_socket(term_t Socket, nbio_sock_t socket)
-{ return PL_unify_term(Socket,
-		       PL_FUNCTOR, FUNCTOR_socket1,
-		         PL_POINTER, socket);
+write_socket_symbol(IOSTREAM *s, atom_t symbol, int flags)
+{ nbio_sock_t sock = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
+
+  Sfprintf(s, "<socket>(%p)", sock);
+  return TRUE;
 }
 
+
+static PL_blob_t socket_blob =
+{ PL_BLOB_MAGIC,
+  0,
+  "socket",
+  release_socket_symbol,
+  compare_socket_symbols,
+  write_socket_symbol,
+  acquire_socket_symbol
+};
+
+
+static int
+tcp_unify_socket(term_t handle, nbio_sock_t socket)
+{ if ( PL_unify_blob(handle, &socket, sizeof(socket), &socket_blob) )
+    return TRUE;
+
+  if ( !PL_is_variable(handle) )
+    return PL_uninstantiation_error(handle);
+
+  return FALSE;					/* (resource) error */
+}
+
+
+static int
+tcp_get_socket(term_t handle, nbio_sock_t *sp)
+{ PL_blob_t *type;
+  void *data;
+
+  if ( PL_get_blob(handle, &data, NULL, &type) && type == &socket_blob)
+  { nbio_sock_t s = *(nbio_sock_t*)data;
+
+    if ( !is_nbio_socket(s) )
+      return PL_existence_error("socket", handle);
+
+    *sp = s;
+
+    return TRUE;
+  }
+
+  if ( get_socket_from_stream(handle, NULL, sp) )
+    return TRUE;
+
+  return PL_type_error("socket", handle);
+}
+
+
+		 /*******************************
+		 *	     CONVERSION		*
+		 *******************************/
 
 static foreign_t
 pl_host_to_address(term_t Host, term_t Ip)
@@ -621,16 +675,6 @@ findmap(fdentry *map, int fd)
 }
 
 
-static int
-is_socket_stream(IOSTREAM *s)
-{ if ( s->functions == &readFunctions /* ||
-       s->functions == &writeFunctions */ )
-    return TRUE;
-
-  return FALSE;
-}
-
-
 #ifndef SIO_GETPENDING
 static size_t
 Spending(IOSTREAM *s)
@@ -658,23 +702,21 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 #endif					/* to FD_SETSIZE */
 
   FD_ZERO(&fds);
-  while( PL_get_list(streams, head, streams) )
+  while( PL_get_list_ex(streams, head, streams) )
   { IOSTREAM *s;
-    nbio_sock_t fd;
+    nbio_sock_t socket;
     fdentry *e;
+    size_t pending;
+    int fd;
 
-    if ( !PL_get_stream_handle(head, &s) )
-      return FALSE;
+    if ( !get_socket_from_stream(head, &s, &socket) )
+      return PL_type_error("socket_stream", head);
 
-    fd = fdFromHandle(s->handle);
-
+    fd = nbio_fd(socket);
+    pending = Spending(s);
     PL_release_stream(s);
-    if ( fd < 0 || !is_socket_stream(s) )
-    { return pl_error("tcp_select", 3, NULL, ERR_DOMAIN,
-		      head, "socket_stream");
-    }
 					/* check for input in buffer */
-    if ( Spending(s) > 0 )
+    if ( pending > 0 )
     { if ( !PL_unify_list(available, ahead, available) ||
 	   !PL_unify(ahead, head) )
 	return FALSE;
@@ -700,8 +742,8 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     if( fd < min )
       min = fd;
   }
-  if ( !PL_get_nil(streams) )
-    return pl_error("tcp_select", 3, NULL, ERR_TYPE, Streams, "list");
+  if ( !PL_get_nil_ex(streams) )
+    return FALSE;
 
   if ( from_buffer > 0 )
     return PL_unify_nil(available);

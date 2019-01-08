@@ -165,6 +165,29 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
 }
 
 
+static int
+get_socket_from_stream(term_t t, IOSTREAM **stp, nbio_sock_t *sp)
+{ IOSTREAM *s;
+  int rc;
+
+  if ( (rc=PL_get_stream(t, &s, SIO_INPUT|SIO_OUTPUT|SIO_NOERROR)) )
+  { if ( s->functions == &readFunctions ||
+	 s->functions == &writeFunctions )
+    { *sp = s->handle;
+      if ( stp )
+	*stp = s;
+      else
+	PL_release_stream(s);
+    } else
+    { rc = FALSE;
+      PL_release_stream(s);
+    }
+  }
+
+  return rc;
+}
+
+
 static foreign_t
 pl_listen(term_t Sock, term_t BackLog)
 { nbio_sock_t socket;

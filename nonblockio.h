@@ -140,6 +140,10 @@ typedef struct _plsocket *nbio_sock_t;	/* socket handle */
 #define NBIO_EXPORT(type)		extern type
 #endif
 
+void nbio_set_symbol(nbio_sock_t socket, atom_t symbol);
+int  is_nbio_socket(nbio_sock_t socket);
+void freeSocket(nbio_sock_t s);
+
 NBIO_EXPORT(int)	nbio_init(const char *module);
 NBIO_EXPORT(int)	nbio_cleanup(void);
 NBIO_EXPORT(int)	nbio_debug(int level);
