@@ -43,7 +43,7 @@
 :- use_module(library(debug)).
 
 :- meta_predicate
-    add_stream_to_pool(+, :).
+    add_stream_to_pool(+, 0).
 
 :- volatile
     pool/2.                         % sockets don't survive a saved-state
