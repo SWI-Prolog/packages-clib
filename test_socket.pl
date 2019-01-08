@@ -81,6 +81,7 @@ make_server(Port, Socket) :-
     tcp_listen(Socket, 5).
 
 accept(Socket) :-
+    debug(pool, 'Calling ~p from pool', [accept(Socket)]),
     tcp_accept(Socket, Slave, Peer),
     debug(connection, 'connect(~p)', [Peer]),
     tcp_open_socket(Slave, In, Out),
@@ -89,6 +90,7 @@ accept(Socket) :-
     add_stream_to_pool(In, client(In, Out, Peer)).
 
 client(In, Out, Peer) :-
+    debug(pool, 'Calling ~p from pool', [client(In, Out, Peer)]),
     read(In, Term),
     (   Term == end_of_file
     ->  debug(connection, 'close(~p)', [Peer]),

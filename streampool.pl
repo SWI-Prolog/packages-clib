@@ -50,6 +50,16 @@
 :- dynamic
     pool/2.                         % Stream, Action
 
+/** <module> Input multiplexing
+
+This libary allows a single thread to  monitor multiple streams and call
+a goal if input is available on a stream.
+
+@bug Note that if the processing   predicate blocks other input channals
+are not processed. This may happen, for example, if a read/2 call blocks
+due to incomplete input.
+*/
+
 %!   add_stream_to_pool(+Stream :Goal)
 %
 %    Call Goal whenever there is input on Stream.
@@ -69,13 +79,13 @@ delete_stream_from_pool(Stream) :-
     retractall(pool(Stream, _)).
 
 %!  close_stream_pool
+%
+%   Close all streams in the   pool. This causes stream_pool_main_loop/0
+%   to terminate.
 
 close_stream_pool :-
-    (   retract(pool(Stream, _)),
-        close(Stream, [force(true)]),
-        fail
-    ;   true
-    ).
+    forall(retract(pool(Stream, _)),
+           close(Stream, [force(true)])).
 
 %!  dispatch_stream_pool(+TimeOut)
 %
@@ -84,11 +94,9 @@ close_stream_pool :-
 
 dispatch_stream_pool(Timeout) :-
     findall(S, pool(S, _), Pool),
-    (   current_prolog_flag(windows, true)
-    ->  catch(tcp_select(Pool, Ready, Timeout), E, true)
-    ;   catch(wait_for_input(Pool, Ready, Timeout), E, true)
-    ),
-    debug(tcp, 'Select ~w --> ~w (E=~w)', [Pool, Ready, E]),
+    debug(tcp, 'Select ~p ...', [Pool]),
+    catch(wait_for_input(Pool, Ready, Timeout), E, true),
+    debug(tcp, '    --> ~p (E=~p)', [Ready, E]),
     (   var(E)
     ->  actions(Ready)
     ;   E = error(existence_error(stream, Stream), _)

@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2015, University of Amsterdam
+    Copyright (c)  2004-2018, University of Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -112,6 +113,16 @@ typedef enum
 #endif
 } nbio_request;
 
+typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */
+typedef struct _plsocket *nbio_sock_t;	/* socket handle */
+
+#ifdef __WINDOWS__
+typedef struct sockwait_entry
+{ term_t	stream;
+  nbio_sock_t	socket;
+  int		ready;
+} sockwait_entry;
+#endif
 					/* nbio_get_flags() mask */
 #define PLSOCK_INSTREAM	  0x0001	/* tcp_open_socket/3 bound input */
 #define PLSOCK_OUTSTREAM  0x0002	/* tcp_open_socket/3 bound output */
@@ -126,9 +137,6 @@ typedef enum
 #define PLSOCK_WAITING	  0x0400	/* using nbio_wait() */
 #define PLSOCK_VIRGIN	  0x0800	/* created, but not opened */
 #define PLSOCK_SHUTDOWN	  0x1000	/* shutdown, but not freed */
-
-typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */
-typedef struct _plsocket *nbio_sock_t;	/* socket handle */
 
 		 /*******************************
 		 *	 BASIC FUNCTIONS	*
@@ -176,11 +184,6 @@ extern ssize_t	nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize,
 
 NBIO_EXPORT(int)	nbio_wait(nbio_sock_t socket, nbio_request);
 NBIO_EXPORT(SOCKET)	nbio_fd(nbio_sock_t socket);
-extern int	nbio_select(int n,
-			    fd_set *readfds,
-			    fd_set *writefds,
-			    fd_set *exceptfds,
-			    struct timeval *timeout);
 
 extern int	nbio_unify_ip4(term_t ip4, unsigned long hip);
 extern int	nbio_get_ip(term_t ip4, struct in_addr *ip);
