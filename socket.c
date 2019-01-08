@@ -96,7 +96,7 @@ static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
 static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
-static int get_socket_from_stream(term_t t, nbio_sock_t *sp);
+static int get_socket_from_stream(term_t t, IOSTREAM **s, nbio_sock_t *sp);
 
 
 		 /*******************************
@@ -177,7 +177,7 @@ tcp_get_socket(term_t handle, nbio_sock_t *sp)
     return TRUE;
   }
 
-  if ( get_socket_from_stream(handle, sp) )
+  if ( get_socket_from_stream(handle, NULL, sp) )
     return TRUE;
 
   return PL_type_error("socket", handle);
@@ -675,16 +675,6 @@ findmap(fdentry *map, int fd)
 }
 
 
-static int
-is_socket_stream(IOSTREAM *s)
-{ if ( s->functions == &readFunctions /* ||
-       s->functions == &writeFunctions */ )
-    return TRUE;
-
-  return FALSE;
-}
-
-
 #ifndef SIO_GETPENDING
 static size_t
 Spending(IOSTREAM *s)
@@ -712,23 +702,21 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 #endif					/* to FD_SETSIZE */
 
   FD_ZERO(&fds);
-  while( PL_get_list(streams, head, streams) )
+  while( PL_get_list_ex(streams, head, streams) )
   { IOSTREAM *s;
-    nbio_sock_t fd;
+    nbio_sock_t socket;
     fdentry *e;
+    size_t pending;
+    int fd;
 
-    if ( !PL_get_stream_handle(head, &s) )
-      return FALSE;
+    if ( !get_socket_from_stream(head, &s, &socket) )
+      return PL_type_error("socket_stream", head);
 
-    fd = fdFromHandle(s->handle);
-
+    fd = nbio_fd(socket);
+    pending = Spending(s);
     PL_release_stream(s);
-    if ( fd < 0 || !is_socket_stream(s) )
-    { return pl_error("tcp_select", 3, NULL, ERR_DOMAIN,
-		      head, "socket_stream");
-    }
 					/* check for input in buffer */
-    if ( Spending(s) > 0 )
+    if ( pending > 0 )
     { if ( !PL_unify_list(available, ahead, available) ||
 	   !PL_unify(ahead, head) )
 	return FALSE;
@@ -754,8 +742,8 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     if( fd < min )
       min = fd;
   }
-  if ( !PL_get_nil(streams) )
-    return pl_error("tcp_select", 3, NULL, ERR_TYPE, Streams, "list");
+  if ( !PL_get_nil_ex(streams) )
+    return FALSE;
 
   if ( from_buffer > 0 )
     return PL_unify_nil(available);
