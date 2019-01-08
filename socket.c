@@ -98,41 +98,90 @@ static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
 
 		 /*******************************
-		 *	     CONVERSION		*
+		 *	      SYMBOL		*
 		 *******************************/
 
-NBIO_EXPORT(int)
-tcp_get_socket(term_t Socket, nbio_sock_t *id)
-{ IOSTREAM *s;
+static void
+acquire_socket_symbol(atom_t symbol)
+{ nbio_sock_t s = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
-  if ( PL_is_functor(Socket, FUNCTOR_socket1) )
-  { term_t a = PL_new_term_ref();
-    void *ptr;
+  nbio_set_symbol(s, symbol);
+}
 
-    _PL_get_arg(1, Socket, a);
-    if ( PL_get_pointer(a, &ptr) )
-    { *id = ptr;
-      return TRUE;
-    }
-  }
+static int
+release_socket_symbol(atom_t symbol)
+{ nbio_sock_t s = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
-  if ( PL_get_stream_handle(Socket, &s) )
-  { *id = s->handle;				/* TBD: Verify type */
+  freeSocket(s);
+  return TRUE;
+}
 
-    return TRUE;
-  }
+static int
+compare_socket_symbols(atom_t a, atom_t b)
+{ nbio_sock_t sa = *(nbio_sock_t*)PL_blob_data(a, NULL, NULL);
+  nbio_sock_t sb = *(nbio_sock_t*)PL_blob_data(b, NULL, NULL);
 
-  return pl_error(NULL, 0, NULL, ERR_ARGTYPE, -1, Socket, "socket");
+  return ( sa > sb ?  1 :
+	   sa < sb ? -1 : 0
+	 );
 }
 
 
 static int
-tcp_unify_socket(term_t Socket, nbio_sock_t socket)
-{ return PL_unify_term(Socket,
-		       PL_FUNCTOR, FUNCTOR_socket1,
-		         PL_POINTER, socket);
+write_socket_symbol(IOSTREAM *s, atom_t symbol, int flags)
+{ nbio_sock_t sock = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
+
+  Sfprintf(s, "<socket>(%p)", sock);
+  return TRUE;
 }
 
+
+static PL_blob_t socket_blob =
+{ PL_BLOB_MAGIC,
+  0,
+  "socket",
+  release_socket_symbol,
+  compare_socket_symbols,
+  write_socket_symbol,
+  acquire_socket_symbol
+};
+
+
+static int
+tcp_unify_socket(term_t handle, nbio_sock_t socket)
+{ if ( PL_unify_blob(handle, &socket, sizeof(socket), &socket_blob) )
+    return TRUE;
+
+  if ( !PL_is_variable(handle) )
+    return PL_uninstantiation_error(handle);
+
+  return FALSE;					/* (resource) error */
+}
+
+
+static int
+tcp_get_socket(term_t handle, nbio_sock_t *sp)
+{ PL_blob_t *type;
+  void *data;
+
+  if ( PL_get_blob(handle, &data, NULL, &type) && type == &socket_blob)
+  { nbio_sock_t s = *(nbio_sock_t*)data;
+
+    if ( !is_nbio_socket(s) )
+      return PL_existence_error("socket", handle);
+
+    *sp = s;
+
+    return TRUE;
+  }
+
+  return PL_type_error("socket", handle);
+}
+
+
+		 /*******************************
+		 *	     CONVERSION		*
+		 *******************************/
 
 static foreign_t
 pl_host_to_address(term_t Host, term_t Ip)

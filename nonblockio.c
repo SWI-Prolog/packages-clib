@@ -2,8 +2,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2017, University of Amsterdam
+    Copyright (c)  2004-2018, University of Amsterdam
                               VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -213,19 +214,14 @@ static CRITICAL_SECTION mutex;
 #define true(s, f)  ((s)->flags & (f))
 #define false(s, f) (!true(s, f))
 
-#define PLSOCK_MAGIC 0x38da3f2c
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-NOTE: We must lock  the  structure   to  avoid  freeSocket() called from
-Prolog deleting the socket while there are   still  pending events on it
-that are concurrently executed in the socket thread.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+#define PLSOCK_MAGIC  0x38da3f2c
+#define PLSOCK_CMAGIC 0x38da3f2d
 
 typedef struct _plsocket
 { int		    magic;		/* PLSOCK_MAGIC */
-  nbio_sock_t	    id;			/* Integer id */
   SOCKET	    socket;		/* The OS socket */
   int		    flags;		/* Misc flags */
+  atom_t	    symbol;		/* <socket>(%p) */
   IOSTREAM *	    input;		/* input stream */
   IOSTREAM *	    output;		/* output stream */
 #ifdef __WINDOWS__
@@ -238,7 +234,6 @@ static plsocket *allocSocket(SOCKET socket);
 static const char *WinSockError(unsigned long eno);
 #endif
 static int need_retry(int error);
-static int freeSocket(plsocket *s);
 
 #ifdef O_DEBUG
 static int debugging;
@@ -712,6 +707,15 @@ nbio_fd(nbio_sock_t socket)
 }
 
 
+void
+nbio_set_symbol(nbio_sock_t socket, atom_t symbol)
+{ socket->symbol = symbol;
+}
+
+int
+is_nbio_socket(nbio_sock_t socket)
+{ return socket && socket->magic == PLSOCK_MAGIC;
+}
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Allocate a wrapper for an OS  socket.   The  wrapper  is allocated in an
@@ -748,21 +752,32 @@ allocSocket(SOCKET socket)
 }
 
 
+void
+freeSocket(nbio_sock_t s)
+{ if ( s )
+  { if ( s->magic == PLSOCK_CMAGIC )
+      free(s);
+    else
+      s->symbol = 0;
+  }
+}
+
+
 static int
-freeSocket(plsocket *s)
+closeSocket(plsocket *s)
 { int rval;
   SOCKET sock;
 
   DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->socket));
   if ( !s || s->magic != PLSOCK_MAGIC )
-  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n",
+  { DEBUG(1, Sdprintf("OOPS: closeSocket(%p) s->magic = %ld\n",
 		      s, s ? s->magic : 0));
     errno = EINVAL;
     return -1;
   }
 
   sock = s->socket;
-  s->magic = 0;
+  s->magic = PLSOCK_CMAGIC;
 
   if ( sock != INVALID_SOCKET )
   { again:
@@ -770,13 +785,16 @@ freeSocket(plsocket *s)
     { if ( errno == EINTR )
 	goto again;
     }
-    DEBUG(2, Sdprintf("freeSocket(%p=%d): closesocket() returned %d\n",
+    DEBUG(2, Sdprintf("closeSocket(%p=%d): closesocket() returned %d\n",
 		      s, (int)sock, rval));
   } else
-  { DEBUG(2, Sdprintf("freeSocket(%p=%d): already closed\n",
+  { DEBUG(2, Sdprintf("closeSocket(%p=%d): already closed\n",
 		      s, (int)sock));
     rval = 0;				/* already closed.  Use s->error? */
   }
+
+  if ( !s->symbol )
+    free(s);
 
   return rval;
 }
@@ -1072,7 +1090,7 @@ nbio_closesocket(nbio_sock_t socket)
 #ifdef __WINDOWS__
     shutdown(s->socket, SD_BOTH);
 #endif
-    freeSocket(s);
+    closeSocket(s);
   }
 
   return rc;
@@ -1175,6 +1193,8 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
       s->flags |= PLSOCK_INSTREAM;
       s->flags &= ~PLSOCK_VIRGIN;
       s->input = in;
+      if ( s->symbol )
+	PL_register_atom(s->symbol);
 
       rc = 0;
 
@@ -1186,6 +1206,8 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
       s->flags |= PLSOCK_OUTSTREAM;
       s->flags &= ~PLSOCK_VIRGIN;
       s->output = out;
+      if ( s->symbol )
+	PL_register_atom(s->symbol);
 
       rc = 0;
 
@@ -1585,19 +1607,25 @@ https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-shutdown
 int
 nbio_close_input(nbio_sock_t socket)
 { plsocket *s;
+  int rc = 0;
 
   if ( !(s = nbio_to_plsocket_raw(socket)) )
     return -1;
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_input(%d, flags=0x%x)\n",
 		    PL_thread_self(), socket, s->flags));
-  s->flags &= ~PLSOCK_INSTREAM;
+  if ( (s->flags & PLSOCK_INSTREAM) )
+  { s->flags &= ~PLSOCK_INSTREAM;
 
-  s->input = NULL;
-  if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-    return freeSocket(s);
+    s->input = NULL;
+    if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+      rc = closeSocket(s);
 
-  return 0;
+    if ( s->symbol )
+      PL_unregister_atom(s->symbol);
+  }
+
+  return rc;
 }
 
 
@@ -1611,15 +1639,22 @@ nbio_close_output(nbio_sock_t socket)
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%d, flags=0x%x)\n",
 		    PL_thread_self(), socket, s->flags));
-  s->flags &= ~PLSOCK_OUTSTREAM;
-  if ( s->socket != INVALID_SOCKET )
-  { if ( (rc = shutdown(s->socket, SHUT_WR)) )
-      nbio_error(GET_ERRNO, TCP_ERRNO);
-  }
 
-  s->output = NULL;
-  if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-    return (rc + freeSocket(s)) ? -1 : 0;
+  if ( (s->flags & PLSOCK_OUTSTREAM) )
+  { s->flags &= ~PLSOCK_OUTSTREAM;
+
+    if ( s->socket != INVALID_SOCKET )
+    { if ( (rc = shutdown(s->socket, SHUT_WR)) )
+	nbio_error(GET_ERRNO, TCP_ERRNO);
+    }
+
+    s->output = NULL;
+    if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+      rc = (rc + closeSocket(s)) ? -1 : 0;
+
+    if ( s->symbol )
+      PL_unregister_atom(s->symbol);
+  }
 
   return rc;
 }
