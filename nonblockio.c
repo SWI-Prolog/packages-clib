@@ -427,84 +427,69 @@ nbio_wait(nbio_sock_t socket, nbio_request request)
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-nbio_select() selects using a set of socket streams.
-
-NOTE: The Windows versions uses our   nbio_sock_t abstraction, while the
-other version uses  the  raw  Unix   file  descriptors  referencing  the
-underlying socket.
+nbio_select() selects using a set of Windows socket streams.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+static void
+close_events(WSAEVENT *events, int n)
+{ int i;
+
+  for(i=0; i<n; i++)
+    WSACloseEvent(events[i]);
+}
+
+
 int
-nbio_select(int n,
-	    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-	    struct timeval *timeout)
-{ SOCKET sockets[WSA_MAXIMUM_WAIT_EVENTS];
-  WSAEVENT events[WSA_MAXIMUM_WAIT_EVENTS];
-  int fds[WSA_MAXIMUM_WAIT_EVENTS];
+nbio_select_from_sockets(int count,
+			 sockwait_entry *wait,
+			 struct timeval *timeout)
+{ WSAEVENT events[WSA_MAXIMUM_WAIT_EVENTS];
   int i, index;
-  int count = 0;
   int n_ready = 0;
   DWORD t_end;
 
-  if ( readfds )
-  { for(i=0; i<n; i++)
-    { if ( FD_ISSET(i, readfds) )
-      { plsocket *s = nbio_to_plsocket(i);
+  for(i=0; i<count; i++)
+  { WSANETWORKEVENTS network_events;
+    WSAEVENT event = WSACreateEvent();
+    sockwait_entry *e = &wait[i];
+    int event_type = (e->socket->flags & PLSOCK_LISTEN) ? FD_ACCEPT : FD_READ;
 
-	if ( s )
-        { WSANETWORKEVENTS network_events;
-          WSAEVENT event = WSACreateEvent();
-          int event_type = (s->flags & PLSOCK_LISTEN) ? FD_ACCEPT : FD_READ;
+    WSAEventSelect(e->socket->socket, event, event_type);
+    events[i]  = event;
 
-          WSAEventSelect(s->socket, event, event_type);
-          fds[count] = i;
-          sockets[count] = s->socket;
-          events[count] = event;
-          count++;
-
-          if ( WSAEnumNetworkEvents(s->socket, NULL, &network_events) == SOCKET_ERROR )
-          { nbio_error(GET_ERRNO, TCP_ERRNO);
-            return -1;
-          }
-          DEBUG(2,
-                if ( network_events.lNetworkEvents )
-                { char *nm = event_name(network_events.lNetworkEvents);
-                  Sdprintf("WM_SOCKET on %d: ev=(%s)\n", s->socket, nm);
-	          free(nm);
-                });
-          if ( (network_events.lNetworkEvents & FD_ACCEPT) &&
-               !network_events.iErrorCode[FD_ACCEPT_BIT] )
-          { n_ready++;
-          } else if ( (network_events.lNetworkEvents & FD_READ) &&
-		      !network_events.iErrorCode[FD_READ_BIT] )
-          { n_ready++;
-          } else
-          { FD_CLR(i, readfds);
-          }
-        } else
-        { DEBUG(2, Sdprintf("nbio_select(): no socket for %d\n", i));
-          FD_CLR(i, readfds);
-	}
-      }
+    if ( WSAEnumNetworkEvents(e->socket->socket, NULL, &network_events) == SOCKET_ERROR )
+    { int err = GET_ERRNO;
+      close_events(events, i);
+      nbio_error(err, TCP_ERRNO);
+      return -1;
+    }
+    DEBUG(2,
+	  if ( network_events.lNetworkEvents )
+	  { char *nm = event_name(network_events.lNetworkEvents);
+	    Sdprintf("WM_SOCKET on %d: ev=(%s)\n", e->socket->socket, nm);
+	    free(nm);
+	  });
+    if ( (network_events.lNetworkEvents & FD_ACCEPT) &&
+	 !network_events.iErrorCode[FD_ACCEPT_BIT] )
+    { e->ready = TRUE;
+      n_ready++;
+    } else if ( (network_events.lNetworkEvents & FD_READ) &&
+		!network_events.iErrorCode[FD_READ_BIT] )
+    { e->ready = TRUE;
+      n_ready++;
     }
   }
 
-  if ( writefds )
-    return -1;				/* not yet implemented */
-  if ( exceptfds )
-    return -1;				/* idem (might never be) */
+  if ( n_ready )
+  { close_events(events, count);
+    return n_ready;
+  }
 
   if ( timeout )
   { t_end = GetTickCount();
     t_end += timeout->tv_sec*1000;
     t_end += timeout->tv_usec/1000;
   }
-
-  if ( n_ready )
-  { return n_ready;
-  }
-
-  FD_ZERO(readfds);
 
   for(;;)
   { DWORD t, msecs;
@@ -524,45 +509,50 @@ nbio_select(int n,
 
     if ( index == WAIT_TIMEOUT )
     { DEBUG(2, Sdprintf("nbio_select() timed out\n"));
+      close_events(events, count);
       return 0;
     }
 
     if ( index == WAIT_FAILED )
     { nbio_error(GET_ERRNO, TCP_ERRNO);
-      return -1;
+      goto error;
     } else if ( index < WAIT_OBJECT_0+count ) /* socket event */
     { WSANETWORKEVENTS network_events;
-      if ( WSAEnumNetworkEvents(sockets[index-WSA_WAIT_EVENT_0], NULL, &network_events) == SOCKET_ERROR )
+      sockwait_entry *e = &wait[index-WSA_WAIT_EVENT_0];
+
+      if ( WSAEnumNetworkEvents(e->socket->socket, NULL, &network_events) == SOCKET_ERROR )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
-        return -1;
+	goto error;
       }
       DEBUG(2,
             { char *nm = event_name(network_events.lNetworkEvents);
-              Sdprintf("WM_SOCKET on %d: ev=(%s)\n", sockets[index-WSA_WAIT_EVENT_0], nm);
+              Sdprintf("WM_SOCKET on %d: ev=(%s)\n", (int)e->socket->socket, nm);
 	      free(nm);
             });
-      if ( (network_events.lNetworkEvents & FD_ACCEPT) &&
-           !network_events.iErrorCode[FD_ACCEPT_BIT] )
-      { FD_SET(fds[index-WSA_WAIT_EVENT_0], readfds);
-        return 1;
-      } else if ( (network_events.lNetworkEvents & FD_READ) &&
-		  !network_events.iErrorCode[FD_READ_BIT] )
-      { FD_SET(fds[index-WSA_WAIT_EVENT_0], readfds);
+      if ( ((network_events.lNetworkEvents & FD_ACCEPT) &&
+	    !network_events.iErrorCode[FD_ACCEPT_BIT]) ||
+	   ((network_events.lNetworkEvents & FD_READ) &&
+		  !network_events.iErrorCode[FD_READ_BIT]) )
+      { e->ready = TRUE;
+	close_events(events, count);
         return 1;
       }
     } else if ( index == WAIT_OBJECT_0+count ) /* message event */
     { MSG msg;
-      DEBUG(2, Sdprintf("nbio_select() interrupted\n"));
+      DEBUG(2, Sdprintf("nbio_select_from_sockets() interrupted\n"));
       while( PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) )
       { TranslateMessage(&msg);
         DispatchMessage(&msg);
 
         if ( PL_handle_signals() < 0 )
-          return -1;
+	  goto error;
         continue;
       }
     }
   }
+
+error:
+  close_events(events, count);
 
   return -1;
 }

@@ -654,26 +654,8 @@ pl_gethostname(term_t name)
 #ifdef __WINDOWS__
 
 		 /*******************************
-		 *	       SELECT		*
+		 *   SOCKET SELECT FOR WINDOWS	*
 		 *******************************/
-
-typedef struct fdentry
-{ int fd;
-  term_t stream;
-  struct fdentry *next;
-} fdentry;
-
-
-static term_t
-findmap(fdentry *map, int fd)
-{ for( ; map; map = map->next )
-  { if ( map->fd == fd )
-      return map->stream;
-  }
-  assert(0);
-  return 0;
-}
-
 
 #ifndef SIO_GETPENDING
 static size_t
@@ -686,33 +668,26 @@ Spending(IOSTREAM *s)
 
 static foreign_t
 tcp_select(term_t Streams, term_t Available, term_t timeout)
-{ fd_set fds;
-  struct timeval t, *to;
+{ struct timeval t, *to;
   double time;
-  int max = 0, ret, min = 1000000;
-  fdentry *map     = NULL;
   term_t head      = PL_new_term_ref();
   term_t streams   = PL_copy_term_ref(Streams);
   term_t available = PL_copy_term_ref(Available);
   term_t ahead     = PL_new_term_ref();
   int from_buffer  = 0;
   atom_t a;
-#ifdef __WINDOWS__
+  sockwait_entry wait[WSA_MAXIMUM_WAIT_EVENTS];
   int count = 0;			/* on Windows the setsize is limited */
-#endif					/* to FD_SETSIZE */
+  int ret;
 
-  FD_ZERO(&fds);
   while( PL_get_list_ex(streams, head, streams) )
   { IOSTREAM *s;
     nbio_sock_t socket;
-    fdentry *e;
     size_t pending;
-    int fd;
 
     if ( !get_socket_from_stream(head, &s, &socket) )
       return PL_type_error("socket_stream", head);
 
-    fd = nbio_fd(socket);
     pending = Spending(s);
     PL_release_stream(s);
 					/* check for input in buffer */
@@ -721,26 +696,15 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
 	   !PL_unify(ahead, head) )
 	return FALSE;
       from_buffer++;
+    } else if ( count == WSA_MAXIMUM_WAIT_EVENTS )
+    { return PL_representation_error("WSA_MAXIMUM_WAIT_EVENTS");
+    } else
+    { sockwait_entry *e = &wait[count++];
+
+      e->stream = PL_copy_term_ref(head);
+      e->socket	= socket;
+      e->ready  = FALSE;
     }
-
-    e         = alloca(sizeof(*e));
-    e->fd     = fd;
-    e->stream = PL_copy_term_ref(head);
-    e->next   = map;
-    map       = e;
-
-#ifdef __WINDOWS__
-    if ( ++count > FD_SETSIZE )
-#else
-    if ( fd >= FD_SETSIZE )
-#endif
-      return PL_representation_error("FD_SETSIZE");
-    FD_SET((SOCKET)fd, &fds);
-
-    if ( fd > max )
-      max = fd;
-    if( fd < min )
-      min = fd;
   }
   if ( !PL_get_nil_ex(streams) )
     return FALSE;
@@ -765,17 +729,10 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     to = &t;
   }
 
-  while( (ret=nbio_select(max+1, &fds, NULL, NULL, to)) == -1 &&
+  while( (ret=nbio_select_from_sockets(count, wait, to)) == -1 &&
 	 errno == EINTR )
-  { fdentry *e;
-
-    if ( PL_handle_signals() < 0 )
+  { if ( PL_handle_signals() < 0 )
       return FALSE;			/* exception */
-
-    FD_ZERO(&fds);			/* EINTR may leave fds undefined */
-    for(e=map; e; e=e->next)		/* so we rebuild it to be safe */
-    { FD_SET((SOCKET)e->fd, &fds);
-    }
   }
 
   switch(ret)
@@ -789,10 +746,10 @@ tcp_select(term_t Streams, term_t Available, term_t timeout)
     default: /* Something happened -> check fds */
     { int n;
 
-      for(n=min; n <= max; n++)
-      { if ( FD_ISSET(n, &fds) )
+      for(n=0; n < count; n++)
+      { if ( wait[n].ready )
 	{ if ( !PL_unify_list(available, ahead, available) ||
-	       !PL_unify(ahead, findmap(map, n)) )
+	       !PL_unify(ahead, wait[n].stream) )
 	    return FALSE;
 	}
       }
