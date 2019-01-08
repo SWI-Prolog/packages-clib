@@ -96,6 +96,8 @@ static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
 static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
+static int get_socket_from_stream(term_t t, nbio_sock_t *sp);
+
 
 		 /*******************************
 		 *	      SYMBOL		*
@@ -174,6 +176,9 @@ tcp_get_socket(term_t handle, nbio_sock_t *sp)
 
     return TRUE;
   }
+
+  if ( get_socket_from_stream(handle, sp) )
+    return TRUE;
 
   return PL_type_error("socket", handle);
 }
