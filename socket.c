@@ -102,22 +102,23 @@ static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 		 *******************************/
 
 NBIO_EXPORT(int)
-tcp_get_socket(term_t Socket, int *id)
+tcp_get_socket(term_t Socket, nbio_sock_t *id)
 { IOSTREAM *s;
-  int socket;
 
   if ( PL_is_functor(Socket, FUNCTOR_socket1) )
   { term_t a = PL_new_term_ref();
+    void *ptr;
 
     _PL_get_arg(1, Socket, a);
-    if ( PL_get_integer(a, id) )
+    if ( PL_get_pointer(a, &ptr) )
+    { *id = ptr;
       return TRUE;
+    }
   }
 
   if ( PL_get_stream_handle(Socket, &s) )
-  { socket = (int)(intptr_t)s->handle;
+  { *id = s->handle;				/* TBD: Verify type */
 
-    *id = socket;
     return TRUE;
   }
 
@@ -126,10 +127,10 @@ tcp_get_socket(term_t Socket, int *id)
 
 
 static int
-tcp_unify_socket(term_t Socket, int id)
+tcp_unify_socket(term_t Socket, nbio_sock_t socket)
 { return PL_unify_term(Socket,
 		       PL_FUNCTOR, FUNCTOR_socket1,
-		         IntArg(id));
+		         PL_POINTER, socket);
 }
 
 
@@ -192,7 +193,7 @@ pl_host_to_address(term_t Host, term_t Ip)
 
 static foreign_t
 pl_setopt(term_t Socket, term_t opt)
-{ int socket;
+{ nbio_sock_t socket;
   atom_t a;
   size_t arity;
 
@@ -301,7 +302,7 @@ not_implemented:
 
 static foreign_t
 pl_getopt(term_t Socket, term_t opt)
-{ int socket;
+{ nbio_sock_t socket;
   atom_t a;
   size_t arity;
 
@@ -363,7 +364,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 #else
   socklen_t alen = sizeof(sockaddr);
 #endif
-  int socket;
+  nbio_sock_t socket;
   int flags = 0;
   char smallbuf[UDP_DEFAULT_BUFSIZE];
   char *buf = smallbuf;
@@ -447,7 +448,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 #else
   int alen = sizeof(sockaddr);
 #endif
-  int socket;
+  nbio_sock_t socket;
   int flags = 0L;
   char *data;
   size_t dlen;
@@ -476,10 +477,9 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 
 static foreign_t
 create_socket(term_t socket, int type)
-{ int sock;
+{ nbio_sock_t sock;
 
-  sock = nbio_socket(AF_INET, type, 0);
-  if ( sock < 0 )
+  if ( !(sock = nbio_socket(AF_INET, type, 0)) )
     return FALSE;
 
   return tcp_unify_socket(socket, sock);
@@ -500,7 +500,7 @@ udp_socket(term_t socket)
 
 static foreign_t
 pl_connect(term_t Socket, term_t Address)
-{ int sock;
+{ nbio_sock_t sock;
   struct sockaddr_in sockaddr;
 
   if ( !tcp_get_socket(Socket, &sock) ||
@@ -517,7 +517,7 @@ pl_connect(term_t Socket, term_t Address)
 static foreign_t
 pl_bind(term_t Socket, term_t Address)
 { struct sockaddr_in sockaddr;
-  int socket;
+  nbio_sock_t socket;
   term_t varport = 0;
 
   memset(&sockaddr, 0, sizeof(sockaddr));
@@ -549,14 +549,14 @@ pl_bind(term_t Socket, term_t Address)
 
 static foreign_t
 pl_accept(term_t Master, term_t Slave, term_t Peer)
-{ int master, slave;
+{ nbio_sock_t master, slave;
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
 
   if ( !tcp_get_socket(Master, &master) )
     return FALSE;
 
-  if ( (slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) < 0 )
+  if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
     return FALSE;
 					/* TBD: close on failure */
   if ( nbio_unify_ip4(Peer, ntohl(addr.sin_addr.s_addr)) &&

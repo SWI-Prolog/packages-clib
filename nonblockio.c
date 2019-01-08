@@ -187,8 +187,6 @@ static CRITICAL_SECTION mutex;
 #else /*__WINDOWS__*/
 #include <pthread.h>
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
 #define LOCK()			pthread_mutex_lock(&mutex)
 #define UNLOCK()		pthread_mutex_unlock(&mutex)
 #define LOCK_FREE()		(void)0
@@ -677,30 +675,11 @@ static atom_t ATOM_any;
 static atom_t ATOM_broadcast;
 static atom_t ATOM_loopback;
 
-static plsocket **sockets = NULL;	/* id --> plsocket* */
-static size_t	socks_count = 0;	/* #registered sockets */
-static size_t	socks_allocated = 0;	/* #allocated entries */
 static int initialised = FALSE;		/* Windows only */
-
 
 static plsocket *
 nbio_to_plsocket_nolock(nbio_sock_t socket)
-{ plsocket *p;
-
-  if ( socket < 0 || (size_t)socket >= socks_allocated )
-  { errno = EINVAL;
-    return NULL;
-  }
-
-  p = sockets[socket];
-
-  if ( !p || p->magic != PLSOCK_MAGIC )
-  { DEBUG(1, Sdprintf("Invalid NBIO socket: %d\n", socket));
-    errno = EINVAL;
-    return NULL;
-  }
-
-  return p;
+{ return socket;
 }
 
 
@@ -712,24 +691,13 @@ plsocket_handle(plsocket_ptr pls)
 
 static plsocket *
 nbio_to_plsocket_raw(nbio_sock_t socket)
-{ plsocket *s;
-
-  LOCK();
-  s = nbio_to_plsocket_nolock(socket);
-  UNLOCK();
-
-  return s;
+{ return socket;
 }
 
 
 plsocket *
 nbio_to_plsocket(nbio_sock_t socket)
-{ plsocket *p;
-
-  if ( !(p=nbio_to_plsocket_raw(socket)) )
-    return NULL;
-
-  return p;
+{ return socket;
 }
 
 
@@ -753,38 +721,14 @@ FD_SET, etc. for implementing a compatible nbio_select().
 
 static plsocket *
 allocSocket(SOCKET socket)
-{ plsocket *p = NULL;
-  size_t i;
+{ plsocket *p;
 
-  LOCK();
-  if ( socks_count+1 > socks_allocated )
-  { if ( socks_allocated )
-    { size_t newa = socks_allocated*2;
-
-      sockets = PL_realloc(sockets, sizeof(plsocket*)*newa);
-      for(i=socks_allocated; i<newa; i++)
-	sockets[i] = NULL;
-      socks_allocated = newa;
-    } else
-    { socks_allocated = 32;
-      sockets = PL_malloc(sizeof(plsocket*)*socks_allocated);
-      memset(sockets, 0, sizeof(plsocket*)*socks_allocated);
-    }
+  if ( !(p = malloc(sizeof(*p))) )
+  { PL_resource_error("memory");
+    return NULL;
   }
-
-  for(i=0; i<socks_allocated; i++)
-  { if ( (p=sockets[i]) == NULL )
-    { sockets[i] = p = PL_malloc(sizeof(*p));
-      socks_count++;
-      break;
-    }
-  }
-  UNLOCK();
-
-  assert(i<socks_allocated);
 
   memset(p, 0, sizeof(*p));
-  p->id     = (int)i;			/* place in the array */
   p->socket = socket;
   p->flags  = PLSOCK_DISPATCH|PLSOCK_VIRGIN;	/* by default, dispatch */
   p->magic  = PLSOCK_MAGIC;
@@ -797,8 +741,8 @@ allocSocket(SOCKET socket)
   }
 #endif
 
-  DEBUG(2, Sdprintf("[%d]: allocSocket(%d): bound to %d\n",
-		    PL_thread_self(), socket, p->id));
+  DEBUG(2, Sdprintf("[%d]: allocSocket(%d) --> %p\n",
+		    PL_thread_self(), socket, p));
 
   return p;
 }
@@ -807,28 +751,18 @@ allocSocket(SOCKET socket)
 static int
 freeSocket(plsocket *s)
 { int rval;
-  nbio_sock_t socket;
   SOCKET sock;
 
-  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s ? s->id : 0));
+  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->socket));
   if ( !s || s->magic != PLSOCK_MAGIC )
-  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n", s, s ? s->magic : 0));
+  { DEBUG(1, Sdprintf("OOPS: freeSocket(%p) s->magic = %ld\n",
+		      s, s ? s->magic : 0));
     errno = EINVAL;
     return -1;
   }
 
-  LOCK_FREE();
-  LOCK();
-  sockets[s->id] = NULL;
-  socks_count--;
-  UNLOCK();
-
   sock = s->socket;
-  socket = s->id;
   s->magic = 0;
-  FREE_SOCKET_LOCK(s);
-  PL_free(s);
-  UNLOCK_FREE();
 
   if ( sock != INVALID_SOCKET )
   { again:
@@ -836,11 +770,11 @@ freeSocket(plsocket *s)
     { if ( errno == EINTR )
 	goto again;
     }
-    DEBUG(2, Sdprintf("freeSocket(%d=%d): closesocket() returned %d\n",
-		      socket, (int)sock, rval));
+    DEBUG(2, Sdprintf("freeSocket(%p=%d): closesocket() returned %d\n",
+		      s, (int)sock, rval));
   } else
-  { DEBUG(2, Sdprintf("freeSocket(%d=%d): already closed\n",
-		      socket, (int)sock));
+  { DEBUG(2, Sdprintf("freeSocket(%p=%d): already closed\n",
+		      s, (int)sock));
     rval = 0;				/* already closed.  Use s->error? */
   }
 
@@ -1093,14 +1027,14 @@ nbio_socket(int domain, int type, int protocol)
 
   if ( (sock = socket(domain, type , protocol)) == INVALID_SOCKET )
   { nbio_error(GET_ERRNO, TCP_ERRNO);
-    return -1;
+    return NULL;
   }
   if ( !(s=allocSocket(sock)) )		/* register it */
   { closesocket(sock);
-    return -1;
+    return NULL;
   }
 
-  return s->id;
+  return s;
 }
 
 
@@ -1476,13 +1410,13 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
   plsocket *m, *s;
 
   if ( !(m = nbio_to_plsocket(master)) )
-    return -1;
+    return NULL;
 
   for(;;)
   {
 #ifndef __WINDOWS__
     if ( !wait_socket(m) )
-      return -1;
+      return NULL;
 #endif
 
     slave = accept(m->socket, addr, addrlen);
@@ -1490,15 +1424,15 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
     if ( slave == SOCKET_ERROR )
     { if ( need_retry(GET_ERRNO) )
       { if ( PL_handle_signals() < 0 )
-	  return -1;
+	  return NULL;
 #ifdef __WINDOWS__
         if ( !wait_socket(m) )
-          return -1;
+          return NULL;
 #endif
 	continue;
       } else
       { nbio_error(GET_ERRNO, TCP_ERRNO);
-	return -1;
+	return NULL;
       }
     } else
       break;
@@ -1508,10 +1442,10 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
   s->flags |= PLSOCK_ACCEPT;
 #ifndef __WINDOWS__
   if ( true(s, PLSOCK_NONBLOCK) )
-    nbio_setopt(slave, TCP_NONBLOCK);
+    nbio_setopt(s, TCP_NONBLOCK);
 #endif
 
-  return s->id;
+  return s;
 }
 
 
@@ -1540,7 +1474,7 @@ nbio_listen(nbio_sock_t socket, int backlog)
 #define fdFromHandle(p) ((int)((intptr_t)(p)))
 
 ssize_t
-nbio_read(int socket, char *buf, size_t bufSize)
+nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
 { plsocket *s;
   int n;
 
@@ -1696,7 +1630,7 @@ nbio_close_output(nbio_sock_t socket)
 		 *******************************/
 
 ssize_t
-nbio_recvfrom(int socket, void *buf, size_t bufSize, int flags,
+nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 	     struct sockaddr *from, socklen_t *fromlen)
 { plsocket *s;
   int n;

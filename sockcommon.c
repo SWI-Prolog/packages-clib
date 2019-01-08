@@ -140,12 +140,12 @@ static IOFUNCTIONS writeFunctions =
 static foreign_t
 pl_open_socket(term_t Socket, term_t Read, term_t Write)
 { IOSTREAM *in, *out;
-  int socket;
+  nbio_sock_t socket;
   void *handle;
 
   if ( !tcp_get_socket(Socket, &socket) )
     return FALSE;
-  handle = (void *)(intptr_t)socket;
+  handle = socket;
 
   in  = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF,  &readFunctions);
   in->encoding = ENC_OCTET;
@@ -167,7 +167,7 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
 
 static foreign_t
 pl_listen(term_t Sock, term_t BackLog)
-{ int socket;
+{ nbio_sock_t socket;
   int backlog;
 
   if ( !tcp_get_socket(Sock, &socket) )
@@ -185,7 +185,7 @@ pl_listen(term_t Sock, term_t BackLog)
 
 static foreign_t
 pl_close_socket(term_t socket)
-{ int sock;
+{ nbio_sock_t sock;
 
   if ( !tcp_get_socket(socket, &sock) )
     return FALSE;
