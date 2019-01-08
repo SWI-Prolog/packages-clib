@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2011, University of Amsterdam
+    Copyright (c)  2002-2018, University of Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -39,7 +40,7 @@
             dispatch_stream_pool/1,     % +TimeOut
             stream_pool_main_loop/0
           ]).
-:- use_module(library(quintus)).
+:- use_module(library(debug)).
 
 :- meta_predicate
     add_stream_to_pool(+, :).
@@ -49,9 +50,9 @@
 :- dynamic
     pool/2.                         % Stream, Action
 
-%       add_stream_to_pool(+Stream :Goal)
+%!   add_stream_to_pool(+Stream :Goal)
 %
-%       Call Goal whenever there is input on Stream.
+%    Call Goal whenever there is input on Stream.
 
 add_stream_to_pool(Stream, Action) :-
     strip_module(Action, Module, Plain),
@@ -60,14 +61,14 @@ add_stream_to_pool(Stream, Action) :-
 register_stream(Stream, Goal) :-
     assert(pool(Stream, Goal)).
 
-%       delete_stream_from_pool(+Stream)
+%!  delete_stream_from_pool(+Stream)
 %
-%       Retract stream from the pool
+%   Retract stream from the pool
 
 delete_stream_from_pool(Stream) :-
     retractall(pool(Stream, _)).
 
-%       close_stream_pool
+%!  close_stream_pool
 
 close_stream_pool :-
     (   retract(pool(Stream, _)),
@@ -76,14 +77,17 @@ close_stream_pool :-
     ;   true
     ).
 
-%       dispatch_stream_pool(+TimeOut)
+%!  dispatch_stream_pool(+TimeOut)
 %
-%       Wait for input on one or more streams and handle that.  Wait for
-%       at most TimeOut seconds (0 means infinite).
+%   Wait for input on one or more streams   and handle that. Wait for at
+%   most TimeOut seconds (0 means infinite).
 
 dispatch_stream_pool(Timeout) :-
     findall(S, pool(S, _), Pool),
-    catch(wait_for_input(Pool, Ready, Timeout), E, true),
+    (   current_prolog_flag(windows, true)
+    ->  catch(tcp_select(Pool, Ready, Timeout), E, true)
+    ;   catch(wait_for_input(Pool, Ready, Timeout), E, true)
+    ),
     debug(tcp, 'Select ~w --> ~w (E=~w)', [Pool, Ready, E]),
     (   var(E)
     ->  actions(Ready)
@@ -107,10 +111,10 @@ action(Stream) :-
                       goal_failed(Action, stream_pool))
     ).
 
-%       stream_pool_main_loop
+%!  stream_pool_main_loop
 %
-%       Keep handling input from the streams in the pool until they have
-%       all died away.
+%   Keep handling input from the streams in the pool until they have all
+%   died away.
 
 stream_pool_main_loop :-
     pool(_, _),
