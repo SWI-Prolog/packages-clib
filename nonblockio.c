@@ -167,43 +167,6 @@ leave the details to this function.
 #define SOCKET_ERROR (-1)
 #endif
 
-#ifdef _REENTRANT
-#if __WINDOWS__
-static CRITICAL_SECTION mutex;
-
-#define LOCK()			EnterCriticalSection(&mutex)
-#define UNLOCK()		LeaveCriticalSection(&mutex)
-#define LOCK_FREE()		(void)0
-#define UNLOCK_FREE()		(void)0
-#define INITLOCK()		InitializeCriticalSection(&mutex)
-#define LOCK_SOCKET(s)		(void)0
-#define UNLOCK_SOCKET(s)	(void)0
-#define INIT_SOCKET_LOCK(s)	(void)0
-#define FREE_SOCKET_LOCK(s)	(void)0
-#else /*__WINDOWS__*/
-#include <pthread.h>
-
-#define LOCK()			pthread_mutex_lock(&mutex)
-#define UNLOCK()		pthread_mutex_unlock(&mutex)
-#define LOCK_FREE()		(void)0
-#define UNLOCK_FREE()		(void)0
-#define INITLOCK()		(void)0
-#define FREE_SOCKET_LOCK(s)	(void)0
-#endif /*__WINDOWS__*/
-#else /* _REENTRANT */
-#define LOCK()			(void)0
-#define UNLOCK()		(void)0
-#define LOCK_FREE()		(void)0
-#define UNLOCK_FREE()		(void)0
-#define INITLOCK()		(void)0
-#define FREE_SOCKET_LOCK(s)	(void)0
-#if __WINDOWS__
-#define LOCK_SOCKET(s)		(void)0
-#define UNLOCK_SOCKET(s)	(void)0
-#define INIT_SOCKET_LOCK(s)	(void)0
-#endif
-#endif /* _REENTRANT */
-
 #define set(s, f)   ((s)->flags |= (f))
 #define clear(s, f) ((s)->flags &= ~(f))
 #define true(s, f)  ((s)->flags & (f))
@@ -224,6 +187,16 @@ typedef struct _plsocket
 #endif
 } plsocket;
 
+#define VALID_SOCKET_RET(s, r) \
+	do						\
+	{ if ( !(s && (s)->magic == PLSOCK_MAGIC) )	\
+	  { errno = EINVAL;				\
+	    return (r);					\
+	  }						\
+	} while(0)
+#define VALID_SOCKET(s) VALID_SOCKET_RET(s, -1)
+
+
 static plsocket *allocSocket(SOCKET socket);
 #ifdef __WINDOWS__
 static const char *WinSockError(unsigned long eno);
@@ -233,7 +206,7 @@ static int need_retry(int error);
 #ifdef O_DEBUG
 static int debugging;
 
-NBIO_EXPORT(int)
+int
 nbio_debug(int level)
 { int old = debugging;
 
@@ -252,7 +225,7 @@ nbio_debug(int level)
 { return 0;
 }
 
-#endif
+#endif /*O_DEBUG*/
 
 		 /*******************************
 		 *	  COMPATIBILITY		*
@@ -291,17 +264,14 @@ event_name(int ev)
   return strdup(buf);
 }
 
-#endif
+#endif /*O_DEBUG*/
 
 #define F_SETFL		0
 #define O_NONBLOCK	0
 
 static int
 nbio_fcntl(nbio_sock_t socket, int op, int arg)
-{ plsocket *s;
-
-  if ( !(s=nbio_to_plsocket(socket)) )
-    return -1;
+{ VALID_SOCKET(socket);
 
   switch(op)
   { case F_SETFL:
@@ -315,9 +285,9 @@ nbio_fcntl(nbio_sock_t socket, int op, int arg)
 	  int non_block;
 #endif
 	  non_block = 1;
-	  rval = ioctlsocket(s->socket, FIONBIO, &non_block);
+	  rval = ioctlsocket(socket->socket, FIONBIO, &non_block);
 	  if ( rval )
-	  { s->flags |= PLSOCK_NONBLOCK;
+	  { set(socket, PLSOCK_NONBLOCK);
 	    return 0;
 	  }
 
@@ -412,12 +382,9 @@ wait_socket(plsocket *s)
 
 int
 nbio_wait(nbio_sock_t socket, nbio_request request)
-{ plsocket *s;
+{ VALID_SOCKET(socket);
 
-  if ( !(s=nbio_to_plsocket(socket)) )
-    return -1;
-
-  return wait_socket(s) ? 0 : -1;
+  return wait_socket(socket) ? 0 : -1;
 }
 
 
@@ -482,28 +449,23 @@ wait_socket(plsocket *s)
 
 int
 nbio_wait(nbio_sock_t socket, nbio_request request)
-{ plsocket *s;
+{ VALID_SOCKET(socket);
 
-  if ( !(s=nbio_to_plsocket(socket)) )
-    return -1;
-
-  return wait_socket(s) ? 0 : -1;
+  return wait_socket(socket) ? 0 : -1;
 }
 
 
 static int
 nbio_fcntl(nbio_sock_t socket, int op, int arg)
-{ plsocket *s;
-  int rc;
+{ int rc;
 
-  if ( !(s=nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
-  rc = fcntl(s->socket, op, arg);
+  rc = fcntl(socket->socket, op, arg);
 
   if ( rc == 0 )
   { if ( op == F_SETFL && arg == O_NONBLOCK )
-      s->flags |= PLSOCK_NONBLOCK;
+      set(socket, PLSOCK_NONBLOCK);
   } else
     nbio_error(GET_ERRNO, TCP_ERRNO);
 
@@ -526,40 +488,12 @@ static atom_t ATOM_loopback;
 
 static int initialised = FALSE;		/* Windows only */
 
-static plsocket *
-nbio_to_plsocket_nolock(nbio_sock_t socket)
-{ return socket;
-}
-
-
 SOCKET
-plsocket_handle(plsocket_ptr pls)
-{ return pls->socket;
-}
-
-
-static plsocket *
-nbio_to_plsocket_raw(nbio_sock_t socket)
-{ return socket;
-}
-
-
-plsocket *
-nbio_to_plsocket(nbio_sock_t socket)
-{ return socket;
-}
-
-
-NBIO_EXPORT(SOCKET)
 nbio_fd(nbio_sock_t socket)
-{ plsocket *p;
+{ VALID_SOCKET(socket);
 
-  if ( !(p=nbio_to_plsocket_nolock(socket)) )
-    return -1;
-
-  return p->socket;
+  return socket->socket;
 }
-
 
 void
 nbio_set_symbol(nbio_sock_t socket, atom_t symbol)
@@ -844,13 +778,11 @@ nbio_last_error(nbio_sock_t socket)
 		 *	  INITIALISATION	*
 		 *******************************/
 
-NBIO_EXPORT(int)
+int
 nbio_init(const char *module)
 { if ( initialised )			/* called from install handlers, which */
     return TRUE;			/* are serialized by the compiler mutex */
   initialised = TRUE;
-
-  INITLOCK();
 
   FUNCTOR_module2  = PL_new_functor(PL_new_atom(":"), 2);
   FUNCTOR_ip4	   = PL_new_functor(PL_new_atom("ip"), 4);
@@ -871,7 +803,7 @@ nbio_init(const char *module)
 }
 
 
-NBIO_EXPORT(int)
+int
 nbio_cleanup(void)
 { if ( initialised )
   {
@@ -890,7 +822,7 @@ socket(-Socket)
     the format $socket(Id).
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-NBIO_EXPORT(nbio_sock_t)
+nbio_sock_t
 nbio_socket(int domain, int type, int protocol)
 { SOCKET sock;
   plsocket *s;
@@ -910,54 +842,48 @@ nbio_socket(int domain, int type, int protocol)
 }
 
 
-NBIO_EXPORT(int)
+int
 nbio_closesocket(nbio_sock_t socket)
-{ plsocket *s;
-  int rc = 0;
+{ int rc = 0;
 
-  if ( !(s = nbio_to_plsocket_raw(socket)) )
-  { DEBUG(1, Sdprintf("nbio_closesocket(%d): no plsocket\n", socket));
-    return -1;
-  }
+  VALID_SOCKET(socket);
 
-  s->flags &= ~PLSOCK_VIRGIN;
+  clear(socket, PLSOCK_VIRGIN);
 
-  if ( true(s, PLSOCK_OUTSTREAM|PLSOCK_INSTREAM) )
-  { int flags = s->flags;		/* may drop out! */
+  if ( true(socket, PLSOCK_OUTSTREAM|PLSOCK_INSTREAM) )
+  { int flags = socket->flags;		/* may drop out! */
 
     if ( flags & PLSOCK_INSTREAM )
-    { assert(s->input);
-      if ( Slock(s->input) == 0 )
-	rc += Sclose(s->input);
+    { assert(socket->input);
+      if ( Slock(socket->input) == 0 )
+	rc += Sclose(socket->input);
       else
 	rc--;
     }
     if ( flags & PLSOCK_OUTSTREAM )
-    { assert(s->output);
-      if ( Slock(s->output) == 0 )
-	rc += Sclose(s->output);
+    { assert(socket->output);
+      if ( Slock(socket->output) == 0 )
+	rc += Sclose(socket->output);
       else
 	rc--;
     }
   } else
   { rc = 0;
 #ifdef __WINDOWS__
-    shutdown(s->socket, SD_BOTH);
+    shutdown(socket->socket, SD_BOTH);
 #endif
-    closeSocket(s);
+    closeSocket(socket);
   }
 
   return rc;
 }
 
-NBIO_EXPORT(int)
+int
 nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
-{ plsocket *s;
-  va_list args;
+{ va_list args;
   int rc;
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   va_start(args, opt);
 
@@ -968,7 +894,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case TCP_REUSEADDR:
     { int val = va_arg(args, int);
 
-      if( setsockopt(s->socket, SOL_SOCKET, SO_REUSEADDR,
+      if( setsockopt(socket->socket, SOL_SOCKET, SO_REUSEADDR,
 		     (const char *)&val, sizeof(val)) == -1 )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
@@ -981,7 +907,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     { const char *dev = va_arg(args, char*);
 
 #ifdef SO_BINDTODEVICE
-      if ( setsockopt(s->socket, SOL_SOCKET, SO_BINDTODEVICE,
+      if ( setsockopt(socket->socket, SOL_SOCKET, SO_BINDTODEVICE,
 		      dev, strlen(dev)) == 0 )
       { rc = 0;
         break;
@@ -1002,7 +928,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 #ifndef IPPROTO_TCP			/* Is this correct? */
 #define IPPROTO_TCP SOL_SOCKET
 #endif
-      if ( setsockopt(s->socket, IPPROTO_TCP, TCP_NODELAY,
+      if ( setsockopt(socket->socket, IPPROTO_TCP, TCP_NODELAY,
 		      (const char *)&val, sizeof(val)) == -1 )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
@@ -1020,7 +946,7 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case UDP_BROADCAST:
     { int val = va_arg(args, int);
 
-      if ( setsockopt(s->socket, SOL_SOCKET, SO_BROADCAST,
+      if ( setsockopt(socket->socket, SOL_SOCKET, SO_BROADCAST,
 		     (const char *)&val, sizeof(val)) == -1 )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
 	rc = -1;
@@ -1033,9 +959,9 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     { int val = va_arg(args, int);
 
       if ( val )
-	set(s, PLSOCK_DISPATCH);
+	set(socket, PLSOCK_DISPATCH);
       else
-	clear(s, PLSOCK_DISPATCH);
+	clear(socket, PLSOCK_DISPATCH);
 
       rc = 0;
 
@@ -1044,11 +970,11 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case TCP_INSTREAM:
     { IOSTREAM *in = va_arg(args, IOSTREAM*);
 
-      s->flags |= PLSOCK_INSTREAM;
-      s->flags &= ~PLSOCK_VIRGIN;
-      s->input = in;
-      if ( s->symbol )
-	PL_register_atom(s->symbol);
+      socket->flags |= PLSOCK_INSTREAM;
+      socket->flags &= ~PLSOCK_VIRGIN;
+      socket->input = in;
+      if ( socket->symbol )
+	PL_register_atom(socket->symbol);
 
       rc = 0;
 
@@ -1057,11 +983,11 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case TCP_OUTSTREAM:
     { IOSTREAM *out = va_arg(args, IOSTREAM*);
 
-      s->flags |= PLSOCK_OUTSTREAM;
-      s->flags &= ~PLSOCK_VIRGIN;
-      s->output = out;
-      if ( s->symbol )
-	PL_register_atom(s->symbol);
+      socket->flags |= PLSOCK_OUTSTREAM;
+      socket->flags &= ~PLSOCK_VIRGIN;
+      socket->output = out;
+      if ( socket->symbol )
+	PL_register_atom(socket->symbol);
 
       rc = 0;
 
@@ -1080,12 +1006,9 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 
 int
 nbio_get_flags(nbio_sock_t socket)
-{ plsocket *s;
+{ VALID_SOCKET(socket);
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
-
-  return s->flags;
+  return socket->flags;
 }
 
 
@@ -1223,22 +1146,19 @@ nbio_unify_ip4(term_t Ip, unsigned long hip)
 
 int
 nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, size_t addrlen)
-{ plsocket *s;
-
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+{ VALID_SOCKET(socket);
 
 #ifdef __WINDOWS__
-  if ( bind(s->socket, my_addr, (int)addrlen) )
+  if ( bind(socket->socket, my_addr, (int)addrlen) )
 #else
-  if ( bind(s->socket, my_addr, addrlen) )
+  if ( bind(socket->socket, my_addr, addrlen) )
 #endif
   {
     nbio_error(GET_ERRNO, TCP_ERRNO);
     return -1;
   }
 
-  s->flags |= PLSOCK_BIND;
+  set(socket, PLSOCK_BIND);
 
   return 0;
 }
@@ -1248,18 +1168,15 @@ int
 nbio_connect(nbio_sock_t socket,
 	     const struct sockaddr *serv_addr,
 	     size_t addrlen)
-{ plsocket *s;
-
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+{ VALID_SOCKET(socket);
 
   for(;;)
-  { if ( connect(s->socket, serv_addr, addrlen) )
+  { if ( connect(socket->socket, serv_addr, addrlen) )
     { if ( need_retry(GET_ERRNO) )
       { if ( PL_handle_signals() < 0 )
 	  return -1;
 #ifdef __WINDOWS__
-        if ( !wait_socket(s) )
+        if ( !wait_socket(socket) )
           return -1;
 #endif
 	continue;
@@ -1274,7 +1191,7 @@ nbio_connect(nbio_sock_t socket,
       break;
   }
 
-  s->flags |= PLSOCK_CONNECT;
+  set(socket, PLSOCK_CONNECT);
 
   return 0;
 }
@@ -1283,26 +1200,25 @@ nbio_connect(nbio_sock_t socket,
 nbio_sock_t
 nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
 { SOCKET slave;
-  plsocket *m, *s;
+  plsocket *s;
 
-  if ( !(m = nbio_to_plsocket(master)) )
-    return NULL;
+  VALID_SOCKET_RET(master, NULL);
 
   for(;;)
   {
 #ifndef __WINDOWS__
-    if ( !wait_socket(m) )
+    if ( !wait_socket(master) )
       return NULL;
 #endif
 
-    slave = accept(m->socket, addr, addrlen);
+    slave = accept(master->socket, addr, addrlen);
 
     if ( slave == SOCKET_ERROR )
     { if ( need_retry(GET_ERRNO) )
       { if ( PL_handle_signals() < 0 )
 	  return NULL;
 #ifdef __WINDOWS__
-        if ( !wait_socket(m) )
+        if ( !wait_socket(master) )
           return NULL;
 #endif
 	continue;
@@ -1327,17 +1243,14 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
 
 int
 nbio_listen(nbio_sock_t socket, int backlog)
-{ plsocket *s;
+{ VALID_SOCKET(socket);
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
-
-  if( listen(s->socket, backlog) == -1 )
+  if( listen(socket->socket, backlog) == -1 )
   { nbio_error(GET_ERRNO, TCP_ERRNO);
     return -1;
   }
 
-  s->flags |= PLSOCK_LISTEN;
+  set(socket, PLSOCK_LISTEN);
 
   return 0;
 }
@@ -1351,22 +1264,20 @@ nbio_listen(nbio_sock_t socket, int backlog)
 
 ssize_t
 nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
-{ plsocket *s;
-  int n;
+{ int n;
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   for(;;)
   {
 #ifndef __WINDOWS__
-    if ( !wait_socket(s) )
+    if ( !wait_socket(socket) )
     { errno = EPLEXCEPTION;
       return -1;
     }
 #endif
 
-    n = recv(s->socket, buf, bufSize, 0);
+    n = recv(socket->socket, buf, bufSize, 0);
 
     if ( n == -1 )
     { if ( need_retry(GET_ERRNO) )
@@ -1375,7 +1286,7 @@ nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
           return -1;
         }
 #ifdef __WINDOWS__
-        if ( !wait_socket(s) )
+        if ( !wait_socket(socket) )
           return -1;
 #endif
         continue;
@@ -1393,17 +1304,15 @@ nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
 
 ssize_t
 nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
-{ plsocket *s;
-  size_t len = bufSize;
+{ size_t len = bufSize;
   char *str = buf;
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   while( len > 0 )
   { int n;
 
-    n = send(s->socket, str, len, 0);
+    n = send(socket->socket, str, len, 0);
     if ( n < 0 )
     { if ( need_retry(GET_ERRNO) )
       { if ( PL_handle_signals() < 0 )
@@ -1411,7 +1320,7 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
 	  return -1;
 	}
 #ifdef __WINDOWS__
-        if ( !wait_socket(s) )
+        if ( !wait_socket(socket) )
           return -1;
 #endif
 	continue;
@@ -1460,23 +1369,21 @@ https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-shutdown
 
 int
 nbio_close_input(nbio_sock_t socket)
-{ plsocket *s;
-  int rc = 0;
+{ int rc = 0;
 
-  if ( !(s = nbio_to_plsocket_raw(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_input(%d, flags=0x%x)\n",
-		    PL_thread_self(), socket, s->flags));
-  if ( (s->flags & PLSOCK_INSTREAM) )
-  { s->flags &= ~PLSOCK_INSTREAM;
+		    PL_thread_self(), socket, socket->flags));
+  if ( true(socket, PLSOCK_INSTREAM) )
+  { clear(socket, PLSOCK_INSTREAM);
 
-    s->input = NULL;
-    if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-      rc = closeSocket(s);
+    socket->input = NULL;
+    if ( false(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+      rc = closeSocket(socket);
 
-    if ( s->symbol )
-      PL_unregister_atom(s->symbol);
+    if ( socket->symbol )
+      PL_unregister_atom(socket->symbol);
   }
 
   return rc;
@@ -1493,30 +1400,28 @@ and we only want to send TCP FIN.
 
 int
 nbio_close_output(nbio_sock_t socket)
-{ plsocket *s;
-  int rc = 0;
+{ int rc = 0;
 
-  if ( !(s = nbio_to_plsocket_raw(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%d, flags=0x%x)\n",
-		    PL_thread_self(), socket, s->flags));
+		    PL_thread_self(), socket, socket->flags));
 
-  if ( (s->flags & PLSOCK_OUTSTREAM) )
-  { s->flags &= ~PLSOCK_OUTSTREAM;
+  if ( true(socket, PLSOCK_OUTSTREAM) )
+  { clear(socket, PLSOCK_OUTSTREAM);
 
-    if ( s->socket != INVALID_SOCKET )
-    { /* if ( (rc = shutdown(s->socket, SHUT_WR)) )
+    if ( socket->socket != INVALID_SOCKET )
+    { /* if ( (rc = shutdown(socket->socket, SHUT_WR)) )
 	nbio_error(GET_ERRNO, TCP_ERRNO);		See (*) */
-      shutdown(s->socket, SHUT_WR);
+      shutdown(socket->socket, SHUT_WR);
     }
 
-    s->output = NULL;
-    if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-      rc = (rc + closeSocket(s)) ? -1 : 0;
+    socket->output = NULL;
+    if ( false(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+      rc = (rc + closeSocket(socket)) ? -1 : 0;
 
-    if ( s->symbol )
-      PL_unregister_atom(s->symbol);
+    if ( socket->symbol )
+      PL_unregister_atom(socket->symbol);
   }
 
   return rc;
@@ -1530,22 +1435,20 @@ nbio_close_output(nbio_sock_t socket)
 ssize_t
 nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 	     struct sockaddr *from, socklen_t *fromlen)
-{ plsocket *s;
-  int n;
+{ int n;
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   for(;;)
   {
 #ifndef __WINDOWS__
-    if ( (flags & MSG_DONTWAIT) == 0 && !wait_socket(s) )
+    if ( (flags & MSG_DONTWAIT) == 0 && !wait_socket(socket) )
     { errno = EPLEXCEPTION;
       return -1;
     }
 #endif
 
-    n = recvfrom(s->socket, buf, bufSize, flags, from, fromlen);
+    n = recvfrom(socket->socket, buf, bufSize, flags, from, fromlen);
 
     if ( n == -1 )
     { if ( need_retry(GET_ERRNO) )
@@ -1554,7 +1457,7 @@ nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
           return -1;
         }
 #ifdef __WINDOWS__
-        if ( !wait_socket(s) )
+        if ( !wait_socket(socket) )
           return -1;
 #else
         if((flags & MSG_DONTWAIT) != 0)
@@ -1576,14 +1479,12 @@ nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 ssize_t
 nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 	    const struct sockaddr *to, socklen_t tolen)
-{ plsocket *s;
-  ssize_t n;
+{ ssize_t n;
 
-  if ( !(s = nbio_to_plsocket(socket)) )
-    return -1;
+  VALID_SOCKET(socket);
 
   for(;;)
-  { n = sendto(s->socket, buf, bufSize, flags, to, tolen);
+  { n = sendto(socket->socket, buf, bufSize, flags, to, tolen);
 
     if ( n < 0 )
     { if ( need_retry(GET_ERRNO) )
@@ -1592,7 +1493,7 @@ nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
 	  return -1;
 	}
 #ifdef __WINDOWS__
-        if ( !wait_socket(s) )
+        if ( !wait_socket(socket) )
           return -1;
 #endif
         continue;

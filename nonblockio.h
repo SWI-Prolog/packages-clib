@@ -113,17 +113,8 @@ typedef enum
 #endif
 } nbio_request;
 
-typedef struct _plsocket *plsocket_ptr;	/* wrapped socket */
 typedef struct _plsocket *nbio_sock_t;	/* socket handle */
 
-#ifdef __WINDOWS__
-typedef struct sockwait_entry
-{ term_t	stream;
-  nbio_sock_t	socket;
-  int		ready;
-} sockwait_entry;
-#endif
-					/* nbio_get_flags() mask */
 #define PLSOCK_INSTREAM	  0x0001	/* tcp_open_socket/3 bound input */
 #define PLSOCK_OUTSTREAM  0x0002	/* tcp_open_socket/3 bound output */
 #define PLSOCK_BIND	  0x0004	/* What have we done? */
@@ -142,37 +133,30 @@ typedef struct sockwait_entry
 		 *	 BASIC FUNCTIONS	*
 		 *******************************/
 
-#ifdef HAVE_DECLSPEC
-#define NBIO_EXPORT(type)		__declspec(dllexport) type
-#else
-#define NBIO_EXPORT(type)		extern type
-#endif
+extern void	nbio_set_symbol(nbio_sock_t socket, atom_t symbol);
+extern int	is_nbio_socket(nbio_sock_t socket);
+extern void	freeSocket(nbio_sock_t s);
 
-void nbio_set_symbol(nbio_sock_t socket, atom_t symbol);
-int  is_nbio_socket(nbio_sock_t socket);
-void freeSocket(nbio_sock_t s);
+extern int	nbio_init(const char *module);
+extern int	nbio_cleanup(void);
+extern int	nbio_debug(int level);
 
-NBIO_EXPORT(int)	nbio_init(const char *module);
-NBIO_EXPORT(int)	nbio_cleanup(void);
-NBIO_EXPORT(int)	nbio_debug(int level);
-
-NBIO_EXPORT(nbio_sock_t)
-		nbio_socket(int domain, int type, int protocol);
-NBIO_EXPORT(int)	nbio_connect(nbio_sock_t socket,
+extern nbio_sock_t nbio_socket(int domain, int type, int protocol);
+extern int	nbio_connect(nbio_sock_t socket,
 			     const struct sockaddr *serv_addr,
 			     size_t addrlen);
-NBIO_EXPORT(int)	nbio_bind(nbio_sock_t socket,
+extern int	nbio_bind(nbio_sock_t socket,
 			  struct sockaddr *my_addr,
 			  size_t addrlen);
-NBIO_EXPORT(int)	nbio_listen(nbio_sock_t socket, int backlog);
-NBIO_EXPORT(nbio_sock_t)
+extern int	nbio_listen(nbio_sock_t socket, int backlog);
+extern nbio_sock_t
 		nbio_accept(nbio_sock_t master,
 			    struct sockaddr *addr,
 			    socklen_t *addrlen);
 
 extern ssize_t	nbio_read(nbio_sock_t socket, char *buf, size_t bufSize);
 extern ssize_t	nbio_write(nbio_sock_t socket, char *buf, size_t bufSize);
-NBIO_EXPORT(int) nbio_closesocket(nbio_sock_t socket);
+extern int	nbio_closesocket(nbio_sock_t socket);
 extern int	nbio_close_input(nbio_sock_t socket);
 extern int	nbio_close_output(nbio_sock_t socket);
 extern ssize_t	nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize,
@@ -182,8 +166,8 @@ extern ssize_t	nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize,
 			    int flags,
 			    const struct sockaddr *to, socklen_t tolen);
 
-NBIO_EXPORT(int)	nbio_wait(nbio_sock_t socket, nbio_request);
-NBIO_EXPORT(SOCKET)	nbio_fd(nbio_sock_t socket);
+extern int	nbio_wait(nbio_sock_t socket, nbio_request);
+extern SOCKET	nbio_fd(nbio_sock_t socket);
 
 extern int	nbio_unify_ip4(term_t ip4, unsigned long hip);
 extern int	nbio_get_ip(term_t ip4, struct in_addr *ip);
@@ -191,13 +175,8 @@ extern int	nbio_get_ip(term_t ip4, struct in_addr *ip);
 extern int	nbio_error(int code, nbio_error_map map);
 extern const char*
 		nbio_last_error(nbio_sock_t socket);
-NBIO_EXPORT(int)	nbio_setopt(nbio_sock_t socket, nbio_option opt, ...);
+extern int	nbio_setopt(nbio_sock_t socket, nbio_option opt, ...);
 extern int	nbio_get_flags(nbio_sock_t socket);
-
-					/* support tipc_setopt() */
-extern plsocket_ptr
-		nbio_to_plsocket(nbio_sock_t socket);
-extern SOCKET	plsocket_handle(plsocket_ptr s);
 
 
 		 /*******************************
