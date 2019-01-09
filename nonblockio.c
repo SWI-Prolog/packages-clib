@@ -1,5 +1,4 @@
 /*  Part of SWI-Prolog
-
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
@@ -1625,10 +1624,33 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
 }
 
 
+#if defined(__WINDOWS__) && !defined(SHUT_RD)
+#define SHUT_RD SD_RECEIVE
+#define SHUT_WR SD_SEND
+#endif
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+According to [1], we need to run:
+
+ 1. Call WSAEventSelect to register for FD_CLOSE notification.
+ 2. Call shutdown with how=SD_SEND.
+ 3. When FD_CLOSE received, call the recv or WSARecv until the function
+    completes with success and indicates that zero bytes were received.
+    If SOCKET_ERROR is returned, then the graceful disconnect is not
+    possible.
+ 4. Call closesocket.
+
+We  operationalize  this   by   using    shutdown()   for   sending   in
+nbio_close_output(). A well behaved client  should subsequently read the
+input until EOF. That, in the Windows case, will also consume FD_CLOSE.
+
+[1]
+https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-shutdown
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 int
 nbio_close_input(nbio_sock_t socket)
-{ int rc = 0;
-  plsocket *s;
+{ plsocket *s;
 
   if ( !(s = nbio_to_plsocket_raw(socket)) )
     return -1;
@@ -1639,21 +1661,16 @@ nbio_close_input(nbio_sock_t socket)
 
   s->input = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-  {
-#ifdef __WINDOWS__
-    return shutdown(s->socket, SD_BOTH);
-#endif
     return freeSocket(s);
-  }
 
-  return rc;
+  return 0;
 }
 
 
 int
 nbio_close_output(nbio_sock_t socket)
-{ int rc = 0;
-  plsocket *s;
+{ plsocket *s;
+  int rc = 0;
 
   if ( !(s = nbio_to_plsocket_raw(socket)) )
     return -1;
@@ -1661,15 +1678,14 @@ nbio_close_output(nbio_sock_t socket)
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%d, flags=0x%x)\n",
 		    PL_thread_self(), socket, s->flags));
   s->flags &= ~PLSOCK_OUTSTREAM;
+  if ( s->socket != INVALID_SOCKET )
+  { if ( (rc = shutdown(s->socket, SHUT_WR)) )
+      nbio_error(GET_ERRNO, TCP_ERRNO);
+  }
 
   s->output = NULL;
   if ( !(s->flags & (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
-  {
-#ifdef __WINDOWS__
-    return shutdown(s->socket, SD_BOTH);
-#endif
-    return freeSocket(s);
-  }
+    return (rc + freeSocket(s)) ? -1 : 0;
 
   return rc;
 }
