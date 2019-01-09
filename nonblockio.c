@@ -98,11 +98,10 @@ Windows issues
 --------------
 
 Winsock is hard to handle in blocking   mode  without blocking the whole
-lot, notably (timeout) signals. We  therefore   have  a  seperate thread
-dealing with I/O and  operating   the  sockets  through WSAAsyncSelect()
-generated events. Requests are registered   with the plsocket structure,
-handled and handled in the socket thread.  Upon completion, a message is
-sent back to the waiting thread.
+lot, notably (timeout) signals. Old versions uses WSAASyncSelect() and a
+separate thread. This is slow and   complicated. The current version was
+written     by     Keri     Harris     and     uses     WSAEvent     and
+MsgWaitForMultipleObjects(). See wait_socket().
 
 Unix issues
 -----------
