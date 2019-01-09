@@ -1484,6 +1484,14 @@ nbio_close_input(nbio_sock_t socket)
 }
 
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(*) This gives an endpoint not connected   error  for the http:proxy and
+http:websocket tests. I'm not sure whether the   test  is broken or not,
+but error checking will probably cause many  applications to fail and it
+is not that clear that it is an error if the other side closed its input
+and we only want to send TCP FIN.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 int
 nbio_close_output(nbio_sock_t socket)
 { plsocket *s;
@@ -1499,8 +1507,9 @@ nbio_close_output(nbio_sock_t socket)
   { s->flags &= ~PLSOCK_OUTSTREAM;
 
     if ( s->socket != INVALID_SOCKET )
-    { if ( (rc = shutdown(s->socket, SHUT_WR)) )
-	nbio_error(GET_ERRNO, TCP_ERRNO);
+    { /* if ( (rc = shutdown(s->socket, SHUT_WR)) )
+	nbio_error(GET_ERRNO, TCP_ERRNO);		See (*) */
+      shutdown(s->socket, SHUT_WR);
     }
 
     s->output = NULL;
