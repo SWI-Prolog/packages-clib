@@ -988,9 +988,9 @@ int
 nbio_error(int code, nbio_error_map mapid)
 { const char *msg;
   const char *symbol;
-  term_t except = PL_new_term_ref();
+  term_t ex;
 
-  if ( code == EPLEXCEPTION )
+  if ( code == EPLEXCEPTION || PL_exception(0) )
     return FALSE;
 
 #ifdef __WINDOWS__
@@ -1017,13 +1017,14 @@ nbio_error(int code, nbio_error_map mapid)
   }
 #endif
 
-  return ( PL_unify_term(except,
+  return ( (ex = PL_new_term_ref()) &&
+	   PL_unify_term(ex,
 			 CompoundArg("error", 2),
 			   CompoundArg("socket_error", 2),
 			     AtomArg(symbol),
 			     AtomArg(msg),
 			   PL_VARIABLE) &&
-	   PL_raise_exception(except)
+	   PL_raise_exception(ex)
 	 );
 }
 
