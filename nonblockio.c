@@ -567,6 +567,11 @@ closeSocket(plsocket *s)
   sock = s->socket;
   s->magic = PLSOCK_CMAGIC;
 
+#ifdef __WINDOWS__
+  if ( s->event )
+    WSACloseEvent(s->event);
+#endif
+
   if ( sock != INVALID_SOCKET )
   { again:
     if ( (rval=closesocket(sock)) == SOCKET_ERROR )
