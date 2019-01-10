@@ -41,11 +41,9 @@ Shared stuff between the normal socket interface and the TIPC one.
 		 *	  IO-STREAM STUFF	*
 		 *******************************/
 
-#define fdFromHandle(p) ((nbio_sock_t)((intptr_t)(p)))
-
 static ssize_t
 tcp_read_handle(void *handle, char *buf, size_t bufSize)
-{ nbio_sock_t sock = fdFromHandle(handle);
+{ nbio_sock_t sock = handle;
 
   return nbio_read(sock, buf, bufSize);
 }
@@ -53,7 +51,7 @@ tcp_read_handle(void *handle, char *buf, size_t bufSize)
 
 static ssize_t
 tcp_write_handle(void *handle, char *buf, size_t bufSize)
-{ nbio_sock_t sock = fdFromHandle(handle);
+{ nbio_sock_t sock = handle;
 
   return nbio_write(sock, buf, bufSize);
 }
@@ -67,7 +65,7 @@ tcp_seek_null(void *handle, long offset, int whence)
 
 static int
 tcp_close_input_handle(void *handle)
-{ nbio_sock_t socket = fdFromHandle(handle);
+{ nbio_sock_t socket = handle;
 
   return nbio_close_input(socket);
 }
@@ -75,7 +73,7 @@ tcp_close_input_handle(void *handle)
 
 static int
 tcp_close_output_handle(void *handle)
-{ nbio_sock_t socket = fdFromHandle(handle);
+{ nbio_sock_t socket = handle;
 
   return nbio_close_output(socket);
 }
@@ -83,7 +81,7 @@ tcp_close_output_handle(void *handle)
 
 static int
 tcp_control(void *handle, int action, void *arg)
-{ nbio_sock_t socket = fdFromHandle(handle);
+{ nbio_sock_t socket = handle;
 
   switch(action)
   {
