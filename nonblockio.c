@@ -314,6 +314,14 @@ need_retry(int error)
 }
 
 
+/*  wait_socket() waits for the socket to become ready and in the
+ *  while waiting processes Windows messages, including Prolog
+ *  timeout.
+ *
+ *  Returns TRUE if all ok and FALSE if some Prolog exception has
+ *  been raised.
+ */
+
 static int
 wait_socket(plsocket *s)
 { int index;
@@ -371,7 +379,9 @@ wait_socket(plsocket *s)
         DispatchMessage(&msg);
 
         if ( PL_handle_signals() < 0 )
+	{ errno = EPLEXCEPTION;
           return FALSE;
+	}
         continue;
       }
     }
@@ -439,7 +449,11 @@ wait_socket(plsocket *s)
       }
 #endif
     } else
-    { return PL_dispatch(fd, PL_DISPATCH_WAIT);
+    { int rc;
+
+      if ( !(rc = PL_dispatch(fd, PL_DISPATCH_WAIT)) )
+	errno = EPLEXCEPTION;
+      return rc;
     }
   }
 
@@ -761,6 +775,7 @@ nbio_error(int code, nbio_error_map mapid)
   }
 #endif
 
+  errno = EPLEXCEPTION;
   return ( (ex = PL_new_term_ref()) &&
 	   PL_unify_term(ex,
 			 CompoundArg("error", 2),
@@ -1277,9 +1292,7 @@ nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
   {
 #ifndef __WINDOWS__
     if ( !wait_socket(socket) )
-    { errno = EPLEXCEPTION;
       return -1;
-    }
 #endif
 
     n = recv(socket->socket, buf, bufSize, 0);
@@ -1448,9 +1461,7 @@ nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
   {
 #ifndef __WINDOWS__
     if ( (flags & MSG_DONTWAIT) == 0 && !wait_socket(socket) )
-    { errno = EPLEXCEPTION;
       return -1;
-    }
 #endif
 
     n = recvfrom(socket->socket, buf, bufSize, flags, from, fromlen);
