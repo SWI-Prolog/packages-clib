@@ -514,7 +514,7 @@ delete_directory_contents(Dir) :-
 %   a plain `Mode`, which adds new   permissions, revokes permissions or
 %   sets the exact permissions. `Mode`  itself   is  an integer, a POSIX
 %   mode name or a list of POSIX   mode names. Defines names are `suid`,
-%   `sgid`, `svtx` and the all names   defined by the regular expression
+%   `sgid`, `svtx` and  all names  defined  by  the  regular  expression
 %   =|[ugo]*[rwx]*|=. Specifying none of "ugo" is the same as specifying
 %   all of them. For example, to make   a  file executable for the owner
 %   (user) and group, we can use:
