@@ -269,14 +269,25 @@ and subtle differences that must be taken into consideration:
     udp_unicast_join_hook/3,                    % +Scope, +From, +Data
     black_list/1.                               % +Term
 
-:- meta_predicate safely(0).
+:- meta_predicate
+    safely(0),
+    safely_det(0).
 
 safely(Predicate) :-
+    Err = error(_,_),
     catch(Predicate, Err,
-          (   Err == '$aborted'
-          ->  !, fail
-          ;   print_message(error, Err), fail
-          )).
+          print_message_fail(Err)).
+
+safely_det(Predicate) :-
+    Err = error(_,_),
+    catch(Predicate, Err,
+          print_message_fail(Err)),
+    !.
+safely_det(_).
+
+print_message_fail(Term) :-
+    print_message(error, Term),
+    fail.
 
 udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     IPAddress = ip(A1, A2, A3, A4),
@@ -495,7 +506,7 @@ ld_dispatch(S, request(Key, Term), From, Scope) :-
            safely((udp_term_string(Scope, reply(Key,Term), Message),
                    udp_send(S, Message, From, [])))).
 ld_dispatch(_S, send(Term), _From, _Scope) :-
-    safely(broadcast(Term)).
+    safely_det(broadcast(Term)).
 ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
     (   reply_queue(Key, Queue)
     ->  safely(thread_send_message(Queue, Term:From))
