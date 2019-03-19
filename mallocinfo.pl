@@ -43,7 +43,7 @@
 
 /** <module> Memory allocation details
 
-This library is provided of the clib   package  is compiled on a _glibc_
+This library is provided if the clib   package  is compiled on a _glibc_
 based system, typically Linux. It provides  access to the glibc ptmalloc
 informational  functions  for  diagnosing  memory  usage.  This  library
 exports
@@ -81,6 +81,8 @@ mallinfo(Info) :-
 %   The XML document is parsed and  translated   into  a dict with a
 %   similar structure. The  malloc_info()  XML   is  supposed  to be
 %   self-explanatory.
+%
+%   @see [Understanding glibc malloc](https://sploitfun.wordpress.com/2015/02/10/understanding-glibc-malloc/)
 
 malloc_info(Info) :-
     '$malloc_info'(XML),
