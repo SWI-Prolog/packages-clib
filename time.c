@@ -654,7 +654,6 @@ installEvent(Event ev)
 
     TheSchedule()->stop = FALSE;
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&attr, 8192);
     rc = pthread_create(&scheduler, &attr, alarm_loop, NULL);
     pthread_attr_destroy(&attr);
