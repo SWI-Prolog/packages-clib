@@ -839,6 +839,9 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %     - reply(Id,ApplTerm)
 %       Is sent to reply on a broadcast_request/1 request that has
 %       been received.  Arguments are the same as above.
+%
+%   @throw The hook may throw udp(invalid_message) to stop processing
+%   the message.
 
 %!  udp_term_string(+Scope, +Term, -String) is det.
 %!  udp_term_string(+Scope, -Term, +String) is semidet.
@@ -853,8 +856,14 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %   This predicate first calls  udp_term_string_hook/3.
 
 udp_term_string(Scope, Term, String) :-
-    udp_term_string_hook(Scope, Term, String),
-    !.
+    catch(udp_term_string_hook(Scope, Term, String), udp(Error), true),
+    !,
+    (   var(Error)
+    ->  true
+    ;   Error == invalid_message
+    ->  fail
+    ;   throw(udp(Error))
+    ).
 udp_term_string(_Scope, Term, String) :-
     (   var(String)
     ->  format(string(String), '%-prolog-\n~W',
