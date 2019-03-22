@@ -840,7 +840,7 @@ peer_address(IP, Scope, IPAddress:Port) :-
 %       Is sent to reply on a broadcast_request/1 request that has
 %       been received.  Arguments are the same as above.
 %
-%   @throw The hook may throw udp(invalid_message) to stop processing
+%   @throws The hook may throw udp(invalid_message) to stop processing
 %   the message.
 
 %!  udp_term_string(+Scope, +Term, -String) is det.
