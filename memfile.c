@@ -758,9 +758,10 @@ get_size_mf(memfile *m, IOENC encoding, size_t *sizep)
         break;
       case ENC_UTF8:
       { size_t gap_end = m->gap_start+m->gap_size;
-	size = ( PL_utf8_strlen(m->data, m->gap_start) +
-		 PL_utf8_strlen(&m->data[gap_end], m->end-gap_end)
-	       );  /* assumes UTF-8 sequences are not broken over the gap */
+
+	/* assumes UTF-8 sequences are not broken over the gap */
+	size  = PL_utf8_strlen(m->data, m->gap_start);
+	size +=	PL_utf8_strlen(&m->data[gap_end], m->end-gap_end);
 	break;
       }
       default:
