@@ -341,6 +341,10 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     udp_closed/1.				% Scope
 
 udp_inbound_proxy :-
+    thread_at_exit(inbound_proxy_died),
+    udp_inbound_proxy_loop.
+
+udp_inbound_proxy_loop :-
     make_private_socket,
     forall(udp_scope(Scope, ScopeData),
            make_public_socket(ScopeData, Scope)),
@@ -348,7 +352,7 @@ udp_inbound_proxy :-
     findall(FileNo, udp_socket_file_no(FileNo), FileNos),
     catch(dispatch_inbound(FileNos),
           E, dispatch_exception(E)),
-    udp_inbound_proxy.
+    udp_inbound_proxy_loop.
 
 dispatch_exception(E) :-
     E = error(_,_),
@@ -558,6 +562,29 @@ reload_inbound_proxy :-
                   [ alias(udp_inbound_proxy),
                     detached(true)
                   ]).
+
+inbound_proxy_died :-
+    thread_self(Self),
+    thread_property(Self, status(Status)),
+    (   catch(recreate_proxy(Status), _, fail)
+    ->  print_message(informational,
+                      httpd_restarted_worker(Self))
+    ;   done_status_message_level(Status, Level),
+        print_message(Level,
+                      httpd_stopped_worker(Self, Status))
+    ).
+
+recreate_proxy(exception(Error)) :-
+    recreate_on_error(Error),
+    reload_inbound_proxy.
+
+recreate_on_error('$aborted').
+recreate_on_error(time_limit_exceeded).
+
+done_status_message_level(true, silent) :- !.
+done_status_message_level(exception('$aborted'), silent) :- !.
+done_status_message_level(_, informational).
+
 
 %!  udp_broadcast_close(+Scope)
 %
