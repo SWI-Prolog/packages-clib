@@ -71,12 +71,19 @@ verification, \pllib{sha} providing cryptographic hash functions and
 \subsection{UDP protocol support}
 \label{sec:udp-sockets}
 
-The current library provides limited support for UDP packets. The UDP
-protocol is a \emph{connection-less} and \emph{unreliable} datagram
-based protocol. That means that messages sent may or may not arrive at
-the client side and may arrive in a different order as they are sent.
-UDP messages are often used for streaming media or for service discovery
-using the broadcasting mechanism.
+The socket library provides support for UDP sockets. The UDP protocol is
+a \emph{connection-less} and \emph{unreliable} datagram based protocol.
+That means that messages sent may or may not arrive at the client side,
+may arrive in a different order then they were sent or even may arrive
+multiple times. UDP messages are often used for data replication,
+streaming media, or service discovery.
+
+The library \pllib{udp_broadcast} provides a high-level interface that
+builds on top of the \pllib{broadcast} facilitating an unreliable
+\jargon{publish-subscribe} pattern based communication channel. The
+\pllib{udp_broadcast} library supports multiple network architectures,
+e.g., classical LAN broadcasting, \jargon{multicast} and
+\jargon{unicast}.
 
 \begin{description}
     \predicate{udp_socket}{1}{-Socket}
