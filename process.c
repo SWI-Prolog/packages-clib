@@ -1407,6 +1407,9 @@ create_pipes(p_options *info)
 	  s->cloexec = TRUE;
 #endif
       }
+    } else if ( s->term && s->type == std_stream )
+    { if ( fcntl(s->fd[0], F_SETFD, FD_CLOEXEC) == 0 )
+        s->cloexec = TRUE;
     }
   }
 
@@ -1666,12 +1669,10 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stdin */
     switch( info->streams[0].type )
     { case std_pipe:
-	dup2(info->streams[0].fd[0], 0);
-        if ( !info->streams[0].cloexec )
-	  close(info->streams[0].fd[1]);
-	break;
       case std_stream:
         dup2(info->streams[0].fd[0], 0);
+        if ( !info->streams[0].cloexec )
+	  close(info->streams[0].fd[1]);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
@@ -1683,12 +1684,10 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stdout */
     switch( info->streams[1].type )
     { case std_pipe:
+      case std_stream:
 	dup2(info->streams[1].fd[1], 1);
         if ( !info->streams[1].cloexec )
 	  close(info->streams[1].fd[0]);
-	break;
-      case std_stream:
-	dup2(info->streams[1].fd[1], 1);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1700,12 +1699,10 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stderr */
     switch( info->streams[2].type )
     { case std_pipe:
+      case std_stream:
 	dup2(info->streams[2].fd[1], 2);
 	if ( !info->streams[2].cloexec )
 	  close(info->streams[2].fd[0]);
-	break;
-      case std_stream:
-	dup2(info->streams[2].fd[1], 2);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1757,12 +1754,10 @@ do_create_process(p_options *info)
 
   switch( info->streams[0].type )	/* stdin */
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
       if ( !info->streams[0].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
-      break;
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
       break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 0,
@@ -1774,12 +1769,10 @@ do_create_process(p_options *info)
 					/* stdout */
   switch( info->streams[1].type )
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
       if ( !info->streams[1].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
-      break;
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
       break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 1,
@@ -1791,12 +1784,10 @@ do_create_process(p_options *info)
 				      /* stderr */
   switch( info->streams[2].type )
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
       if ( !info->streams[2].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
-      break;
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
       break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 2,
