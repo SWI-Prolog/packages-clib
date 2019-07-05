@@ -395,7 +395,6 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     IOSTREAM *s = NULL;
     if ( !PL_get_stream_handle(stream->term, &s) )
       return PL_type_error("stream", stream->term);
-    /* stream->type = std_stream; */
     stream->type = std_stream;
     int fd = Sfileno(s);
     if ( fd > 0 )
