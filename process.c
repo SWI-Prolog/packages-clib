@@ -1057,7 +1057,7 @@ create_pipes(p_options *info)
   for(i=0; i<3; i++)
   { p_stream *s = &info->streams[i];
 
-    if ( s->term )
+    if ( s->term && s->type == std_pipe )
     { if ( i == 2 && info->streams[1].term &&
 	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
       { s->fd[0] = info->streams[1].fd[0];
