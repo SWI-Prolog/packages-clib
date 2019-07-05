@@ -148,6 +148,8 @@ following finds the executable for =ls=:
 %           returns end-of-file, writing produces no output
 %           * pipe(-Stream)
 %           Attach input and/or output to a Prolog stream.
+%           * stream(+Stream)
+%           Attach input or output to an existing file stream.
 %
 %       * cwd(+Directory)
 %       Run the new process in Directory.  Directory can be a
