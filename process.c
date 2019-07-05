@@ -91,6 +91,7 @@ static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
+static functor_t FUNCTOR_stream1;
 static functor_t FUNCTOR_exit1;
 static functor_t FUNCTOR_killed1;
 static functor_t FUNCTOR_eq2;		/* =/2 */
@@ -137,7 +138,8 @@ ISSUES:
 typedef enum std_type
 { std_std,
   std_null,
-  std_pipe
+  std_pipe,
+  std_stream
 } std_type;
 
 
@@ -386,6 +388,21 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     }
     stream->type = std_pipe;
     info->pipes++;
+    return TRUE;
+  } else if ( PL_is_functor(t, FUNCTOR_stream1) )
+  { stream->term = PL_new_term_ref();
+    _PL_get_arg(1, t, stream->term);
+    IOSTREAM *s = NULL;
+    if ( !PL_get_stream_handle(stream->term, &s) )
+      return PL_type_error("stream", stream->term);
+    /* stream->type = std_stream; */
+    stream->type = std_stream;
+    int fd = Sfileno(s);
+    if ( fd > 0 )
+    { stream->fd[0] = stream->fd[1] = fd;
+    } else
+    { return PL_domain_error("Not valid file stream", stream->term);
+    }
     return TRUE;
   } else
     return PL_type_error("process_stream", t);
@@ -1362,7 +1379,7 @@ create_pipes(p_options *info)
   for(i=0; i<3; i++)
   { p_stream *s = &info->streams[i];
 
-    if ( s->term )
+    if ( s->term && s->type == std_pipe )
     { if ( i == 2 && info->streams[1].term &&
 	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
       { s->fd[0] = info->streams[1].fd[0];
@@ -1654,6 +1671,9 @@ do_create_process_fork(p_options *info, create_method method)
         if ( !info->streams[0].cloexec )
 	  close(info->streams[0].fd[1]);
 	break;
+      case std_stream:
+        dup2(info->streams[0].fd[0], 0);
+	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
 	  dup2(fd, 0);
@@ -1668,6 +1688,9 @@ do_create_process_fork(p_options *info, create_method method)
         if ( !info->streams[1].cloexec )
 	  close(info->streams[1].fd[0]);
 	break;
+      case std_stream:
+	dup2(info->streams[1].fd[1], 1);
+	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
 	  dup2(fd, 1);
@@ -1681,6 +1704,9 @@ do_create_process_fork(p_options *info, create_method method)
 	dup2(info->streams[2].fd[1], 2);
 	if ( !info->streams[2].cloexec )
 	  close(info->streams[2].fd[0]);
+	break;
+      case std_stream:
+	dup2(info->streams[2].fd[1], 2);
 	break;
       case std_null:
 	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
@@ -1736,6 +1762,9 @@ do_create_process(p_options *info)
       if ( !info->streams[0].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
       break;
+    case std_stream:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
+      break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 0,
 				       "/dev/null", O_RDONLY, 0);
@@ -1750,6 +1779,9 @@ do_create_process(p_options *info)
       if ( !info->streams[1].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
       break;
+    case std_stream:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 0);
+      break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 1,
 				       "/dev/null", O_WRONLY, 0);
@@ -1763,6 +1795,9 @@ do_create_process(p_options *info)
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
       if ( !info->streams[2].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
+      break;
+    case std_stream:
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
       break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 2,
@@ -2054,6 +2089,7 @@ install_process()
   MKATOM(infinite);
 
   MKFUNCTOR(pipe, 1);
+  MKFUNCTOR(stream, 1);
   MKFUNCTOR(error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);
