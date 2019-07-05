@@ -1147,6 +1147,7 @@ do_create_process(p_options *info)
 				      /* stdin */
   switch( info->streams[0].type )
   { case std_pipe:
+    case std_stream:
       si.hStdInput = info->streams[0].fd[0];
       SetHandleInformation(info->streams[0].fd[1],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1161,6 +1162,7 @@ do_create_process(p_options *info)
 				      /* stdout */
   switch( info->streams[1].type )
   { case std_pipe:
+    case std_stream:
       si.hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(info->streams[1].fd[0],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1175,6 +1177,7 @@ do_create_process(p_options *info)
 				      /* stderr */
   switch( info->streams[2].type )
   { case std_pipe:
+    case std_stream:
       si.hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
                            HANDLE_FLAG_INHERIT, FALSE);
