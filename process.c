@@ -1779,7 +1779,7 @@ do_create_process(p_options *info)
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
       break;
     case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 0);
+      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
       break;
     case std_null:
       posix_spawn_file_actions_addopen(&file_actions, 1,
