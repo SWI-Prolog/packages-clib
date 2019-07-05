@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2018, University of Amsterdam
+    Copyright (c)  2000-2019, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
     All rights reserved.
@@ -91,6 +91,7 @@ static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
+static functor_t FUNCTOR_stream1;
 static functor_t FUNCTOR_exit1;
 static functor_t FUNCTOR_killed1;
 static functor_t FUNCTOR_eq2;		/* =/2 */
@@ -137,7 +138,8 @@ ISSUES:
 typedef enum std_type
 { std_std,
   std_null,
-  std_pipe
+  std_pipe,
+  std_stream
 } std_type;
 
 
@@ -360,7 +362,7 @@ parse_environment(term_t t, p_options *info, int pass)
 
 
 static int
-get_stream(term_t t, p_options *info, p_stream *stream)
+get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 { atom_t a;
   int i;
   if ( PL_get_atom(t, &a) )
@@ -387,6 +389,21 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     stream->type = std_pipe;
     info->pipes++;
     return TRUE;
+  } else if ( PL_is_functor(t, FUNCTOR_stream1) )
+  { IOSTREAM *s;
+    int fd;
+    stream->term = PL_new_term_ref();
+    _PL_get_arg(1, t, stream->term);
+    if ( !PL_get_stream(stream->term, &s,
+			name == ATOM_stdin ? SIO_INPUT : SIO_OUTPUT) )
+      return FALSE;
+    stream->type = std_stream;
+    if ( (fd = Sfileno(s)) > 0 )
+    { stream->fd[0] = stream->fd[1] = fd;
+    } else
+    { return PL_domain_error("file_stream", stream->term);
+    }
+    return TRUE;
   } else
     return PL_type_error("process_stream", t);
 }
@@ -409,13 +426,13 @@ parse_options(term_t options, p_options *info)
     _PL_get_arg(1, head, arg);
 
     if ( name == ATOM_stdin )
-    { if ( !get_stream(arg, info, &info->streams[0]) )
+    { if ( !get_stream(arg, info, &info->streams[0], name) )
 	return FALSE;
     } else if ( name == ATOM_stdout )
-    { if ( !get_stream(arg, info, &info->streams[1]) )
+    { if ( !get_stream(arg, info, &info->streams[1], name) )
 	return FALSE;
     } else if ( name == ATOM_stderr )
-    { if ( !get_stream(arg, info, &info->streams[2]) )
+    { if ( !get_stream(arg, info, &info->streams[2], name) )
 	return FALSE;
     } else if ( name == ATOM_process )
     { info->pid = PL_copy_term_ref(arg);
@@ -1041,7 +1058,7 @@ create_pipes(p_options *info)
   for(i=0; i<3; i++)
   { p_stream *s = &info->streams[i];
 
-    if ( s->term )
+    if ( s->term && s->type == std_pipe )
     { if ( i == 2 && info->streams[1].term &&
 	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
       { s->fd[0] = info->streams[1].fd[0];
@@ -1131,6 +1148,7 @@ do_create_process(p_options *info)
 				      /* stdin */
   switch( info->streams[0].type )
   { case std_pipe:
+    case std_stream:
       si.hStdInput = info->streams[0].fd[0];
       SetHandleInformation(info->streams[0].fd[1],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1145,6 +1163,7 @@ do_create_process(p_options *info)
 				      /* stdout */
   switch( info->streams[1].type )
   { case std_pipe:
+    case std_stream:
       si.hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(info->streams[1].fd[0],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1159,6 +1178,7 @@ do_create_process(p_options *info)
 				      /* stderr */
   switch( info->streams[2].type )
   { case std_pipe:
+    case std_stream:
       si.hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
                            HANDLE_FLAG_INHERIT, FALSE);
@@ -1362,7 +1382,7 @@ create_pipes(p_options *info)
   for(i=0; i<3; i++)
   { p_stream *s = &info->streams[i];
 
-    if ( s->term )
+    if ( s->term && s->type == std_pipe )
     { if ( i == 2 && info->streams[1].term &&
 	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
       { s->fd[0] = info->streams[1].fd[0];
@@ -1391,6 +1411,9 @@ create_pipes(p_options *info)
 	  s->cloexec = TRUE;
 #endif
       }
+    } else if ( s->term && s->type == std_stream )
+    { if ( fcntl(s->fd[0], F_SETFD, FD_CLOEXEC) == 0 )
+        s->cloexec = TRUE;
     }
   }
 
@@ -1650,7 +1673,8 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stdin */
     switch( info->streams[0].type )
     { case std_pipe:
-	dup2(info->streams[0].fd[0], 0);
+      case std_stream:
+        dup2(info->streams[0].fd[0], 0);
         if ( !info->streams[0].cloexec )
 	  close(info->streams[0].fd[1]);
 	break;
@@ -1664,6 +1688,7 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stdout */
     switch( info->streams[1].type )
     { case std_pipe:
+      case std_stream:
 	dup2(info->streams[1].fd[1], 1);
         if ( !info->streams[1].cloexec )
 	  close(info->streams[1].fd[0]);
@@ -1678,6 +1703,7 @@ do_create_process_fork(p_options *info, create_method method)
 					/* stderr */
     switch( info->streams[2].type )
     { case std_pipe:
+      case std_stream:
 	dup2(info->streams[2].fd[1], 2);
 	if ( !info->streams[2].cloexec )
 	  close(info->streams[2].fd[0]);
@@ -1732,6 +1758,7 @@ do_create_process(p_options *info)
 
   switch( info->streams[0].type )	/* stdin */
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
       if ( !info->streams[0].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
@@ -1746,6 +1773,7 @@ do_create_process(p_options *info)
 					/* stdout */
   switch( info->streams[1].type )
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
       if ( !info->streams[1].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
@@ -1760,6 +1788,7 @@ do_create_process(p_options *info)
 				      /* stderr */
   switch( info->streams[2].type )
   { case std_pipe:
+    case std_stream:
       posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
       if ( !info->streams[2].cloexec )
 	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
@@ -2054,6 +2083,7 @@ install_process()
   MKATOM(infinite);
 
   MKFUNCTOR(pipe, 1);
+  MKFUNCTOR(stream, 1);
   MKFUNCTOR(error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);

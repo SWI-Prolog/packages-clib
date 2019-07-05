@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2018, University of Amsterdam
+    Copyright (c)  2008-2019, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
     All rights reserved.
@@ -148,11 +148,17 @@ following finds the executable for =ls=:
 %           returns end-of-file, writing produces no output
 %           * pipe(-Stream)
 %           Attach input and/or output to a Prolog stream.
+%           * stream(+Stream)
+%           Attach input or output to an existing Prolog stream.
+%           This stream must be associated with an OS file
+%           handle (see stream_property/2, property `file_no`).
+%           This option is __not__ provided by the SICStus
+%           implementation.
 %
 %       * cwd(+Directory)
 %       Run the new process in Directory.  Directory can be a
 %       compound specification, which is converted using
-%       absolute_file_name/3.
+%       absolute_file_name/3.  See also process_set_method/1.
 %       * env(+List)
 %       As environment(List), but _only_ the specified variables
 %       are passed, i.e., no variables are _inherited_.
