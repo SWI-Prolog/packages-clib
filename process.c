@@ -390,14 +390,14 @@ get_stream(term_t t, p_options *info, p_stream *stream)
     info->pipes++;
     return TRUE;
   } else if ( PL_is_functor(t, FUNCTOR_stream1) )
-  { stream->term = PL_new_term_ref();
+  { IOSTREAM *s;
+    int fd;
+    stream->term = PL_new_term_ref();
     _PL_get_arg(1, t, stream->term);
-    IOSTREAM *s = NULL;
     if ( !PL_get_stream_handle(stream->term, &s) )
       return PL_type_error("stream", stream->term);
     stream->type = std_stream;
-    int fd = Sfileno(s);
-    if ( fd > 0 )
+    if ( (fd = Sfileno(s)) > 0 )
     { stream->fd[0] = stream->fd[1] = fd;
     } else
     { return PL_domain_error("Not valid file stream", stream->term);
