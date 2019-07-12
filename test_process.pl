@@ -79,13 +79,14 @@ test(null_error, [condition(has_exe(sh))]) :-
     process_create(path(sh),
                    ['-c', 'echo "THIS IS AN ERROR" 1>&2'],
                    [stderr(null)]).
-test(stream_input, [condition(has_exe(sh)), X == '0\n']) :-
+test(stream_input, [condition(has_exe(wc)), X == "0"]) :-
     open('/dev/null', read, In, [type(binary)]),
-    process_create(path(sh),
-                   ['-c', 'wc -c'],
+    process_create(path(wc),
+                   ['-c'],
                    [stdin(stream(In)), stdout(pipe(Out))]),
     close(In),
-    read_process(Out, X).
+    read_process(Out, X0),
+    split_string(X0, "", " \r\n", [X]).
 test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
     process_create(path(sh),
                    ['-c', 'echo "error" 1>&2'],
