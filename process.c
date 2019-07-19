@@ -399,7 +399,12 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
       return FALSE;
     stream->type = std_stream;
     if ( (fd = Sfileno(s)) > 0 )
-    { stream->fd[0] = stream->fd[1] = fd;
+    {
+#ifdef __WINDOWS__
+      stream->fd[0] = stream->fd[1] = (HANDLE)_get_osfhandle(fd);
+#else
+      stream->fd[0] = stream->fd[1] = fd;
+#endif
     } else
     { return PL_domain_error("file_stream", stream->term);
     }
