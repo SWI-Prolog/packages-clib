@@ -115,7 +115,8 @@ test(cwd, [true, condition(\+current_prolog_flag(windows, true))]) :-
     read_process(Out, CWD0),
     normalize_space(atom(CWD), CWD0),
     same_file(CWD, Tmp).
-test(cwd, [true, condition(current_prolog_flag(windows, true))]) :-
+test(cwd, [true, condition(( current_prolog_flag(windows, true),
+                             \+current_prolog_flag(wine_version, _)))]) :-
     tmp_dir(Tmp),
     getenv('COMSPEC', Shell),
     process_create(Shell, ['/c', cd],
