@@ -675,7 +675,8 @@ seconds (wall time), exit using the exception
 
 Please note that this predicate uses alarm/4 and therefore its effect on
 long-running foreign code and system calls is undefined. Blocking I/O
-can be handled using the timeout option of read_term/3.
+can be handled using the timeout option of set_stream/2 or waiting for
+input using wait_for_input/3.
 \end{description}
 
 \InputIfFileExists{unix.tex}{}{}
