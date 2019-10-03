@@ -546,6 +546,14 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :-
 %     dispatched on behalf of the user interface. Default is
 %     =true=. Only very specific situations require setting
 %     this to =false=.
+%
+%     - sndbuf(+Integer)
+%     Sets the send buffer size to Integer (bytes). On Windows this defaults
+%     (now) to 64kb. Higher latency links may benefit from increasing this
+%     further since the maximum theoretical throughput on a link is given by
+%     buffer-size / latency.
+%     See https://support.microsoft.com/en-gb/help/823764/slow-performance-occurs-when-you-copy-data-to-a-tcp-server-by-using-a
+%     for Microsoft's discussion
 
 %!  tcp_fcntl(+Stream, +Action, ?Argument) is det.
 %

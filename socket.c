@@ -94,6 +94,7 @@ static atom_t ATOM_max_message_size;    /* "message_size" */
 static atom_t ATOM_file_no;		/* "file_no" */
 static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
 static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
+static atom_t ATOM_sndbuf;	        /* "sndbuf" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
 static int get_socket_from_stream(term_t t, IOSTREAM **s, nbio_sock_t *sp);
@@ -346,6 +347,19 @@ pl_setopt(term_t Socket, term_t opt)
       else
 	return TRUE;
 #endif
+    } else if ( a == ATOM_sndbuf && arity == 1 )
+    { int bufsize;
+      int rc;
+      term_t a = PL_new_term_ref();
+      _PL_get_arg(1, opt, a);
+      if ( !PL_get_integer(a, &bufsize) )
+	return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "integer");
+      if ( (rc=nbio_setopt(socket, TCP_SNDBUF, bufsize) == 0) )
+	return TRUE;
+      if ( rc == -2 )
+	goto not_implemented;
+
+      return FALSE;
     }
   }
 
@@ -684,6 +698,7 @@ install_socket(void)
   ATOM_file_no		  = PL_new_atom("file_no");
   ATOM_ip_add_membership  = PL_new_atom("ip_add_membership");
   ATOM_ip_drop_membership = PL_new_atom("ip_drop_membership");
+  ATOM_sndbuf             = PL_new_atom("sndbuf");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 

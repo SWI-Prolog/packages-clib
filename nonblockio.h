@@ -97,7 +97,8 @@ typedef enum				/* nbio_setopt() commands */
   TCP_OUTSTREAM,
   UDP_BROADCAST,
   SCK_BINDTODEVICE,
-  NBIO_END
+  NBIO_END,
+  TCP_SNDBUF
 } nbio_option;
 
 typedef enum

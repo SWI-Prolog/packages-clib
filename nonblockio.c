@@ -857,7 +857,20 @@ nbio_socket(int domain, int type, int protocol)
   { closesocket(sock);
     return NULL;
   }
-
+#ifdef __WINDOWS__
+  /* On older versions of Windows (win7 and before) the default send
+     buffer size is only 8k. On a high latency link this can seriously
+     hamper performance. Default it to max(64k, current-value)
+  */
+  { int val;
+    int val_len = sizeof(val);
+    if (getsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&val, &val_len) == 0 &&
+	val < 65535)
+    { val = 65535;
+      setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&val, sizeof(int));
+    }
+  }
+#endif
   return s;
 }
 
@@ -1010,6 +1023,18 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
 	PL_register_atom(socket->symbol);
 
       rc = 0;
+
+      break;
+    }
+    case TCP_SNDBUF:
+    { int val = va_arg(args, int);
+      if ( setsockopt(socket->socket, SOL_SOCKET, SO_SNDBUF,
+		      (const char *)&val, sizeof(int)) == -1 )
+      { nbio_error(GET_ERRNO, TCP_ERRNO);
+	rc = -1;
+      } else
+      { rc = 0;
+      }
 
       break;
     }
