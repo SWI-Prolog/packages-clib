@@ -1626,6 +1626,34 @@ process_parent_side(p_options *info, int pid)
 }
 
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+If profiling is used, fork() may not   work succeed as it is interrupted
+before completion. This problem was  diagnosed   by  Edward Schwartz. It
+seems to affect at least Ubuntu 18.04, but not later versions.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+#if defined(SIGPROF) && defined(HAVE_SIGPROCMASK)
+
+static void
+blockSignal(int sig, sigset_t *old)
+{ sigset_t set;
+
+  sigemptyset(&set);
+  sigaddset(&set, sig);
+
+  sigprocmask(SIG_BLOCK, &set, old);
+}
+
+static int
+restoreSignals(sigset_t *old)
+{ sigprocmask(SIG_SETMASK, old, NULL);
+}
+
+#else
+#define blockSignal(sig, old) (void)set
+#define restoreSignals(set) (void)0
+#endif
+
 #ifndef HAVE_VFORK
 #define vfork fork
 #endif
@@ -1633,11 +1661,15 @@ process_parent_side(p_options *info, int pid)
 static int
 do_create_process_fork(p_options *info, create_method method)
 { int pid;
+  sigset_t set;
 
+  blockSignal(SIGPROF, &set);
   if ( method == PCREATE_VFORK )
     pid = vfork();
   else
     pid = fork();
+  if ( pid != 0 )				/* parent */
+    restoreSignals(&set);
 
   if ( pid == 0 )				/* child */
   { int fd;
