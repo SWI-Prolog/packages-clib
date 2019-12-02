@@ -1646,7 +1646,7 @@ blockSignal(int sig, sigset_t *old)
 
 static int
 restoreSignals(sigset_t *old)
-{ sigprocmask(SIG_SETMASK, old, NULL);
+{ return sigprocmask(SIG_SETMASK, old, NULL);
 }
 
 #else
