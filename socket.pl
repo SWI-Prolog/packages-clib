@@ -131,7 +131,7 @@ in case of failure or exceptions.
 
   ==
   dispatch(AcceptFd) :-
-          tcp_accept(AcceptFd, Socket, _Peer),
+          tcp_accept(AcceptFd, Socket, Peer),
           thread_create(process_client(Socket, Peer), _,
                         [ detached(true)
                         ]),
@@ -140,7 +140,7 @@ in case of failure or exceptions.
   process_client(Socket, Peer) :-
           setup_call_cleanup(
               tcp_open_socket(Socket, StreamPair),
-              handle_service(In, StreamPair),
+              handle_service(StreamPair),
               close(StreamPair)).
 
   handle_service(StreamPair) :-
