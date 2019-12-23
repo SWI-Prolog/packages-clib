@@ -1684,19 +1684,18 @@ do_create_process_fork(p_options *info, create_method method)
     if ( info->detached )
     { setsid();
 #ifdef HAVE_SETPGID
-    setpgid(pid, pid);
+      setpgid(pid, pid);
 #elif defined(HAVE_SETPGRP)
 #ifdef SETPGRP_VOID
-    setpgrp();
+      setpgrp();
 #else
-    setpgrp(pid, pid);
+      setpgrp(pid, pid);
 #endif
 #endif
-    }
-    else
+    } else
     {
 #ifdef HAVE_PRCTL
-    prctl(PR_SET_PDEATHSIG, SIGTERM);
+      prctl(PR_SET_PDEATHSIG, SIGTERM);
 #endif
     }
 
