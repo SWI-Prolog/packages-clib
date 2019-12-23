@@ -142,7 +142,10 @@ following finds the executable for =ls=:
 %       Prolog stream.
 %
 %           * std
-%           Just share with the Prolog I/O streams
+%           Just share with the Prolog I/O streams.  On Unix,
+%           if the `user_input`, etc. are bound to a file handle
+%           but not to 0,1,2 the process I/O is bound to the file
+%           handles of these streams.
 %           * null
 %           Bind to a _null_ stream. Reading from such a stream
 %           returns end-of-file, writing produces no output

@@ -1719,7 +1719,11 @@ do_create_process_fork(p_options *info, create_method method)
 	  dup2(fd, 0);
         break;
       case std_std:
+      { int fd = Sfileno(Suser_input);
+        if ( fd > 0 )
+	  dup2(fd, 0);
 	break;
+      }
     }
 					/* stdout */
     switch( info->streams[1].type )
@@ -1734,7 +1738,11 @@ do_create_process_fork(p_options *info, create_method method)
 	  dup2(fd, 1);
         break;
       case std_std:
+      { int fd = Sfileno(Suser_output);
+        if ( fd >= 0 && fd != 1 )
+	  dup2(fd, 1);
 	break;
+      }
     }
 					/* stderr */
     switch( info->streams[2].type )
@@ -1749,7 +1757,11 @@ do_create_process_fork(p_options *info, create_method method)
 	  dup2(fd, 2);
         break;
       case std_std:
+      { int fd = Sfileno(Suser_output);
+        if ( fd >= 0 && fd != 2 )
+	  dup2(fd, 2);
 	break;
+      }
     }
 
     if ( info->envp )
