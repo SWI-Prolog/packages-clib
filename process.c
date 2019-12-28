@@ -1757,7 +1757,7 @@ do_create_process_fork(p_options *info, create_method method)
 	  dup2(fd, 2);
         break;
       case std_std:
-      { int fd = Sfileno(Suser_output);
+      { int fd = Sfileno(Suser_error);
         if ( fd >= 0 && fd != 2 )
 	  dup2(fd, 2);
 	break;
