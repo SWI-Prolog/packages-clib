@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2015, University of Amsterdam
+    Copyright (c)  2002-2020, University of Amsterdam
                               VU University Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -45,7 +46,9 @@
             current_alarm/4,            % ?At, ?:Goal, ?Id, ?Status
             call_with_time_limit/2      % +Time, :Callable
           ]).
-:- use_module(library(lists)).
+:- autoload(library(lists),[member/2]).
+:- autoload(library(shlib),[use_foreign_library/1]).
+
 :- set_prolog_flag(generate_debug_info, false).
 
 :- meta_predicate
