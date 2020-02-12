@@ -45,7 +45,6 @@
             detach_IO/1,                % +Stream
             environ/1                   % -[Name=Value]
           ]).
-:- use_module(library(shlib)).
 
 /** <module> Unix specific operations
 
@@ -101,16 +100,6 @@ fork_warn_threads :-
     ;   throw(error(permission_error(fork, process, main),
                     context(_, running_threads(Others))))
     ).
-
-:- if(\+current_predicate(set_prolog_gc_thread/1)).
-set_prolog_gc_thread(stop) :-
-    (   catch(thread_signal(gc, abort),
-              error(existence_error(thread, _), _),
-              fail)
-    ->  thread_join(gc)
-    ;   true
-    ).
-:- endif.
 
 other_thread(T) :-
     thread_self(Me),

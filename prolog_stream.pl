@@ -35,7 +35,6 @@
 :- module(prolog_stream,
           [ open_prolog_stream/4        % +Module, +Mode, -Stream, +Data
           ]).
-:- use_module(library(shlib)).
 :- use_foreign_library(foreign(prolog_stream)).
 
 /** <module> A stream with Prolog callbacks

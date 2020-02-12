@@ -41,8 +41,6 @@
             file_sha1/2,                % +File, -SHA1
             hash_atom/2                 % +Hash, -HexAtom
           ]).
-:- use_module(library(shlib)).
-
 :- use_foreign_library(foreign(sha4pl)).
 
 /** <module> SHA secure hashes

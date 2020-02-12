@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2011, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -35,7 +36,6 @@
 :- module(cgi,
           [ cgi_get_form/1              % -ListOf Name(Value)
           ]).
-:- use_module(library(shlib)).
 
 :- use_foreign_library(foreign(cgi), install_cgi).
 

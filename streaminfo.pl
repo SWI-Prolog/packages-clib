@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2015, University of Amsterdam
+    Copyright (c)  2009-2020, University of Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -35,6 +36,8 @@
 :- module(stream_info,
           [ stream_info/1               % +Stream
           ]).
+:- autoload(library(error),[existence_error/2]).
+:- autoload(library(lists),[member/2]).
 
 :- use_foreign_library(foreign(streaminfo)).
 

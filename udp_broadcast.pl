@@ -4,7 +4,7 @@
     E-mail:        jeffrose@acm.org
     WWW:           http://www.swi-prolog.org
     Copyright (c)  2012-2013, Jeffrey Rosenwald
-		   2018, CWI Amsterdam
+		   2018-2020, CWI Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -41,12 +41,24 @@
             udp_peer_del/2,                     % +Scope, ?IP
             udp_peer/2                          % +Scope, -IP
           ]).
-:- use_module(library(socket)).
-:- use_module(library(broadcast)).
-:- use_module(library(option)).
-:- use_module(library(apply)).
-:- use_module(library(debug)).
-:- use_module(library(error)).
+:- autoload(library(apply),[maplist/2,maplist/3]).
+:- autoload(library(backcomp),[thread_at_exit/1]).
+:- autoload(library(broadcast),
+	    [broadcast_request/1,broadcast/1,listening/3,listen/3]).
+:- autoload(library(debug),[debug/3]).
+:- autoload(library(error),
+	    [must_be/2,syntax_error/1,domain_error/2,existence_error/2]).
+:- autoload(library(option),[option/3]).
+:- autoload(library(socket),
+	    [ tcp_close_socket/1,
+	      udp_socket/1,
+	      tcp_bind/2,
+	      tcp_getopt/2,
+	      tcp_setopt/2,
+	      udp_receive/4,
+	      udp_send/4
+	    ]).
+
 
 % :- debug(udp(broadcast)).
 

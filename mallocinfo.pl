@@ -35,9 +35,9 @@
 :- module(malloc_info,
           [
           ]).
-:- use_module(library(apply)).
-:- use_module(library(lists)).
-:- use_module(library(sgml)).
+:- autoload(library(apply),[maplist/3,partition/4]).
+:- autoload(library(lists),[selectchk/3]).
+:- autoload(library(sgml),[load_xml/3]).
 
 :- use_foreign_library(foreign(mallocinfo)).
 

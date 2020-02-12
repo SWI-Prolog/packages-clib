@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2018, University of Amsterdam
+    Copyright (c)  2002-2020, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
     All rights reserved.
@@ -47,8 +47,12 @@
             delete_directory_and_contents/1, % +Dir
             delete_directory_contents/1 % +Dir
           ]).
-:- use_module(library(apply)).
-:- use_module(library(error)).
+:- autoload(library(apply),[maplist/2,maplist/3,foldl/4]).
+:- autoload(library(error),
+	    [permission_error/3,must_be/2,domain_error/2]).
+:- autoload(library(lists),[member/2]).
+:- autoload(library(nb_set),[empty_nb_set/1,add_nb_set/3]).
+
 
 /** <module> Extended operations on files
 

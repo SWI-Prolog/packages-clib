@@ -49,10 +49,10 @@
 
             process_set_method/1        % +CreateMethod
           ]).
-:- use_module(library(shlib)).
-:- use_module(library(option)).
-:- use_module(library(error)).
-:- use_module(library(apply)).
+:- autoload(library(apply),[maplist/3]).
+:- autoload(library(error),[must_be/2,existence_error/2]).
+:- autoload(library(option),[select_option/3]).
+
 
 :- use_foreign_library(foreign(process)).
 

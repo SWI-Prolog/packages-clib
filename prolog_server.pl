@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker & Steve Prior
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2011, University of Amsterdam
+    Copyright (c)  2004-2020, University of Amsterdam
                               VU University Amsterdam
+                              CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -37,7 +38,17 @@
           [ prolog_server/2             % +Port, +Options
           ]).
 
-:- use_module(library(socket)).
+:- autoload(library(lists),[member/2]).
+:- autoload(library(socket),
+	    [ tcp_socket/1,
+	      tcp_setopt/2,
+	      tcp_bind/2,
+	      tcp_listen/2,
+	      tcp_accept/3,
+	      tcp_open_socket/3,
+	      tcp_host_to_address/2
+	    ]).
+
 
 %!  prolog_server(?Port, +Options)
 %

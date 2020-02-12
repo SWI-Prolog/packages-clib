@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2013, VU University Amsterdam
+    Copyright (c)  2013-2020, VU University Amsterdam
+                              CWI Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,6 +39,7 @@
             syslog/3,                   % +Priority, +Format, +Args
             closelog/0
           ]).
+:- autoload(library(lists),[member/2]).
 
 /** <module> Unix syslog interface
 

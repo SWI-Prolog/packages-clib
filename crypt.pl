@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2011, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
 
 :- use_foreign_library(foreign(crypt), install_crypt).
 
-%       crypt(+Passwd, ?Encripted).
+%!   crypt(+Passwd, ?Encripted).
 %
-%       Used to test an encrypted passwd or create one.  In the latter
-%       case, the first 2 letter must be instantiated
+%    Used to test an encrypted passwd or create one. In the latter case,
+%    the first 2 letter must be instantiated

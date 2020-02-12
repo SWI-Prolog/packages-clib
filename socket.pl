@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2018, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
     All rights reserved.
@@ -59,9 +59,9 @@
 
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
           ]).
-:- use_module(library(shlib)).
-:- use_module(library(debug)).
-:- use_module(library(lists)).
+:- autoload(library(debug),[debug/3]).
+:- autoload(library(lists),[last/2]).
+
 
 /** <module> Network socket (TCP and UDP) library
 
