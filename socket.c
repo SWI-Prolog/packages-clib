@@ -75,8 +75,9 @@
 #define GET_H_ERRNO h_errno
 #endif
 
-#if defined(__linux__) || defined(__APPLE__)
-#define HAVE_IP_MREQN 1
+#if !defined(HAVE_IP_MREQN) && defined(__APPLE__)
+/* 10.6 doesn't provide this */
+#define ip_mreqn ip_mreq
 #endif
 
 static atom_t ATOM_reuseaddr;		/* "reuseaddr" */
