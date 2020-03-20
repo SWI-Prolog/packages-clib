@@ -47,7 +47,6 @@
             call_with_time_limit/2      % +Time, :Callable
           ]).
 :- autoload(library(lists),[member/2]).
-:- autoload(library(shlib),[use_foreign_library/1]).
 
 :- set_prolog_flag(generate_debug_info, false).
 
