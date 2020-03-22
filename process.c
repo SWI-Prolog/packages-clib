@@ -331,7 +331,12 @@ parse_environment(term_t t, p_options *info, int pass)
 
 #ifndef __WINDOWS__
   if ( pass )
-  { extern char **environ;
+  {
+#ifdef HAVE__NSGETENVIRON
+    char **environ = *_NSGetEnviron();
+#else
+    extern char **environ;
+#endif
     char **e;
 
     for(e=environ; e && *e; e++)
