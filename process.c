@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2019, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
     All rights reserved.
@@ -70,6 +70,10 @@
 
 #ifdef _REENTRANT
 #include <pthread.h>
+#endif
+
+#ifdef HAVE_CRT_EXTERNS_H
+#include <crt_externs.h>	/* _NSGetEnviron() on MacOS */
 #endif
 
 static atom_t ATOM_stdin;
