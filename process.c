@@ -1776,8 +1776,12 @@ do_create_process_fork(p_options *info, create_method method)
     if ( info->envp )
     { execve(info->exe, info->argv, info->envp);
     } else
-    { extern char **environ;
-
+    {
+#ifdef HAVE__NSGETENVIRON
+      char **environ = *_NSGetEnviron();
+#else
+      extern char **environ;
+#endif
       execve(info->exe, info->argv, environ);
     }
 
