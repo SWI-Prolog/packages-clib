@@ -182,6 +182,18 @@ defined.
 :- use_foreign_library(foreign(socket), install_socket).
 :- public tcp_debug/1.                  % set debugging.
 
+:- if(current_predicate(unix_domain_socket/1)).
+:- export((unix_domain_socket/1  % -Socket
+          )).
+
+%!  unix_domain_socket(-SocketId) is det.
+%
+%   Creates an AF_UNIX-domain stream-socket and unifies an
+%   identifier to it with =SocketId=. On MS-Windows, this predicate
+%   does not exist.
+
+:- endif.
+
 %!  tcp_socket(-SocketId) is det.
 %
 %   Creates an INET-domain stream-socket and   unifies an identifier

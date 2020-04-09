@@ -73,6 +73,7 @@
 #else
 #define GET_ERRNO errno
 #define GET_H_ERRNO h_errno
+#include <sys/un.h>
 #endif
 
 #if !defined(HAVE_IP_MREQN) && defined(__APPLE__)
@@ -545,10 +546,10 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 
 
 static foreign_t
-create_socket(term_t socket, int type)
+create_socket(int domain, term_t socket, int type)
 { nbio_sock_t sock;
 
-  if ( !(sock = nbio_socket(AF_INET, type, 0)) )
+  if ( !(sock = nbio_socket(domain, type, 0)) )
     return FALSE;
 
   return tcp_unify_socket(socket, sock);
@@ -557,14 +558,22 @@ create_socket(term_t socket, int type)
 
 static foreign_t
 tcp_socket(term_t socket)
-{ return create_socket(socket, SOCK_STREAM);
+{ return create_socket(AF_INET, socket, SOCK_STREAM);
 }
 
 
 static foreign_t
 udp_socket(term_t socket)
-{ return create_socket(socket, SOCK_DGRAM);
+{ return create_socket(AF_INET, socket, SOCK_DGRAM);
 }
+
+
+#ifndef __WINDOWS__
+static foreign_t
+unix_domain_socket(term_t socket)
+{ return create_socket(AF_UNIX, socket, SOCK_STREAM);
+}
+#endif
 
 
 static foreign_t
@@ -572,8 +581,35 @@ pl_connect(term_t Socket, term_t Address)
 { nbio_sock_t sock;
   struct sockaddr_in sockaddr;
 
-  if ( !tcp_get_socket(Socket, &sock) ||
-       !nbio_get_sockaddr(Address, &sockaddr, NULL) )
+  if ( !tcp_get_socket(Socket, &sock) )
+    return FALSE;
+
+#ifndef __WINDOWS__
+  struct sockaddr current_addr;
+  socklen_t current_addr_size = sizeof(current_addr);
+  if ( getsockname(nbio_fd(sock), &current_addr, &current_addr_size) != 0 )
+    return nbio_error(GET_ERRNO, TCP_ERRNO);
+  if ( current_addr.sa_family == AF_UNIX )
+  { char* file_name_chars;
+
+    if (!PL_get_chars(Address, &file_name_chars, CVT_ATOM | CVT_STRING))
+      return PL_domain_error("string", Address);
+
+    struct sockaddr_un sockaddr;
+    memset((void *)&sockaddr, 0, sizeof(sockaddr));
+    sockaddr.sun_family = AF_UNIX;
+    strncpy(sockaddr.sun_path, file_name_chars, sizeof(sockaddr.sun_path));
+    int addrlen =
+      offsetof(struct sockaddr_un, sun_path) + strlen(file_name_chars);
+
+    if (nbio_connect(sock, (struct sockaddr *)&sockaddr, addrlen) == 0)
+      return TRUE;
+
+    return FALSE;
+  }
+#endif
+
+  if (!nbio_get_sockaddr(Address, &sockaddr, NULL))
     return FALSE;
 
   if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) == 0 )
@@ -718,6 +754,10 @@ install_socket(void)
   PL_register_foreign("udp_socket",           1, udp_socket,          0);
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
   PL_register_foreign("udp_send",	      4, udp_send,	      0);
+
+#ifndef __WINDOWS__
+  PL_register_foreign("unix_domain_socket",   1, unix_domain_socket,  0);
+#endif
 
 #ifdef O_DEBUG
   PL_register_foreign("tcp_debug",	      1, pl_debug,	      0);
