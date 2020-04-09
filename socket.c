@@ -572,14 +572,7 @@ static foreign_t
 unix_socket(term_t socket)
 {
 #ifdef __WINDOWS__
-  term_t except = PL_new_term_ref();
-
-  PL_unify_term(except,
-                PL_FUNCTOR_CHARS, "error", 2,
-                PL_CHARS, "system_error",
-                PL_CHARS, "unimplemented");
-
-  return PL_raise_exception(except);
+  return PL_resource_error("unix_sockets");
 #else
  return create_socket(AF_UNIX, socket, SOCK_STREAM);
 #endif
@@ -605,14 +598,7 @@ static foreign_t
 pl_connect_unix(term_t Socket, term_t Address)
 {
 #ifdef __WINDOWS__
-  term_t except = PL_new_term_ref();
-
-  PL_unify_term(except,
-                PL_FUNCTOR_CHARS, "error", 2,
-                PL_CHARS, "system_error",
-                PL_CHARS, "unimplemented");
-
-  return PL_raise_exception(except);
+  return PL_resource_error("unix_sockets");
 #else
   nbio_sock_t sock;
   char* file_name_chars;
