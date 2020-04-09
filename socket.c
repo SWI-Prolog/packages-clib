@@ -73,6 +73,7 @@
 #else
 #define GET_ERRNO errno
 #define GET_H_ERRNO h_errno
+#include <sys/un.h>
 #endif
 
 #if !defined(HAVE_IP_MREQN) && defined(__APPLE__)
@@ -545,10 +546,10 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 
 
 static foreign_t
-create_socket(term_t socket, int type)
+  create_socket(int domain, term_t socket, int type)
 { nbio_sock_t sock;
 
-  if ( !(sock = nbio_socket(AF_INET, type, 0)) )
+  if ( !(sock = nbio_socket(domain, type, 0)) )
     return FALSE;
 
   return tcp_unify_socket(socket, sock);
@@ -557,13 +558,24 @@ create_socket(term_t socket, int type)
 
 static foreign_t
 tcp_socket(term_t socket)
-{ return create_socket(socket, SOCK_STREAM);
+{ return create_socket(AF_INET, socket, SOCK_STREAM);
 }
 
 
 static foreign_t
 udp_socket(term_t socket)
-{ return create_socket(socket, SOCK_DGRAM);
+{ return create_socket(AF_INET, socket, SOCK_DGRAM);
+}
+
+
+static foreign_t
+unix_socket(term_t socket)
+{
+#ifdef __WINDOWS__
+  return FALSE;
+#else
+ return create_socket(AF_UNIX, socket, SOCK_STREAM);
+#endif
 }
 
 
@@ -582,6 +594,36 @@ pl_connect(term_t Socket, term_t Address)
   return FALSE;
 }
 
+static foreign_t
+pl_connect_unix(term_t Socket, term_t Address)
+{
+#ifdef __WINDOWS__
+  return FALSE;
+#else
+  nbio_sock_t sock;
+  char* file_name_chars;
+
+  if ( !tcp_get_socket(Socket, &sock) ) {
+    return FALSE;
+  }
+
+  if (!PL_get_chars(Address, &file_name_chars, CVT_ATOM | CVT_STRING)) {
+    return PL_domain_error("string", Address);
+  }
+
+  struct sockaddr_un sockaddr;
+  memset((void*)&sockaddr, 0, sizeof(sockaddr));
+  sockaddr.sun_family = AF_UNIX;
+  strncpy(sockaddr.sun_path, file_name_chars, sizeof(sockaddr.sun_path));
+  int addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(file_name_chars);
+
+  if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, addrlen) == 0 ) {
+    return TRUE;
+  }
+
+  return FALSE;
+#endif
+}
 
 static foreign_t
 pl_bind(term_t Socket, term_t Address)
@@ -718,6 +760,9 @@ install_socket(void)
   PL_register_foreign("udp_socket",           1, udp_socket,          0);
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
   PL_register_foreign("udp_send",	      4, udp_send,	      0);
+
+  PL_register_foreign("unix_socket",          1, unix_socket,         0);
+  PL_register_foreign("unix_connect",         2, pl_connect_unix,        0);
 
 #ifdef O_DEBUG
   PL_register_foreign("tcp_debug",	      1, pl_debug,	      0);

@@ -57,6 +57,9 @@
             udp_receive/4,              % +Socket, -Data, -Sender, +Options
             udp_send/4,                 % +Socket, +Data, +Sender, +Options
 
+            unix_socket/1,              % -Socket
+            unix_connect/2,             % +Socket, +Address
+
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
           ]).
 :- autoload(library(debug),[debug/3]).
@@ -181,6 +184,28 @@ defined.
 
 :- use_foreign_library(foreign(socket), install_socket).
 :- public tcp_debug/1.                  % set debugging.
+
+%!  unix_socket(-SocketId) is det.
+%
+%   Creates an AF_UNIX-domain stream-socket and unifies an identifier
+%   to it with =SocketId=. On MS-Windows, this will always return false.
+
+%!  unix_connect(+SocketId, +Address) is det.
+%
+%   Connect =SocketId=. After successful completion, tcp_open_socket/3
+%   can be used to create I/O-Streams to the socket.
+%   Example usage:
+%
+%     ==
+%         unix_socket(Sock),
+%         unix_connect(Sock, "/path/to/sock"),
+%         setup_call_cleanup(
+%            tcp_open_socket(Sock, Stream),
+%            format(Stream, "hello!~n", []),
+%            close(Stream)
+%         )
+%     ==
+%
 
 %!  tcp_socket(-SocketId) is det.
 %
