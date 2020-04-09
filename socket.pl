@@ -188,7 +188,7 @@ defined.
 %!  unix_socket(-SocketId) is det.
 %
 %   Creates an AF_UNIX-domain stream-socket and unifies an identifier
-%   to it with =SocketId=. On MS-Windows, this will throw a system error.
+%   to it with =SocketId=. On MS-Windows, this will throw a resource error.
 
 %!  unix_connect(+SocketId, +Address) is det.
 %
@@ -206,7 +206,7 @@ defined.
 %         )
 %     ==
 %
-%  On MS-Windows, this will throw a system error.
+%  On MS-Windows, this will throw a resource error.
 
 %!  tcp_socket(-SocketId) is det.
 %
