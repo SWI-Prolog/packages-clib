@@ -546,7 +546,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
 
 
 static foreign_t
-  create_socket(int domain, term_t socket, int type)
+create_socket(int domain, term_t socket, int type)
 { nbio_sock_t sock;
 
   if ( !(sock = nbio_socket(domain, type, 0)) )
