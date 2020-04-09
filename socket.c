@@ -568,15 +568,12 @@ udp_socket(term_t socket)
 }
 
 
+#ifndef __WINDOWS__
 static foreign_t
 unix_socket(term_t socket)
-{
-#ifdef __WINDOWS__
-  return PL_resource_error("unix_sockets");
-#else
- return create_socket(AF_UNIX, socket, SOCK_STREAM);
-#endif
+{ return create_socket(AF_UNIX, socket, SOCK_STREAM);
 }
+#endif
 
 
 static foreign_t
@@ -594,13 +591,10 @@ pl_connect(term_t Socket, term_t Address)
   return FALSE;
 }
 
+#ifndef __WINDOWS__
 static foreign_t
 pl_connect_unix(term_t Socket, term_t Address)
-{
-#ifdef __WINDOWS__
-  return PL_resource_error("unix_sockets");
-#else
-  nbio_sock_t sock;
+{ nbio_sock_t sock;
   char* file_name_chars;
 
   if ( !tcp_get_socket(Socket, &sock) ) {
@@ -622,8 +616,8 @@ pl_connect_unix(term_t Socket, term_t Address)
   }
 
   return FALSE;
-#endif
 }
+#endif
 
 static foreign_t
 pl_bind(term_t Socket, term_t Address)
@@ -761,8 +755,10 @@ install_socket(void)
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
   PL_register_foreign("udp_send",	      4, udp_send,	      0);
 
+#ifndef __WINDOWS__
   PL_register_foreign("unix_socket",          1, unix_socket,         0);
   PL_register_foreign("unix_connect",         2, pl_connect_unix,        0);
+#endif
 
 #ifdef O_DEBUG
   PL_register_foreign("tcp_debug",	      1, pl_debug,	      0);

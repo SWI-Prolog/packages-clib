@@ -57,9 +57,6 @@
             udp_receive/4,              % +Socket, -Data, -Sender, +Options
             udp_send/4,                 % +Socket, +Data, +Sender, +Options
 
-            unix_socket/1,              % -Socket
-            unix_connect/2,             % +Socket, +Address
-
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
           ]).
 :- autoload(library(debug),[debug/3]).
@@ -185,6 +182,12 @@ defined.
 :- use_foreign_library(foreign(socket), install_socket).
 :- public tcp_debug/1.                  % set debugging.
 
+:- if(current_predicate(unix_socket/1)).
+:- export((
+                 unix_socket/1,  % -Socket
+                 unix_connect/2  % +Socket, +Address
+)).
+
 %!  unix_socket(-SocketId) is det.
 %
 %   Creates an AF_UNIX-domain stream-socket and unifies an identifier
@@ -207,6 +210,7 @@ defined.
 %     ==
 %
 %  On MS-Windows, this will throw a resource error.
+:- endif.
 
 %!  tcp_socket(-SocketId) is det.
 %
