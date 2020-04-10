@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2018, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
     All rights reserved.
@@ -73,7 +73,13 @@
 #else
 #define GET_ERRNO errno
 #define GET_H_ERRNO h_errno
+#endif
+
+#ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
+#else
+/* Windows does not have the header, but does have AF_UNIX? */
+#undef AF_UNIX
 #endif
 
 #if !defined(HAVE_IP_MREQN) && defined(__APPLE__)
@@ -97,6 +103,7 @@ static atom_t ATOM_file_no;		/* "file_no" */
 static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
 static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
 static atom_t ATOM_sndbuf;	        /* "sndbuf" */
+static atom_t ATOM_af_unix;		/* "af_unix" */
 static functor_t FUNCTOR_socket1;	/* $socket(Id) */
 
 static int get_socket_from_stream(term_t t, IOSTREAM **s, nbio_sock_t *sp);
@@ -568,48 +575,83 @@ udp_socket(term_t socket)
 }
 
 
-#ifndef __WINDOWS__
+#ifdef AF_UNIX
 static foreign_t
 unix_domain_socket(term_t socket)
 { return create_socket(AF_UNIX, socket, SOCK_STREAM);
 }
-#endif
 
+static int
+af_unix_address(term_t Address,
+		struct sockaddr_un *sockaddr, int *addrlen,
+		int flags)
+{ char *file_name_chars;
+  int nmlen;
+
+  if ( !PL_get_file_name(Address, &file_name_chars,
+			 PL_FILE_OSPATH|flags) )
+    return FALSE;
+  nmlen = strlen(file_name_chars);
+  if ( nmlen >= sizeof(sockaddr->sun_path) )
+  { PL_representation_error("af_unix_name");
+    return FALSE;
+  }
+
+  memset(sockaddr, 0, sizeof(*sockaddr));
+  sockaddr->sun_family = AF_UNIX;
+  memcpy(sockaddr->sun_path, file_name_chars, nmlen);
+  *addrlen = offsetof(struct sockaddr_un, sun_path) + nmlen + 1;
+
+  return TRUE;
+}
+
+#endif /*AF_UNIX*/
+
+static int
+af_unix_connect(nbio_sock_t sock, term_t Address)
+{
+#ifdef AF_UNIX
+  if ( nbio_domain(sock) == AF_UNIX )
+  { struct sockaddr_un sockaddr;
+    int addrlen;
+
+    return ( af_unix_address(Address, &sockaddr, &addrlen, PL_FILE_READ) &&
+	     nbio_connect(sock, (struct sockaddr *)&sockaddr, addrlen) == 0 );
+  } else
+#endif
+  { return -1;
+  }
+}
+
+static int
+af_unix_bind(nbio_sock_t sock, term_t Address)
+{
+#ifdef AF_UNIX
+  if ( nbio_domain(sock) == AF_UNIX )
+  { struct sockaddr_un sockaddr;
+    int addrlen;
+
+    return ( af_unix_address(Address, &sockaddr, &addrlen, 0) &&
+	     nbio_bind(sock, (struct sockaddr *)&sockaddr, addrlen) == 0 );
+  } else
+#endif
+  { return -1;
+  }
+}
 
 static foreign_t
 pl_connect(term_t Socket, term_t Address)
 { nbio_sock_t sock;
   struct sockaddr_in sockaddr;
+  int rc;
 
   if ( !tcp_get_socket(Socket, &sock) )
     return FALSE;
 
-#ifndef __WINDOWS__
-  struct sockaddr current_addr;
-  socklen_t current_addr_size = sizeof(current_addr);
-  if ( getsockname(nbio_fd(sock), &current_addr, &current_addr_size) != 0 )
-    return nbio_error(GET_ERRNO, TCP_ERRNO);
-  if ( current_addr.sa_family == AF_UNIX )
-  { char* file_name_chars;
+  if ( (rc=af_unix_connect(sock, Address)) != -1 )
+    return rc;
 
-    if (!PL_get_chars(Address, &file_name_chars, CVT_ATOM | CVT_STRING))
-      return PL_domain_error("string", Address);
-
-    struct sockaddr_un sockaddr;
-    memset((void *)&sockaddr, 0, sizeof(sockaddr));
-    sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, file_name_chars, sizeof(sockaddr.sun_path));
-    int addrlen =
-      offsetof(struct sockaddr_un, sun_path) + strlen(file_name_chars);
-
-    if (nbio_connect(sock, (struct sockaddr *)&sockaddr, addrlen) == 0)
-      return TRUE;
-
-    return FALSE;
-  }
-#endif
-
-  if (!nbio_get_sockaddr(Address, &sockaddr, NULL))
+  if ( !nbio_get_sockaddr(Address, &sockaddr, NULL) )
     return FALSE;
 
   if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) == 0 )
@@ -621,53 +663,76 @@ pl_connect(term_t Socket, term_t Address)
 
 static foreign_t
 pl_bind(term_t Socket, term_t Address)
-{ struct sockaddr_in sockaddr;
-  nbio_sock_t socket;
-  term_t varport = 0;
+{ nbio_sock_t socket;
+  int rc;
 
-  memset(&sockaddr, 0, sizeof(sockaddr));
-
-  if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(Address, &sockaddr, &varport) )
+  if ( !tcp_get_socket(Socket, &socket) )
     return FALSE;
 
-  if ( nbio_bind(socket, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0 )
-    return FALSE;
+  if ( (rc=af_unix_bind(socket, Address)) != -1 )
+  { return rc;
+  } else
+  { struct sockaddr_in sockaddr;
+    term_t varport = 0;
 
-  if ( varport )
-  { SOCKET fd = nbio_fd(socket);
-    struct sockaddr_in addr;
+    memset(&sockaddr, 0, sizeof(sockaddr));
+    if ( !nbio_get_sockaddr(Address, &sockaddr, &varport) )
+      return FALSE;
+
+    if ( nbio_bind(socket, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0 )
+      return FALSE;
+
+    if ( varport )
+    { SOCKET fd = nbio_fd(socket);
+      struct sockaddr_in addr;
 #ifdef __WINDOWS__
-    int len = sizeof(addr);
+      int len = sizeof(addr);
 #else
-    socklen_t len = sizeof(addr);
+      socklen_t len = sizeof(addr);
 #endif
 
-    if ( getsockname(fd, (struct sockaddr *) &addr, &len) )
-      return nbio_error(GET_ERRNO, TCP_ERRNO);
-    return PL_unify_integer(varport, ntohs(addr.sin_port));
-  }
+      if ( getsockname(fd, (struct sockaddr *) &addr, &len) )
+	return nbio_error(GET_ERRNO, TCP_ERRNO);
+      return PL_unify_integer(varport, ntohs(addr.sin_port));
+    }
 
-  return TRUE;
+    return TRUE;
+  }
 }
 
 
 static foreign_t
 pl_accept(term_t Master, term_t Slave, term_t Peer)
 { nbio_sock_t master, slave;
-  struct sockaddr_in addr;
-  socklen_t addrlen = sizeof(addr);
 
   if ( !tcp_get_socket(Master, &master) )
     return FALSE;
 
-  if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
-    return FALSE;
-					/* TBD: close on failure */
-  if ( nbio_unify_ip4(Peer, ntohl(addr.sin_addr.s_addr)) &&
-       tcp_unify_socket(Slave, slave) )
+#ifdef AF_UNIX
+  if ( nbio_domain(master) == AF_UNIX )
+  { struct sockaddr_un addr;
+    socklen_t addrlen = sizeof(addr);
+
+    if ( !PL_unify_atom(Peer, ATOM_af_unix) )
+      return FALSE;
+    if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
+      return FALSE;
+  } else
+#endif
+  { struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(addr);
+
+    if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
+      return FALSE;
+    if ( !nbio_unify_ip4(Peer, ntohl(addr.sin_addr.s_addr)) )
+      goto failure;
+  }
+
+  if ( tcp_unify_socket(Slave, slave) )
     return TRUE;
 
+failure:
+  nbio_closesocket(slave);
   return FALSE;
 }
 
@@ -736,6 +801,7 @@ install_socket(void)
   ATOM_ip_add_membership  = PL_new_atom("ip_add_membership");
   ATOM_ip_drop_membership = PL_new_atom("ip_drop_membership");
   ATOM_sndbuf             = PL_new_atom("sndbuf");
+  ATOM_af_unix            = PL_new_atom("af_unix");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 

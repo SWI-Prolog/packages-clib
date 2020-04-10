@@ -68,6 +68,33 @@ verification, \pllib{sha} providing cryptographic hash functions and
 \InputIfFileExists{syslog.tex}{}{}
 \input{socket.tex}
 
+\subsection{Unix domain sockets}
+\label{sec:af-unix-sockets}
+
+Unix domain sockets (sockets with address family AF_UNIX) are
+represented as a (socket) file in the file system. They can only be used
+to connect processes on the same host. The main advantage of AF_UNIX
+sockets is that name conflicts are much easier to manage than port
+conflicts and that access is determined by the file system permission
+rules.
+
+\begin{description}
+    \predicate{unix_domain_socket}{1}{-Socket}
+Creates an AF_UNIX-domain stream-socket and unifies an identifier to
+it with \arg{Socket}.  This predicate does not exist if the OS does
+not support the AF_UNIX address family (e.g. MS-Windows).
+
+Unix domain socket affect tcp_connect/2 (for clients) and tcp_bind/2 and
+tcp_accept/3 (for servers). The address is an atom or string that is
+handled as a file name. On most systems the length of this file name is
+limited to 128 bytes (including null terminator), but according to the
+Linux documentation (unix(7)), portable applications must keep the
+address below 92 bytes. Note that these lengths are in \emph{bytes}.
+Non-ascii characters may be represented as multiple bytes. If the length
+limit is exceeded a \term{representation_error}{af_unix_name} exception
+is raised.
+\end{description}
+
 \subsection{UDP protocol support}
 \label{sec:udp-sockets}
 

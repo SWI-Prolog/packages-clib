@@ -97,7 +97,7 @@ endif(HAVE_SOCKET)
 ################
 # Tests
 
-test_libs(cgi crypt memfile process readutil socket stream time uri)
+test_libs(cgi crypt memfile process readutil socket af_unix stream time uri)
 
 ################
 # Documentation

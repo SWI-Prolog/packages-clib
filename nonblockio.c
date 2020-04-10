@@ -2,7 +2,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2018, University of Amsterdam
+    Copyright (c)  2004-2020, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
     All rights reserved.
@@ -179,6 +179,7 @@ typedef struct _plsocket
 { int		    magic;		/* PLSOCK_MAGIC */
   SOCKET	    socket;		/* The OS socket */
   int		    flags;		/* Misc flags */
+  int		    domain;		/* AF_* */
   atom_t	    symbol;		/* <socket>(%p) */
   IOSTREAM *	    input;		/* input stream */
   IOSTREAM *	    output;		/* output stream */
@@ -519,6 +520,11 @@ is_nbio_socket(nbio_sock_t socket)
 { return socket && socket->magic == PLSOCK_MAGIC;
 }
 
+int
+nbio_domain(nbio_sock_t socket)
+{ return socket->domain;
+}
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Allocate a wrapper for an OS  socket.   The  wrapper  is allocated in an
 array of pointers, to keep small  integer   identifiers  we can use with
@@ -857,6 +863,7 @@ nbio_socket(int domain, int type, int protocol)
   { closesocket(sock);
     return NULL;
   }
+  s->domain = domain;
 #ifdef __WINDOWS__
   /* On older versions of Windows (win7 and before) the default send
      buffer size is only 8k. On a high latency link this can seriously

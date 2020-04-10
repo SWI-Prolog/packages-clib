@@ -169,6 +169,7 @@ extern ssize_t	nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize,
 
 extern int	nbio_wait(nbio_sock_t socket, nbio_request);
 extern SOCKET	nbio_fd(nbio_sock_t socket);
+extern int	nbio_domain(nbio_sock_t socket);
 
 extern int	nbio_unify_ip4(term_t ip4, unsigned long hip);
 extern int	nbio_get_ip(term_t ip4, struct in_addr *ip);

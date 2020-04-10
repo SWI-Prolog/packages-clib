@@ -52,6 +52,7 @@
 #cmakedefine HAVE_SYS_TIME_H @HAVE_SYS_TIME_H@
 #cmakedefine HAVE_SYS_TYPES_H @HAVE_SYS_TYPES_H@
 #cmakedefine HAVE_SYS_WAIT_H @HAVE_SYS_WAIT_H@
+#cmakedefine HAVE_SYS_UN_H @HAVE_SYS_UN_H@
 #cmakedefine HAVE_UNISTD_H @HAVE_UNISTD_H@
 #cmakedefine HAVE_UTIME @HAVE_UTIME@
 #cmakedefine HAVE_UTIME_H @HAVE_UTIME_H@

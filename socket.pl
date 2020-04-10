@@ -183,15 +183,7 @@ defined.
 :- public tcp_debug/1.                  % set debugging.
 
 :- if(current_predicate(unix_domain_socket/1)).
-:- export((unix_domain_socket/1  % -Socket
-          )).
-
-%!  unix_domain_socket(-SocketId) is det.
-%
-%   Creates an AF_UNIX-domain stream-socket and unifies an
-%   identifier to it with =SocketId=. On MS-Windows, this predicate
-%   does not exist.
-
+:- export(unix_domain_socket/1).  % -Socket
 :- endif.
 
 %!  tcp_socket(-SocketId) is det.
@@ -273,12 +265,13 @@ tcp_open_socket(Socket, Stream) :-
 
 %!  tcp_accept(+Socket, -Slave, -Peer) is det.
 %
-%   This predicate waits on a server socket for a connection request
-%   by a client. On success, it creates  a new socket for the client
-%   and binds the  identifier  to  Slave.   Peer  is  bound  to  the
-%   IP-address of the client.
+%   This predicate waits on a server socket  for a connection request by
+%   a client. On success, it creates  a   new  socket for the client and
+%   binds the identifier to Slave. Peer is   bound  to the IP-address of
+%   the client or the atom `af_unix` if Socket is an AF_UNIX socket (see
+%   unix_domain_socket/1).
 
-%!  tcp_connect(+SocketId, +HostAndPort) is det.
+%!  tcp_connect(+SocketId, +Address) is det.
 %
 %   Connect SocketId. After successful completion, tcp_open_socket/3
 %   can be used to create  I/O-Streams   to  the remote socket. This
@@ -302,6 +295,9 @@ tcp_open_socket(Socket, Stream) :-
 %             talk(StreamPair),
 %             close(StreamPair))
 %     ==
+%
+%   If SocketId is an AF_UNIX socket (see unix_domain_socket/1), Address
+%   is an atom or string denoting a file name.
 
 
                  /*******************************
@@ -341,11 +337,10 @@ tcp_connect(Socket, Address, Read, Write) :-
 %!  tcp_connect(+Address, -StreamPair, +Options) is det.
 %!  tcp_connect(+Socket, +Address, -StreamPair) is det.
 %
-%   Establish a TCP communication as a client. The +,-,+ mode is the
-%   preferred way for a  client  to   establish  a  connection. This
-%   predicate can be hooked to  support   network  proxies. To use a
-%   proxy, the hook  proxy_for_url/3  must   be  defined.  Permitted
-%   options are:
+%   Establish a TCP communication as a  client.   The  +,-,+ mode is the
+%   preferred way for a client to establish a connection. This predicate
+%   can be hooked to support network proxies.   To use a proxy, the hook
+%   proxy_for_url/3 must be defined. Permitted options are:
 %
 %      * bypass_proxy(+Boolean)
 %        Defaults to =false=. If =true=, do not attempt to use any
@@ -355,18 +350,22 @@ tcp_connect(Socket, Address, Read, Write) :-
 %        Defaults to =false=. If =true=, set nodelay on the
 %        resulting socket using tcp_setopt(Socket, nodelay)
 %
-%   The +,+,- mode is deprecated and   does  not support proxies. It
-%   behaves like tcp_connect/4,  but  creates   a  stream  pair (see
+%   The +,+,- mode is  deprecated  and   does  not  support  proxies. It
+%   behaves  like  tcp_connect/4,  but  creates    a  stream  pair  (see
 %   stream_pair/3).
 %
-%   @error proxy_error(tried(ResultList)) is raised  by mode (+,-,+)
-%   if proxies are defines  by  proxy_for_url/3   but  no  proxy can
-%   establsh the connection. `ResultList` contains one or more terms
-%   of the form false(Proxy)  for  a   hook  that  simply  failed or
-%   error(Proxy, ErrorTerm) for a hook that raised an exception.
+%   @arg Address is either a Host:Port  term   or  a  file name (atom or
+%   string). The latter connects  to  an   AF_UNIX  socket  and requires
+%   unix_domain_socket/1.
 %
-%   @see library(http/http_proxy) defines a  hook   that  allows  to
-%   connect through HTTP proxies that support the =CONNECT= method.
+%   @error proxy_error(tried(ResultList)) is raised by   mode (+,-,+) if
+%   proxies are defines by proxy_for_url/3 but no proxy can establsh the
+%   connection. `ResultList` contains one or  more   terms  of  the form
+%   false(Proxy)  for  a  hook  that    simply  failed  or  error(Proxy,
+%   ErrorTerm) for a hook that raised an exception.
+%
+%   @see library(http/http_proxy) defines a hook  that allows to connect
+%   through HTTP proxies that support the =CONNECT= method.
 
 % Main mode: +,-,+
 tcp_connect(Address, StreamPair, Options) :-
@@ -399,12 +398,24 @@ tcp_connect(Socket, Address, StreamPair) :-
 
 
 tcp_connect_direct(Address, Socket, StreamPair):-
-    tcp_socket(Socket),
+    make_socket(Address, Socket),
     catch(tcp_connect(Socket, Address, StreamPair),
           Error,
           ( tcp_close_socket(Socket),
             throw(Error)
           )).
+
+:- if(current_predicate(unix_domain_socket/1)).
+make_socket(Address, Socket) :-
+    (   atom(Address)
+    ;   string(Address)
+    ),
+    !,
+    unix_domain_socket(Socket).
+:- endif.
+make_socket(_Address, Socket) :-
+    tcp_socket(Socket).
+
 
 %!  tcp_select(+ListOfStreams, -ReadyList, +TimeOut)
 %
