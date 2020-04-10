@@ -42,7 +42,7 @@
 :- use_module(library(readutil)).
 
 test_af_unix :-
-    File = "/tmp/x",
+    tmp_file(af_unix, File),
     server(File, Tid),
     client(File),
     thread_signal(Tid, throw(stop)),
