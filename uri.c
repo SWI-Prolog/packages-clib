@@ -919,10 +919,6 @@ add_encoded_term_charbuf(charbuf *cb, term_t value, int iri, int flags)
 
 
 /** uri_query_components(+QueryString, -ValueList) is det.
-
-(*) We must malloc() because  the   individual  query components use the
-text ring buffer, so with more query   components then the ring size the
-original text gets corrupted.
 */
 
 static foreign_t
@@ -931,9 +927,7 @@ uri_query_components(term_t string, term_t list)
   size_t len;
 
   if ( PL_get_wchars(string, &len, &s, CVT_ATOM|CVT_STRING|CVT_LIST) )
-  { int rc = unify_query_string_components(list, len, s);
-    PL_free(s);				/* See (*) */
-    return rc;
+  { return unify_query_string_components(list, len, s);
   } else if ( PL_is_list(list) )
   { term_t tail = PL_copy_term_ref(list);
     term_t head = PL_new_term_ref();
