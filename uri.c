@@ -876,10 +876,12 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
       { return syntax_error("illegal_uri_query");
       }
 
+      PL_STRINGS_MARK();
       PL_put_variable(nv+0);
       PL_put_variable(nv+1);
       unify_decoded_atom(nv+0, &name, ESC_QNAME);
       unify_decoded_atom(nv+1, &value, ESC_QVALUE);
+      PL_STRINGS_RELEASE();
 
       if ( !PL_cons_functor_v(eq, FUNCTOR_equal2, nv) ||
 	   !PL_unify_list(tail, head, tail) ||
@@ -928,7 +930,7 @@ uri_query_components(term_t string, term_t list)
 { pl_wchar_t *s;
   size_t len;
 
-  if ( PL_get_wchars(string, &len, &s, CVT_ATOM|CVT_STRING|CVT_LIST|BUF_MALLOC) )
+  if ( PL_get_wchars(string, &len, &s, CVT_ATOM|CVT_STRING|CVT_LIST) )
   { int rc = unify_query_string_components(list, len, s);
     PL_free(s);				/* See (*) */
     return rc;
