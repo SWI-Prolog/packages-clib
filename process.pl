@@ -120,7 +120,7 @@ following finds the executable for =ls=:
 %   absolute_file_name/3. Typically one use the =path= file alias to
 %   specify an executable file on the current   PATH. Args is a list
 %   of arguments that  are  handed  to   the  new  process.  On Unix
-%   systems, each element in the list becomes a seperate argument in
+%   systems, each element in the list becomes a separate argument in
 %   the  new  process.  In  Windows,    the   arguments  are  simply
 %   concatenated to form the commandline.   Each  argument itself is
 %   either a primitive or  a  list   of  primitives.  A primitive is
