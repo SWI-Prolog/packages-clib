@@ -181,7 +181,7 @@ Host A Process 2:
 All incomming trafic is handled  by  a   single  thread  with  the alias
 `udp_inbound_proxy`. This thread also performs  the internal dispatching
 using broadcast/1 and broadcast_request/1. Future   versions may provide
-for handling these requests in seperate threads.
+for handling these requests in separate threads.
 
 
 ## Caveats {#udp-broadcase-caveats}
