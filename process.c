@@ -1970,7 +1970,7 @@ get_pid(term_t pid, pid_t *p)
   if ( !PL_get_integer_ex(pid, &n) )
     return FALSE;
   if ( n < 0 )
-    return PL_domain_error("not_less_than_zero", pid);
+    return PL_domain_error("not_less_than_zero", pid),FALSE;
 
   *p = n;
   return TRUE;
