@@ -1233,8 +1233,11 @@ nbio_connect(nbio_sock_t socket,
 #endif
 	continue;
       }
-#ifdef __WINDOWS__
+#if defined(WSAEISCONN)				 /* Windows */
       if ( GET_ERRNO == WSAEISCONN )
+        break;
+#elif defined(EISCONN)
+      if ( GET_ERRNO == EISCONN )
         break;
 #endif
       nbio_error(GET_ERRNO, TCP_ERRNO);
