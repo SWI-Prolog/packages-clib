@@ -1236,6 +1236,9 @@ nbio_connect(nbio_sock_t socket,
 #ifdef __WINDOWS__
       if ( GET_ERRNO == WSAEISCONN )
         break;
+#else
+      if ( GET_ERRNO == EISCONN )
+        break;
 #endif
       nbio_error(GET_ERRNO, TCP_ERRNO);
       return -1;
