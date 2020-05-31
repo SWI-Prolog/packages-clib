@@ -385,8 +385,10 @@ cleanup(int rc, void *arg)
   cleanupHandler();
 
   if ( scheduler_running )
-  { sched->stop = TRUE;
+  { LOCK();
+    sched->stop = TRUE;
     pthread_cond_signal(&cond);
+    UNLOCK();
 
     pthread_join(scheduler, NULL);
     scheduler_running = FALSE;
@@ -418,9 +420,8 @@ cleanup_thread(void *data)
 	freeEvent(ev);
       }
     }
-    UNLOCK();
-
     pthread_cond_signal(&cond);
+    UNLOCK();
   }
 }
 
@@ -499,7 +500,7 @@ alarm_loop(void * closure)
   signalled.bits = malloc(signalled.size*sizeof(int));
   signalled.high = 0;
 
-  pthread_mutex_lock(&mutex);		/* for condition variable */
+  LOCK();				/* for condition variable */
   DEBUG(1, Sdprintf("Iterating alarm_loop()\n"));
 
   while( !sched->stop )
@@ -637,7 +638,9 @@ on_alarm(int sig)
   }
 
   DEBUG(1, Sdprintf("Processed pending events; signalling scheduler\n"));
+  LOCK();
   pthread_cond_signal(&cond);
+  UNLOCK();
 }
 
 
@@ -668,11 +671,9 @@ installEvent(Event ev)
     scheduler_running = TRUE;
   }
 
-  rc = insertEvent(ev);
-  UNLOCK();
-
-  if ( rc )
+  if ( (rc = insertEvent(ev)) )
     pthread_cond_signal(&cond);
+  UNLOCK();
 
   return rc;
 }
@@ -685,9 +686,8 @@ uninstallEvent(Event ev)
     ev->flags |= EV_DONE;
   unlinkEvent(ev);
   ev->flags &= ~(EV_FIRED|EV_DONE);
-  UNLOCK();
-
   pthread_cond_signal(&cond);
+  UNLOCK();
 
   return TRUE;
 }
@@ -699,9 +699,8 @@ removeEvent(Event ev)
   if ( TheSchedule()->scheduled == ev )
     ev->flags |= EV_DONE;
   freeEvent(ev);
-  UNLOCK();
-
   pthread_cond_signal(&cond);
+  UNLOCK();
 
   return TRUE;
 }
