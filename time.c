@@ -406,13 +406,13 @@ cleanup_thread(void *data)
 
   if ( sched->first )
   { Event ev, next;
-    pthread_t self = pthread_self();
+    int self = PL_thread_self();
 
     LOCK();
     for( ev=sched->first; ev; ev=next )
     { next = ev->next;
 
-      if ( pthread_equal(self, ev->thread_id) )
+      if ( self == ev->pl_thread_id )
       { DEBUG(1, Sdprintf("[%d] removing alarm %ld at exit\n",
 			  PL_thread_self(), (long)(intptr_t)ev));
 	if ( sched->scheduled == ev )
