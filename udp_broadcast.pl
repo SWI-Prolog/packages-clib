@@ -522,6 +522,7 @@ ld_dispatch(S, request(Key, Term), From, Scope) :-
            safely((udp_term_string(Scope, reply(Key,Term), Message),
                    udp_send(S, Message, From, [])))).
 ld_dispatch(_S, send(Term), _From, _Scope) :-
+    !,
     safely_det(broadcast(Term)).
 ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
     (   reply_queue(Key, Queue)
