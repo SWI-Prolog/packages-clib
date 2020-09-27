@@ -352,12 +352,13 @@ udp_broadcast_address(IPAddress, Subnet, BroadcastAddress) :-
     udp_public_socket/4,                        % Scope, Port, Socket, FileNo
     udp_closed/1.				% Scope
 
-udp_inbound_proxy :-
+udp_inbound_proxy(Master) :-
     thread_at_exit(inbound_proxy_died),
+    make_private_socket,
+    thread_send_message(Master, udp_inbound_ready),
     udp_inbound_proxy_loop.
 
 udp_inbound_proxy_loop :-
-    make_private_socket,
     forall(udp_scope(Scope, ScopeData),
            make_public_socket(ScopeData, Scope)),
     retractall(udp_closed(_)),
@@ -571,10 +572,12 @@ reload_inbound_proxy :-
           fail),
     !.
 reload_inbound_proxy :-
-    thread_create(udp_inbound_proxy, _,
+    thread_self(Me),
+    thread_create(udp_inbound_proxy(Me), _,
                   [ alias(udp_inbound_proxy),
                     detached(true)
-                  ]).
+                  ]),
+    thread_get_message(Me, udp_inbound_ready, [timeout(10)]).
 
 inbound_proxy_died :-
     thread_self(Self),
