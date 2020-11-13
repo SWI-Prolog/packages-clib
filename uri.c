@@ -1262,8 +1262,7 @@ ranges_in_charbuf(charbuf *cb, uri_component_ranges *ranges)
 
 
 typedef struct
-{ atom_t	       atom;
-  pl_wchar_t	      *text;
+{ pl_wchar_t	      *text;
   uri_component_ranges ranges;
 } base_cache;
 
@@ -1278,10 +1277,8 @@ free_base_cache(void *cache)
   if ( PL_query(PL_QUERY_HALTING) )
     return;
 
-  if ( base->atom )
-  { PL_unregister_atom(base->atom);
+  if ( base->text )
     PL_free(base->text);
-  }
 
   PL_free(base);
 }
@@ -1307,34 +1304,24 @@ static base_cache base_store;
 
 static const uri_component_ranges *
 base_ranges(term_t t)
-{ atom_t a;
+{ size_t len;
+  pl_wchar_t *s;
 
-  if ( PL_get_atom(t, &a) )
+  if ( PL_get_wchars(t, &len, &s, CVT_ATOM|CVT_STRING|BUF_MALLOC|CVT_EXCEPTION) )
   { base_cache *base = myBase();
 
-    if ( base->atom != a )
-    { size_t len;
-      pl_wchar_t *s;
-
-      if ( base->atom )
-      { PL_unregister_atom(base->atom);
-	PL_free(base->text);
-	base->atom = 0;
+    if ( !base->text || wcscmp(base->text, s) != 0 )
+    { if ( base->text )
+      { PL_free(base->text);
 	base->text = NULL;
       }
-      if ( !PL_get_wchars(t, &len, &s, CVT_ATOM|BUF_MALLOC|CVT_EXCEPTION) )
-	return NULL;
-      base->atom = a;
-      PL_register_atom(a);
       base->text = s;
       parse_uri(&base->ranges, len, s);
     }
 
     return &base->ranges;
   } else
-  { type_error("atom", t);
-    return NULL;
-  }
+    return FALSE;
 }
 
 
