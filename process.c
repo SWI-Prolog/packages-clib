@@ -343,6 +343,9 @@ parse_environment(term_t t, p_options *info, int pass)
 #endif
     char **e;
 
+    if ( !eb->buffer )			/* environment([]) is a no-op */
+      return TRUE;
+
     for(e=environ; e && *e; e++)
     { if ( !already_in_env(eb->buffer, *e) )
       { add_ecbuf(eb, *e, strlen(*e));
