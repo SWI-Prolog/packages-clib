@@ -280,8 +280,8 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 
 #ifndef __WINDOWS__
 static int
-already_in_env(const char *env, const char *e)
-{ for(; *env; env += strlen(env)+1)
+already_in_env(const char *env, int count, const char *e)
+{ for(; count-- > 0; env += strlen(env)+1)
   { const char *s, *q;
 
     for(s=env, q=e; *s && *q && *s == *q && *s != '=' && *q != '='; s++,q++)
@@ -333,6 +333,9 @@ parse_environment(term_t t, p_options *info, int pass)
   if ( !PL_get_nil_ex(tail) )
     return FALSE;
 
+  if ( pass && count == 0 )
+    return TRUE;			/* environment([]) is a no-op */
+
 #ifndef __WINDOWS__
   if ( pass )
   {
@@ -342,12 +345,10 @@ parse_environment(term_t t, p_options *info, int pass)
     extern char **environ;
 #endif
     char **e;
-
-    if ( !eb->buffer )			/* environment([]) is a no-op */
-      return TRUE;
+    int count0 = count;
 
     for(e=environ; e && *e; e++)
-    { if ( !already_in_env(eb->buffer, *e) )
+    { if ( !already_in_env(eb->buffer, count0, *e) )
       { add_ecbuf(eb, *e, strlen(*e));
 	add_ecbuf(eb, ECHARS("\0"), 1);
 	count++;
