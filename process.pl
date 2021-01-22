@@ -95,10 +95,6 @@ following finds the executable for =ls=:
     distinction. This implies that is_process/1 is incomplete and
     unreliable.
 
-    * SICStus only supports ISO 8859-1 (latin-1). This implementation
-    supports arbitrary OS multibyte interaction using the default
-    locale.
-
     * It is unclear what the detached(true) option is supposed to do. Disable
     signals in the child? Use setsid() to detach from the session?  The
     current implementation uses setsid() on Unix systems.
