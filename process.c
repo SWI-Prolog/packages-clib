@@ -3,9 +3,10 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2020, University of Amsterdam
+    Copyright (c)  2000-2021, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -91,14 +92,26 @@ static atom_t ATOM_window;
 static atom_t ATOM_timeout;
 static atom_t ATOM_release;
 static atom_t ATOM_infinite;
+static atom_t ATOM_text;
+static atom_t ATOM_binary;
+static atom_t ATOM_octet;
+static atom_t ATOM_utf8;
+static atom_t ATOM_ascii;
+static atom_t ATOM_iso_latin_1;
+static atom_t ATOM_unicode_be;
+static atom_t ATOM_unicode_le;
+
 static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_process_error2;
 static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
+static functor_t FUNCTOR_pipe2;
 static functor_t FUNCTOR_stream1;
 static functor_t FUNCTOR_exit1;
 static functor_t FUNCTOR_killed1;
 static functor_t FUNCTOR_eq2;		/* =/2 */
+static functor_t FUNCTOR_type1;
+static functor_t FUNCTOR_encoding1;
 
 #define MAYBE 2
 
@@ -150,6 +163,7 @@ typedef enum std_type
 typedef struct p_stream
 { term_t   term;			/* P in pipe(P) */
   std_type type;			/* type of stream */
+  IOENC	   encoding;			/* Encoding for the stream */
 #ifdef __WINDOWS__
   HANDLE   fd[2];			/* pipe handles */
 #else
@@ -375,6 +389,55 @@ parse_environment(term_t t, p_options *info, int pass)
 
 
 static int
+get_type(term_t head, IOENC *enc)
+{ atom_t a;
+
+  if ( PL_get_atom_ex(head, &a) )
+  { if ( a == ATOM_text )
+      *enc = ENC_ANSI;
+    else if ( a == ATOM_binary )
+      *enc = ENC_OCTET;
+    else
+      return PL_domain_error("stream_type", head);
+  }
+
+  return FALSE;
+}
+
+/* TBD: provide a public API for translating encoding names to
+ * the IOENC enum
+ */
+
+static int
+get_encoding(term_t head, IOENC *enc)
+{ atom_t a;
+
+  if ( PL_get_atom_ex(head, &a) )
+  { if ( a == ATOM_octet )
+      *enc = ENC_OCTET;
+    else if ( a == ATOM_ascii )
+      *enc = ENC_ASCII;
+    else if ( a == ATOM_iso_latin_1 )
+      *enc = ENC_ASCII;
+    else if ( a == ENC_ISO_LATIN_1 )
+      *enc = ENC_ASCII;
+    else if ( a == ATOM_text )
+      *enc = ENC_ANSI;
+    else if ( a == ATOM_utf8 )
+      *enc = ENC_UTF8;
+    else if ( a == ATOM_unicode_be )
+      *enc = ENC_UNICODE_BE;
+    else if ( a == ATOM_unicode_le )
+      *enc = ENC_UNICODE_LE;
+    else
+      return PL_domain_error("encoding", head);
+  }
+
+  return FALSE;
+}
+
+
+static int
 get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 { atom_t a;
   int i;
@@ -388,8 +451,10 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
     } else
     { return PL_domain_error("process_stream", t);
     }
-  } else if ( PL_is_functor(t, FUNCTOR_pipe1) )
+  } else if ( PL_is_functor(t, FUNCTOR_pipe1) ||
+	      PL_is_functor(t, FUNCTOR_pipe2) )
   { stream->term = PL_new_term_ref();
+    stream->encoding = ENC_ANSI;
     _PL_get_arg(1, t, stream->term);
     if ( !PL_is_variable(stream->term) )
     { for (i = 0; i < info->pipes; i++)
@@ -398,6 +463,26 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
       }
       if (i == info->pipes)
         return PL_uninstantiation_error(stream->term);
+    }
+    if ( PL_is_functor(t, FUNCTOR_pipe2) )
+    { term_t tail = PL_new_term_ref();
+      term_t head = PL_new_term_ref();
+
+      _PL_get_arg(2, t, tail);
+      while(PL_get_list_ex(tail, head, tail))
+      { if ( PL_is_functor(head, FUNCTOR_type1) )
+	{ _PL_get_arg(1, head, head);
+	  if ( !get_type(head, &stream->encoding) )
+	    return FALSE;
+	} else if ( PL_is_functor(head, FUNCTOR_encoding1) )
+	{ _PL_get_arg(1, head, head);
+	  if ( !get_encoding(head, &stream->encoding) )
+	    return FALSE;
+	} else
+	  return PL_domain_error("pipe_option", head);
+      }
+      if ( !PL_get_nil_ex(tail) )
+	return FALSE;
     }
     stream->type = std_pipe;
     info->pipes++;
@@ -686,13 +771,15 @@ static IOFUNCTIONS Sprocessfunctions =
 
 
 static IOSTREAM *
-#ifdef __WINDOWS__
-open_process_pipe(process_context *pc, int which, HANDLE fd)
-#else
-open_process_pipe(process_context *pc, int which, int fd)
-#endif
+open_process_pipe(process_context *pc, p_options *info, int which, int fdn)
 { void *handle;
-  int flags;
+#ifdef __WINDOWS__
+  HANDLE fd = info->streams[which].fd[fdn];
+#else
+  int fd = info->streams[which].fd[fdn];
+#endif
+  int flags = SIO_RECORDPOS|SIO_FBUF;
+  IOSTREAM *s;
 
   pc->open_mask |= (1<<which);
 #ifdef __WINDOWS__
@@ -701,16 +788,20 @@ open_process_pipe(process_context *pc, int which, int fd)
   pc->pipes[which] = fd;
 #endif
 
-#define ISO_FLAGS (SIO_RECORDPOS|SIO_FBUF|SIO_TEXT)
+  if ( info->streams[which].encoding != ENC_OCTET )
+    flags |= SIO_TEXT;
 
   if ( which == 0 )
-    flags = SIO_OUTPUT|ISO_FLAGS;
+    flags |= SIO_OUTPUT;
   else
-    flags = SIO_INPUT|ISO_FLAGS;
+    flags |= SIO_INPUT;
 
   handle = (void *)((uintptr_t)pc | (uintptr_t)which);
 
-  return Snew(handle, flags, &Sprocessfunctions);
+  if ( (s=Snew(handle, flags, &Sprocessfunctions)) )
+    s->encoding = info->streams[which].encoding;
+
+  return s;
 }
 
 
@@ -1241,14 +1332,14 @@ do_create_process(p_options *info)
 
       if ( info->streams[0].type == std_pipe )
       { CloseHandle(info->streams[0].fd[0]);
-	if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
+	if ( (s = open_process_pipe(pc, info, 0, 1)) )
 	  rc = PL_unify_stream(info->streams[0].term, s);
 	else
 	  CloseHandle(info->streams[0].fd[1]);
       }
       if ( info->streams[1].type == std_pipe )
       { CloseHandle(info->streams[1].fd[1]);
-	if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
+	if ( rc && (s = open_process_pipe(pc, info, 1, 0)) )
 	  PL_unify_stream(info->streams[1].term, s);
 	else
 	  CloseHandle(info->streams[1].fd[0]);
@@ -1256,7 +1347,7 @@ do_create_process(p_options *info)
       if ( info->streams[2].type == std_pipe &&
            ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
       { CloseHandle(info->streams[2].fd[1]);
-	if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
+	if ( rc && (s = open_process_pipe(pc, info, 2, 0)) )
 	  rc = PL_unify_stream(info->streams[2].term, s);
 	else
 	  CloseHandle(info->streams[2].fd[0]);
@@ -1578,14 +1669,14 @@ process_parent_side(p_options *info, int pid)
 
     if ( info->streams[0].type == std_pipe )
     { close_ok(info->streams[0].fd[0]);
-      if ( (s = open_process_pipe(pc, 0, info->streams[0].fd[1])) )
+      if ( (s = open_process_pipe(pc, info, 0, 1)) )
 	rc = PL_unify_stream(info->streams[0].term, s);
       else
 	close_ok(info->streams[0].fd[1]);
     }
     if ( info->streams[1].type == std_pipe )
     { close_ok(info->streams[1].fd[1]);
-      if ( rc && (s = open_process_pipe(pc, 1, info->streams[1].fd[0])) )
+      if ( rc && (s = open_process_pipe(pc, info, 1, 0)) )
 	rc = PL_unify_stream(info->streams[1].term, s);
       else
 	close_ok(info->streams[1].fd[0]);
@@ -1593,7 +1684,7 @@ process_parent_side(p_options *info, int pid)
     if ( info->streams[2].type == std_pipe &&
 	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
     { close_ok(info->streams[2].fd[1]);
-      if ( rc && (s = open_process_pipe(pc, 2, info->streams[2].fd[0])) )
+      if ( rc && (s = open_process_pipe(pc, info, 2, 0)) )
 	rc = PL_unify_stream(info->streams[2].term, s);
       else
 	close_ok(info->streams[2].fd[0]);
@@ -2146,8 +2237,19 @@ install_process()
   MKATOM(timeout);
   MKATOM(release);
   MKATOM(infinite);
+  MKATOM(text);
+  MKATOM(binary);
+  MKATOM(octet);
+  MKATOM(utf8);
+  MKATOM(ascii);
+  MKATOM(iso_latin_1);
+  MKATOM(unicode_be);
+  MKATOM(unicode_le);
 
   MKFUNCTOR(pipe, 1);
+  MKFUNCTOR(pipe, 2);
+  MKFUNCTOR(type, 1);
+  MKFUNCTOR(encoding, 1);
   MKFUNCTOR(stream, 1);
   MKFUNCTOR(error, 2);
   MKFUNCTOR(process_error, 2);
