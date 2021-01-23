@@ -132,7 +132,9 @@ following finds the executable for =ls=:
 %       Bind the standard streams of the new process. Spec is one of
 %       the terms below. If pipe(Pipe) is used, the Prolog stream is
 %       a stream in text-mode using the encoding of the default
-%       locale.  The encoding can be changed using set_stream/2.
+%       locale.  The encoding can be changed using set_stream/2,
+%       or by using the two-argument form of =pipe=, which accepts an
+%       encoding(Encoding) option.
 %       The options =stdout= and =stderr= may use the same stream,
 %       in which case both output streams are connected to the same
 %       Prolog stream.
@@ -146,7 +148,16 @@ following finds the executable for =ls=:
 %           Bind to a _null_ stream. Reading from such a stream
 %           returns end-of-file, writing produces no output
 %           * pipe(-Stream)
+%           * pipe(-Stream, +StreamOptions)
 %           Attach input and/or output to a Prolog stream.
+%           The optional StreamOptions argument is a list of options
+%           that affect the stream. Currently only the options
+%           type(+Type) and encoding(+Encoding) are supported,
+%           which have the same meaning as the stream properties
+%           of the same name (see stream_property/2).
+%           StreamOptions is provided mainly for SICStus compatibility -
+%           the SWI-Prolog predicate set_stream/2 can be used
+%           for the same purpose.
 %           * stream(+Stream)
 %           Attach input or output to an existing Prolog stream.
 %           This stream must be associated with an OS file
