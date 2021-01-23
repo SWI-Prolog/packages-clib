@@ -399,6 +399,8 @@ get_type(term_t head, IOENC *enc)
       *enc = ENC_OCTET;
     else
       return PL_domain_error("stream_type", head);
+
+    return TRUE;
   }
 
   return FALSE;
@@ -418,9 +420,7 @@ get_encoding(term_t head, IOENC *enc)
     else if ( a == ATOM_ascii )
       *enc = ENC_ASCII;
     else if ( a == ATOM_iso_latin_1 )
-      *enc = ENC_ASCII;
-    else if ( a == ENC_ISO_LATIN_1 )
-      *enc = ENC_ASCII;
+      *enc = ENC_ISO_LATIN_1;
     else if ( a == ATOM_text )
       *enc = ENC_ANSI;
     else if ( a == ATOM_utf8 )
@@ -431,6 +431,8 @@ get_encoding(term_t head, IOENC *enc)
       *enc = ENC_UNICODE_LE;
     else
       return PL_domain_error("encoding", head);
+
+    return TRUE;
   }
 
   return FALSE;
