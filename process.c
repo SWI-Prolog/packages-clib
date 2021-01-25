@@ -1653,6 +1653,23 @@ close_ok(int fd)
   return rc;
 }
 
+static IOSTREAM *
+p_fdopen(p_options *info, int which, int fdn, char *mode)
+{ IOSTREAM *s;
+  char m[10];
+  char *mp = m;
+
+  *mp++ = mode[0];
+  if ( info->streams[which].encoding == ENC_OCTET )
+    *mp++ = 'b';
+  *mp = 0;
+
+  if ( (s=Sfdopen(info->streams[which].fd[fdn], m)) )
+    s->encoding = info->streams[which].encoding;
+
+  return s;
+}
+
 
 static int
 process_parent_side(p_options *info, int pid)
@@ -1698,14 +1715,14 @@ process_parent_side(p_options *info, int pid)
 
     if ( info->streams[0].type == std_pipe )
     { close_ok(info->streams[0].fd[0]);
-      if ( (s = Sfdopen(info->streams[0].fd[1], "w")) )
+      if ( (s = p_fdopen(info, 0, 1, "w")) )
 	rc = PL_unify_stream(info->streams[0].term, s);
       else
 	close_ok(info->streams[0].fd[1]);
     }
     if ( info->streams[1].type == std_pipe )
     { close_ok(info->streams[1].fd[1]);
-      if ( rc && (s = Sfdopen(info->streams[1].fd[0], "r")) )
+      if ( rc && (s = p_fdopen(info, 1, 0, "r")) )
 	rc = PL_unify_stream(info->streams[1].term, s);
       else
 	close_ok(info->streams[1].fd[0]);
@@ -1713,7 +1730,7 @@ process_parent_side(p_options *info, int pid)
     if ( info->streams[2].type == std_pipe &&
 	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
     { close_ok(info->streams[2].fd[1]);
-      if ( rc && (s = Sfdopen(info->streams[2].fd[0], "r")) )
+      if ( rc && (s = p_fdopen(info, 2, 0, "r")) )
 	PL_unify_stream(info->streams[2].term, s);
       else
 	close_ok(info->streams[2].fd[0]);
