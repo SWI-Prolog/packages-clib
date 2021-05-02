@@ -465,3 +465,12 @@ prolog:error_message(process_error(File, exit(Status))) -->
     [ 'Process "~w": exit status: ~w'-[File, Status] ].
 prolog:error_message(process_error(File, killed(Signal))) -->
     [ 'Process "~w": killed by signal ~w'-[File, Signal] ].
+prolog:error_message(existence_error(source_sink, path(Exe))) -->
+    [ 'Could not find executable file "~p" in '-[Exe] ],
+    path_var.
+
+path_var -->
+    (   { current_prolog_flag(windows, true) }
+    ->  [ '%PATH%'-[] ]
+    ;   [ '$PATH'-[] ]
+    ).
