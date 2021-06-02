@@ -36,8 +36,12 @@ if(UUID_CONFIG)
 
     set(LIBUUID_INCLUDE_DIR ${LIBUUID_INCLUDE_DIR} CACHE INTERNAL
 	"Directory holding OSSP UUID <uuid.h>")
+  else()
+    set(UUID_CONFIG)
   endif()
-else(UUID_CONFIG)
+endif()
+
+if(NOT UUID_CONFIG)
 
 find_package(PkgConfig QUIET)
 pkg_check_modules(PC_LIBUUID QUIET ossp-uuid)
@@ -64,7 +68,7 @@ if(NOT UUID_LIBRARY)
 	       NAMES ossp-uuid uuid)
 endif()
 
-endif(UUID_CONFIG)
+endif(NOT UUID_CONFIG)
 
 mark_as_advanced(LIBUUID_INCLUDE_DIR
 		 UUID_LIBRARY)
