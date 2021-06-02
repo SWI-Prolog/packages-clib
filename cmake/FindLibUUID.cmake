@@ -37,7 +37,7 @@ if(UUID_CONFIG)
     set(LIBUUID_INCLUDE_DIR ${LIBUUID_INCLUDE_DIR} CACHE INTERNAL
 	"Directory holding OSSP UUID <uuid.h>")
   else()
-    set(UUID_CONFIG)
+    set(UUID_CONFIG "")
   endif()
 endif()
 
