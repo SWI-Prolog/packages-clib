@@ -628,6 +628,9 @@ character counts for one, including backspace and tab.
 \section{Time and alarm library}
 \label{sec:time-and-alarm}
 
+This library is not available if SWI-Prolog is compiled without
+support for multiple threads.
+
 The \pllib{time} provides timing and alarm functions. Alarms are
 thread-specific, i.e., creating an alarm causes the alarm goal to be
 called in the thread that created it. The predicate current_alarm/4 only
