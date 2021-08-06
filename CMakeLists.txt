@@ -74,6 +74,9 @@ if(LIBUUID_FOUND)
 	      C_LIBS ${UUID_LIBRARY}
 	      C_INCLUDE_DIR ${LIBUUID_INCLUDE_DIR}
 	      PL_LIBS uuid.pl)
+else()
+  swipl_plugin(uuid
+	       PL_LIBS uuid.pl)
 endif()
 
 clib_plugin(crypt

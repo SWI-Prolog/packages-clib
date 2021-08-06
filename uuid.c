@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2012-2018, VU University Amsterdam
+    Copyright (c)  2012-2021, VU University Amsterdam
 			      CWI, Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -201,6 +202,6 @@ install_uuid(void)
   ATOM_oid     = PL_new_atom("oid");
   ATOM_x500    = PL_new_atom("x500");
 
-  PL_register_foreign("uuid", 2, pl_uuid, 0);
+  PL_register_foreign("ossp_uuid", 2, pl_uuid, 0);
 }
 

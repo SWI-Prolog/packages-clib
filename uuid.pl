@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2012, VU University Amsterdam
+    Copyright (c)  2012-2021, VU University Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -55,7 +56,10 @@ versions.  Some typical calls are given below:
 @see http://www.ossp.org/pkg/lib/uuid/
 */
 
-:- use_foreign_library(foreign(uuid)).
+link_uuid :-
+    catch(load_foreign_library(foreign(uuid)), _, true).
+
+:- initialization(link_uuid, now).
 
 %!  uuid(-UUID) is det.
 %
@@ -87,3 +91,40 @@ uuid(UUID) :-
 %     such as =|8304efdd-bd6e-5b7c-a27f-83f3f05c64e0|=. The
 %     alternative is =integer=, returning a large integer that
 %     represents the 128 bits of the UUID.
+%
+%   If SWI-Prolog was not built with the  OSSP UUID dependency library a
+%   simple Prolog alternative that  only   implements  version  4 random
+%   UUIDs is provided. In this case  the   default  version is 4 and the
+%   only admissible options are version(4) and format(atom).
+
+:- if(current_predicate(ossp_uuid/2)).
+uuid(UUID, Options) :-
+    ossp_uuid(UUID, Options).
+
+:- else.
+
+uuid(UUID, []) :-
+    !,
+    random_uuid(UUID).
+uuid(UUID, Options) :-
+    option(version(4), Options, 4),
+    option(format(atom), Options, atom),
+    !,
+    random_uuid(UUID).
+uuid(_UUID, Options) :-
+    domain_error(uuid_options, Options).
+
+random_uuid(UUID) :-
+    Version = 4,
+    A is random(0xffffffff),
+    B is random(0xffff),
+    C is random(0x0fff) \/ Version<<12,
+    D is random(0xffff) \/ 0x8000,
+    E is random(0xffffffffffff),
+    format(atom(UUID),
+           '~`0t~16r~8+-~|\c
+            ~`0t~16r~4+-~|\c
+            ~`0t~16r~4+-~|\c
+            ~`0t~16r~4+-~|\c
+            ~`0t~16r~12+', [A,B,C,D,E]).
+:- endif.
