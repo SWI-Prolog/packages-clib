@@ -92,6 +92,41 @@ test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
                    ['-c', 'echo "error" 1>&2'],
                    [stderr(pipe(Out))]),
     read_process(Out, X).
+test(read_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'fd-3\n']) :-
+    process_create(path(sh),
+                   ['-c', 'echo "fd-3" 1>&3'],
+                   [extra_streams([from_child(pipe(Out))])]),
+    read_process(Out, X).
+test(null_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true))]) :-
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&3'],
+                   [extra_streams([from_child(null)])]).
+test(write_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'hello fd4\n']) :-
+    process_create(path(sh),
+                   ['-c', 'cat 0<&4'],
+                   [stdout(pipe(Out)), extra_streams([_,to_child(pipe(In))])]),
+    format(In, 'hello fd4~n', []),
+    close(In),
+    read_process(Out, X).
+test(separate_error, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'separated error\n']) :-
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&2; echo "separated error" 1>&3'],
+                   [stderr(null), extra_streams([from_child(pipe(Out))])]),
+    read_process(Out, X).
+test(auto_detect_read, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == "0"]) :-
+    open('/dev/null', read, In, [type(binary)]),
+    process_create(path(sh),
+                   ['-c', 'wc -c 0<&3'],
+                   [stdout(pipe(Out)), extra_streams([stream(In)])]),
+    close(In),
+    read_process(Out, X0),
+    split_string(X0, "", " \r\n", [X]).
+test(auto_detect_write, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true))]) :-
+    open('/dev/null', write, Out, [type(binary)]),
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&3'],
+                   [extra_streams([stream(Out)])]),
+    close(Out).
 test(echo, [condition(has_exe(sh)), X == 'hello\n']) :-
     process_create(path(sh),
                    ['-c', 'echo hello'],

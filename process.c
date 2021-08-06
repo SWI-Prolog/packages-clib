@@ -80,6 +80,7 @@
 static atom_t ATOM_stdin;
 static atom_t ATOM_stdout;
 static atom_t ATOM_stderr;
+static atom_t ATOM_extra_streams;
 static atom_t ATOM_std;
 static atom_t ATOM_null;
 static atom_t ATOM_process;
@@ -107,6 +108,8 @@ static functor_t FUNCTOR_system_error2;
 static functor_t FUNCTOR_pipe1;
 static functor_t FUNCTOR_pipe2;
 static functor_t FUNCTOR_stream1;
+static functor_t FUNCTOR_from_child1;
+static functor_t FUNCTOR_to_child1;
 static functor_t FUNCTOR_exit1;
 static functor_t FUNCTOR_killed1;
 static functor_t FUNCTOR_eq2;		/* =/2 */
@@ -156,7 +159,8 @@ typedef enum std_type
 { std_std,
   std_null,
   std_pipe,
-  std_stream
+  std_stream,
+  std_unbound,
 } std_type;
 
 
@@ -164,6 +168,7 @@ typedef struct p_stream
 { term_t   term;			/* P in pipe(P) */
   std_type type;			/* type of stream */
   IOENC	   encoding;			/* Encoding for the stream */
+  int      mode;			/* SIO_INPUT/SIO_OUTPUT, from parent's view */
 #ifdef __WINDOWS__
   HANDLE   fd[2];			/* pipe handles */
 #else
@@ -172,6 +177,8 @@ typedef struct p_stream
   int	   cloexec;			/* close on exec activated */
 } p_stream;
 
+# define PARENT_OPEN_FLAGS(mode) ((mode & SIO_INPUT) ? O_RDONLY : O_WRONLY)
+# define CHILD_OPEN_FLAGS(mode) ((mode & SIO_OUTPUT) ? O_RDONLY : O_WRONLY)
 
 typedef struct ecbuf
 { echar *buffer;
@@ -196,12 +203,17 @@ typedef struct p_options
   term_t pid;				/* process(PID) */
   int pipes;				/* #pipes found */
   p_stream streams[3];
+  p_stream *extra_streams;		/* stream definitions beyond [0,1,2] */
+  int   extra_stream_count;		/* #extra streams past 2 */
   int   detached;			/* create as detached */
   int   window;				/* Show a window? */
   int   priority;			/* Process priority */
 } p_options;
 
-
+#define INFO_STREAM(info, fd) ((fd <= 2) ? &(info->streams[fd]) : &(info->extra_streams[fd - 3]))
+#define FOREACH_STREAM(info, fdvar, streamvar) \
+  for (p_stream *streamvar = info->streams, *__loopctr = NULL; __loopctr == NULL; __loopctr++) \
+    for (int fdvar = 0; fdvar < 3 + info->extra_stream_count; fdvar++, streamvar = (fdvar == 3 ? info->extra_streams : streamvar+1))
 typedef struct wait_options
 { double timeout;
   int	 has_timeout;
@@ -439,10 +451,56 @@ get_encoding(term_t head, IOENC *enc)
 }
 
 
+static p_stream *
+find_matching_stream(p_options *info, p_stream *stream)
+{ FOREACH_STREAM(info, fd2, stream2)
+  { if ( stream2 == stream || fd2 >= info->extra_stream_count + 3 )
+      break;
+    if ( stream2->mode == stream->mode && stream2->term && PL_compare(stream->term, stream2->term) == 0 )
+    { return stream2;
+      break;
+    }
+  }
+  return NULL;
+}
+
+
 static int
 get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 { atom_t a;
-  int i;
+  IOSTREAM *s = NULL;
+
+  assert(stream->mode == 0);
+  assert(stream->term == 0);
+  if ( PL_is_functor(t, FUNCTOR_from_child1) )
+    stream->mode = SIO_INPUT;	/* we are reading, child is writing */
+  else if ( PL_is_functor(t, FUNCTOR_to_child1) )
+    stream->mode = SIO_OUTPUT;	/* we are writing, child is reading  */
+
+  if ( stream->mode )
+  { _PL_get_arg(1, t, t);
+    /* Parse the argument of read/1 or write/1 as a standard stream item */
+  } else
+  { /* determine input/output from stream name */
+    if ( name == ATOM_stdin )
+      stream->mode = SIO_OUTPUT; /* parent writes to child's stdin */
+    else if ( name == ATOM_stdout || name == ATOM_stderr )
+      stream->mode = SIO_INPUT; /* parent reads from child's stdout/stderr */
+    else if ( PL_is_functor(t, FUNCTOR_stream1) )
+    { /* Determine mode from provided stream */
+      stream->term = PL_new_term_ref();
+      _PL_get_arg(1, t, stream->term);
+      if ( !PL_get_stream_handle(stream->term, &s) )
+        return FALSE; /* invalid stream OR stream pair (can't autodetect direction) */
+      if ( s->flags & SIO_INPUT )
+        stream->mode = SIO_INPUT;
+      else
+        stream->mode = SIO_OUTPUT;
+    }
+    else
+      return PL_type_error("explicit_rw_specification", t);
+  }
+
   if ( PL_get_atom(t, &a) )
   { if ( a == ATOM_null )
     { stream->type = std_null;
@@ -458,14 +516,8 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
   { stream->term = PL_new_term_ref();
     stream->encoding = ENC_ANSI;
     _PL_get_arg(1, t, stream->term);
-    if ( !PL_is_variable(stream->term) )
-    { for (i = 0; i < info->pipes; i++)
-      { if (PL_compare(info->streams[i].term, t) == 0)
-          break;
-      }
-      if (i == info->pipes)
-        return PL_uninstantiation_error(stream->term);
-    }
+    if ( !PL_is_variable(stream->term) && !find_matching_stream(info, stream) )
+      return PL_uninstantiation_error(stream->term);
     if ( PL_is_functor(t, FUNCTOR_pipe2) )
     { term_t tail = PL_new_term_ref();
       term_t head = PL_new_term_ref();
@@ -490,15 +542,15 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
     info->pipes++;
     return TRUE;
   } else if ( PL_is_functor(t, FUNCTOR_stream1) )
-  { IOSTREAM *s;
-    int fd;
-    stream->term = PL_new_term_ref();
-    _PL_get_arg(1, t, stream->term);
-    if ( !PL_get_stream(stream->term, &s,
-			name == ATOM_stdin ? SIO_INPUT : SIO_OUTPUT) )
-      return FALSE;
+  { int fd;
+    if ( !stream->term ) /* could have been fetched above */
+    { stream->term = PL_new_term_ref();
+      _PL_get_arg(1, t, stream->term);
+      if ( !PL_get_stream(stream->term, &s, stream->mode) )
+        return FALSE;
+    }
     stream->type = std_stream;
-    if ( (fd = Sfileno(s)) > 0 )
+    if ( (fd = Sfileno(s)) >= 0 )
     {
 #ifdef __WINDOWS__
       stream->fd[0] = stream->fd[1] = (HANDLE)_get_osfhandle(fd);
@@ -511,6 +563,39 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
     return TRUE;
   } else
     return PL_type_error("process_stream", t);
+}
+
+
+static int
+get_extra_streams(term_t t, p_options *info, int *count, p_stream **streams)
+{ term_t tail = PL_copy_term_ref(t);
+  term_t head = PL_new_term_ref();
+  int allocated = 0;
+
+  assert(*count == 0);
+  assert(*streams == NULL);
+
+  allocated = 8;
+  *streams = PL_malloc(sizeof(p_stream) * allocated);
+
+  while( PL_get_list(tail, head, tail) )
+  { if ( *count >= allocated )
+    { allocated <<= 1;
+      *streams = PL_realloc(*streams, sizeof(p_stream) * allocated);
+    }
+    memset(&(*streams)[*count], 0, sizeof(p_stream));
+    if ( PL_is_variable(head) )
+      (*streams)[*count].type = std_unbound;
+    else if ( !get_stream(head, info, &(*streams)[*count], ATOM_extra_streams) )
+      return FALSE;
+    (*count)++;
+  }
+
+  if ( *count < allocated )
+  { *streams = PL_realloc(*streams, sizeof(p_stream) * *count);
+  }
+
+  return TRUE;
 }
 
 
@@ -539,6 +624,11 @@ parse_options(term_t options, p_options *info)
     } else if ( name == ATOM_stderr )
     { if ( !get_stream(arg, info, &info->streams[2], name) )
 	return FALSE;
+#ifndef __WINDOWS__
+    } else if ( name == ATOM_extra_streams )
+    { if ( !get_extra_streams(arg, info, &info->extra_stream_count, &info->extra_streams) )
+	return FALSE;
+#endif
     } else if ( name == ATOM_process )
     { info->pid = PL_copy_term_ref(arg);
     } else if ( name == ATOM_detached )
@@ -644,6 +734,11 @@ free_options(p_options *info)		/* TBD: close streams */
   }
 #endif
   free_ecbuf(&info->envbuf);
+  if ( info->extra_streams )
+  { PL_free(info->extra_streams);
+    info->extra_streams = NULL;
+    info->extra_stream_count = 0;
+  }
 #ifdef __WINDOWS__
   if ( info->cmdline )
   { PL_free(info->cmdline);
@@ -672,6 +767,14 @@ free_options(p_options *info)		/* TBD: close streams */
 		 *******************************/
 
 #define	PROCESS_MAGIC	0x29498001
+#define	PROCESSFD_MAGIC	0x29498002
+
+struct process_context;
+typedef struct process_extrafd
+{ int magic;				/* PROCESSFD_MAGIC */
+  int fd;				/* extension of pipes[] array */
+  int fdnum;				/* effective index into extended pipes[] array */
+} process_extrafd;
 
 typedef struct process_context
 { int	magic;				/* PROCESS_MAGIC */
@@ -680,25 +783,71 @@ typedef struct process_context
 #else
   pid_t	pid;				/* the process id */
 #endif
-  int   open_mask;			/* Open streams */
+  int   open_count;			/* Open streams */
   int   pipes[3];			/* stdin/stdout/stderr */
   atom_t exe_name;			/* exe as atom */
+  int   extra_count;			/* number of entries in extra_pipes[] array */
+  process_extrafd extra_pipes[];	/* extension of pipes[] for more than three fds */
 } process_context;
+
+#define PROCESS_CONTEXT_SIZE(extra_count) (sizeof(process_context) + (sizeof(process_extrafd) * extra_count))
+#define PROCESS_CONTEXT_FROM_EXTRAFD(efd) \
+	(process_context*)(((void*)efd) - \
+			   (sizeof(process_extrafd) * (efd->fdnum - 3)) - \
+			   offsetof(process_context, extra_pipes))
 
 static int wait_for_process(process_context *pc);
 
+static process_context*
+create_process_context(p_options *info, intptr_t pid_handle)
+{ process_context *pc;
+
+  pc = PL_malloc(PROCESS_CONTEXT_SIZE(info->extra_stream_count));
+  memset(pc, 0, PROCESS_CONTEXT_SIZE(info->extra_stream_count));
+  *pc = (process_context)
+  	{ .magic = PROCESS_MAGIC,
+#ifdef __WINDOWS__
+	  .handle = (HANDLE)pid_handle,
+#else
+	  .pid = (int)pid_handle,
+#endif
+	  .exe_name = info->exe_name,
+	  .pipes = {-1, -1, -1},
+	  .extra_count = info->extra_stream_count,
+	};
+  PL_register_atom(pc->exe_name);
+  return pc;
+}
+
+
 static int
-process_fd(void *handle, process_context **PC)
+process_fd_ex(void *handle, process_context **PC, int **FD)
 { process_context *pc = (process_context*) ((uintptr_t)handle&~(uintptr_t)0x3);
+  process_extrafd *efd = (process_extrafd *)pc;
   int pipe = (int)(uintptr_t)handle & 0x3;
 
   if ( pc->magic == PROCESS_MAGIC )
   { if ( PC )
       *PC = pc;
-    return pc->pipes[pipe];
+    if ( FD )
+      *FD = &pc->pipes[pipe];
+    return pipe;
+  } else if ( efd->magic == PROCESSFD_MAGIC )
+  { if ( PC )
+      *PC = PROCESS_CONTEXT_FROM_EXTRAFD(efd);
+    if ( FD )
+      *FD = &efd->fd;
+    return efd->fdnum;
   }
 
   return -1;
+}
+
+static int
+process_fd(void *handle, process_context **PC)
+{ int *FD, rval;
+  rval = process_fd_ex(handle, PC, &FD);
+  return rval >= 0 ? *FD : -1;
 }
 
 
@@ -721,18 +870,22 @@ Swrite_process(void *handle, char *buf, size_t size)
 static int
 Sclose_process(void *handle)
 { process_context *pc;
-  int fd = process_fd(handle, &pc);
+  int *FD;
+  int which = process_fd_ex(handle, &pc, &FD);
+  int fd = which >= 0 ? *FD : -1;
 
   if ( fd >= 0 )
-  { int which = (int)(uintptr_t)handle & 0x3;
-    int rc;
+  { int rc;
+
+    assert(pc->open_count > 0);
 
     rc = (*Sfilefunctions.close)((void*)(uintptr_t)fd);
-    pc->open_mask &= ~(1<<which);
+    pc->open_count--;
+    *FD = -1; /* Make sure no one tries to decrement open_count again */
 
-    DEBUG(Sdprintf("Closing fd[%d]; mask = 0x%x\n", which, pc->open_mask));
+    DEBUG(Sdprintf("Closing fd[%d] (%d); count = %d\n", which, fd, pc->open_count));
 
-    if ( !pc->open_mask )
+    if ( !pc->open_count )
     { int rcw = wait_for_process(pc);
 
       return rcw ? 0 : -1;
@@ -775,33 +928,43 @@ static IOFUNCTIONS Sprocessfunctions =
 static IOSTREAM *
 open_process_pipe(process_context *pc, p_options *info, int which, int fdn)
 { void *handle;
+  p_stream *stream = INFO_STREAM(info, which);
 #ifdef __WINDOWS__
-  HANDLE fd = info->streams[which].fd[fdn];
+  HANDLE fd = stream->fd[fdn];
 #else
-  int fd = info->streams[which].fd[fdn];
+  int fd = stream->fd[fdn];
 #endif
   int flags = SIO_RECORDPOS|SIO_FBUF;
   IOSTREAM *s;
+  int *FD;
 
-  pc->open_mask |= (1<<which);
+  if ( which < 3 )
+  { FD = &pc->pipes[which];
+    handle = (void *)((uintptr_t)pc | (uintptr_t)which);
+  } else
+  { assert(which - 3 < pc->extra_count);
+    process_extrafd *efd = &pc->extra_pipes[which - 3];
+    if ( efd->magic != PROCESSFD_MAGIC )
+    { *efd = (process_extrafd){.magic = PROCESSFD_MAGIC, .fdnum = which, .fd = -1};
+    }
+    FD = &efd->fd;
+    handle = efd;
+  }
+  assert(*FD == -1);
+  pc->open_count++;
 #ifdef __WINDOWS__
-  pc->pipes[which] = _open_osfhandle((intptr_t)fd, _O_BINARY);
+  *FD = _open_osfhandle((intptr_t)fd, _O_BINARY);
 #else
-  pc->pipes[which] = fd;
+  *FD = fd;
 #endif
 
-  if ( info->streams[which].encoding != ENC_OCTET )
+  if ( stream->encoding != ENC_OCTET )
     flags |= SIO_TEXT;
 
-  if ( which == 0 )
-    flags |= SIO_OUTPUT;
-  else
-    flags |= SIO_INPUT;
-
-  handle = (void *)((uintptr_t)pc | (uintptr_t)which);
+  flags |= stream->mode;
 
   if ( (s=Snew(handle, flags, &Sprocessfunctions)) )
-    s->encoding = info->streams[which].encoding;
+    s->encoding = stream->encoding;
 
   return s;
 }
@@ -1159,8 +1322,7 @@ wait_for_process(process_context *pc)
 
 static int
 create_pipes(p_options *info)
-{ int i;
-  SECURITY_ATTRIBUTES sa;
+{ SECURITY_ATTRIBUTES sa;
 
   sa.nLength = sizeof(sa);          /* Length in bytes */
   sa.bInheritHandle = 1;            /* the child must inherit these handles */
@@ -1322,15 +1484,9 @@ do_create_process(p_options *info)
 
     if ( info->pipes > 0 && info->pid == 0 )
     { IOSTREAM *s;
-      process_context *pc = PL_malloc(sizeof(*pc));
+      process_context *pc = create_process_context(info, (intptr_t)pi.hProcess);
 
       DEBUG(Sdprintf("Wait on pipes\n"));
-
-      memset(pc, 0, sizeof(*pc));
-      pc->magic    = PROCESS_MAGIC;
-      pc->handle   = pi.hProcess;
-      pc->exe_name = info->exe_name;
-      PL_register_atom(pc->exe_name);
 
       if ( info->streams[0].type == std_pipe )
       { CloseHandle(info->streams[0].fd[0]);
@@ -1488,16 +1644,12 @@ for a runtime solution.
 
 static int
 create_pipes(p_options *info)
-{ int i;
-
-  for(i=0; i<3; i++)
-  { p_stream *s = &info->streams[i];
-
-    if ( s->term && s->type == std_pipe )
-    { if ( i == 2 && info->streams[1].term &&
-	   PL_compare(info->streams[1].term, info->streams[2].term) == 0 )
-      { s->fd[0] = info->streams[1].fd[0];
-	s->fd[1] = info->streams[1].fd[1];
+{ FOREACH_STREAM(info, i, s)
+  { if ( s->term && s->type == std_pipe )
+    { p_stream *matched_stream = find_matching_stream(info, s);
+      if ( matched_stream )
+      { s->fd[0] = matched_stream->fd[0];
+	s->fd[1] = matched_stream->fd[1];
       } else
       { int my_side;
 
@@ -1516,7 +1668,7 @@ create_pipes(p_options *info)
 	    Sdprintf("pipe(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
-	my_side = (i == 0 ? s->fd[1] : s->fd[0]);
+	my_side = ((s->mode & SIO_OUTPUT) ? s->fd[1] : s->fd[0]);
 #ifdef F_SETFD
         if ( fcntl(my_side, F_SETFD, FD_CLOEXEC) == 0 )
 	  s->cloexec = TRUE;
@@ -1654,18 +1806,18 @@ close_ok(int fd)
 }
 
 static IOSTREAM *
-p_fdopen(p_options *info, int which, int fdn, char *mode)
+p_fdopen(p_options *info, p_stream *stream, int fdn)
 { IOSTREAM *s;
   char m[10];
   char *mp = m;
 
-  *mp++ = mode[0];
-  if ( info->streams[which].encoding == ENC_OCTET )
+  *mp++ = (stream->mode & SIO_INPUT) ? 'r' : 'w';
+  if ( stream->encoding == ENC_OCTET )
     *mp++ = 'b';
   *mp = 0;
 
-  if ( (s=Sfdopen(info->streams[which].fd[fdn], m)) )
-    s->encoding = info->streams[which].encoding;
+  if ( (s=Sfdopen(stream->fd[fdn], m)) )
+    s->encoding = stream->encoding;
 
   return s;
 }
@@ -1674,67 +1826,31 @@ p_fdopen(p_options *info, int which, int fdn, char *mode)
 static int
 process_parent_side(p_options *info, int pid)
 { int rc = TRUE;
+  process_context *pc = NULL;
 
   if ( info->pipes > 0 && info->pid == 0 )
-  { IOSTREAM *s;			/* no pid(Pid): wait */
-    process_context *pc = PL_malloc(sizeof(*pc));
+  { /* no pid(Pid): wait */
+    pc = create_process_context(info, pid);
     DEBUG(Sdprintf("Wait on pipes\n"));
+  }
 
-    memset(pc, 0, sizeof(*pc));
-    pc->magic = PROCESS_MAGIC;
-    pc->pid = pid;
-    pc->exe_name = info->exe_name;
-    PL_register_atom(pc->exe_name);
-
-    if ( info->streams[0].type == std_pipe )
-    { close_ok(info->streams[0].fd[0]);
-      if ( (s = open_process_pipe(pc, info, 0, 1)) )
-	rc = PL_unify_stream(info->streams[0].term, s);
-      else
-	close_ok(info->streams[0].fd[1]);
-    }
-    if ( info->streams[1].type == std_pipe )
-    { close_ok(info->streams[1].fd[1]);
-      if ( rc && (s = open_process_pipe(pc, info, 1, 0)) )
-	rc = PL_unify_stream(info->streams[1].term, s);
-      else
-	close_ok(info->streams[1].fd[0]);
-    }
-    if ( info->streams[2].type == std_pipe &&
-	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
-    { close_ok(info->streams[2].fd[1]);
-      if ( rc && (s = open_process_pipe(pc, info, 2, 0)) )
-	rc = PL_unify_stream(info->streams[2].term, s);
-      else
-	close_ok(info->streams[2].fd[0]);
-    }
-
-    return rc;
-  } else if ( info->pipes > 0 )
+  if ( info->pipes > 0 )
   { IOSTREAM *s;
+    FOREACH_STREAM(info, fd, stream)
+    { if ( stream->type == std_pipe && !find_matching_stream(info, stream) )
+      { int myside = (stream->mode & SIO_OUTPUT) ? 1 : 0;
+        close_ok(stream->fd[1 - myside]);
+	if ( (s = pc
+		? open_process_pipe(pc, info, fd, myside)
+		: p_fdopen(info, stream, myside)) )
+	  rc = PL_unify_stream(stream->term, s);
+	else
+	  close_ok(stream->fd[myside]);
+      }
+    }
 
-    if ( info->streams[0].type == std_pipe )
-    { close_ok(info->streams[0].fd[0]);
-      if ( (s = p_fdopen(info, 0, 1, "w")) )
-	rc = PL_unify_stream(info->streams[0].term, s);
-      else
-	close_ok(info->streams[0].fd[1]);
-    }
-    if ( info->streams[1].type == std_pipe )
-    { close_ok(info->streams[1].fd[1]);
-      if ( rc && (s = p_fdopen(info, 1, 0, "r")) )
-	rc = PL_unify_stream(info->streams[1].term, s);
-      else
-	close_ok(info->streams[1].fd[0]);
-    }
-    if ( info->streams[2].type == std_pipe &&
-	 ( !info->streams[1].term || PL_compare(info->streams[1].term, info->streams[2].term) != 0 ) )
-    { close_ok(info->streams[2].fd[1]);
-      if ( rc && (s = p_fdopen(info, 2, 0, "r")) )
-	PL_unify_stream(info->streams[2].term, s);
-      else
-	close_ok(info->streams[2].fd[0]);
-    }
+    if ( info->pid == 0 )
+      return rc;
   }
 
   assert(rc);				/* What else? */
@@ -1829,61 +1945,32 @@ do_create_process_fork(p_options *info, create_method method)
       }
     }
 
-					/* stdin */
-    switch( info->streams[0].type )
-    { case std_pipe:
-      case std_stream:
-        dup2(info->streams[0].fd[0], 0);
-        if ( !info->streams[0].cloexec )
-	  close(info->streams[0].fd[1]);
-	break;
-      case std_null:
-	if ( (fd = open("/dev/null", O_RDONLY)) >= 0 )
-	  dup2(fd, 0);
-        break;
-      case std_std:
-      { int fd = Sfileno(Suser_input);
-        if ( fd > 0 )
-	  dup2(fd, 0);
-	break;
-      }
-    }
-					/* stdout */
-    switch( info->streams[1].type )
-    { case std_pipe:
-      case std_stream:
-	dup2(info->streams[1].fd[1], 1);
-        if ( !info->streams[1].cloexec )
-	  close(info->streams[1].fd[0]);
-	break;
-      case std_null:
-	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
-	  dup2(fd, 1);
-        break;
-      case std_std:
-      { int fd = Sfileno(Suser_output);
-        if ( fd >= 0 && fd != 1 )
-	  dup2(fd, 1);
-	break;
-      }
-    }
-					/* stderr */
-    switch( info->streams[2].type )
-    { case std_pipe:
-      case std_stream:
-	dup2(info->streams[2].fd[1], 2);
-	if ( !info->streams[2].cloexec )
-	  close(info->streams[2].fd[0]);
-	break;
-      case std_null:
-	if ( (fd = open("/dev/null", O_WRONLY)) >= 0 )
-	  dup2(fd, 2);
-        break;
-      case std_std:
-      { int fd = Sfileno(Suser_error);
-        if ( fd >= 0 && fd != 2 )
-	  dup2(fd, 2);
-	break;
+    FOREACH_STREAM(info, streamfd, stream)
+    { switch( stream->type )
+      { case std_pipe:
+	case std_stream:
+	{ int pairhalf = (stream->mode & SIO_OUTPUT) /* parent writes, child reads */
+		       ? 0 : 1;
+	  dup2(stream->fd[pairhalf], streamfd);
+	  if ( !stream->cloexec )
+	    close(stream->fd[1 - pairhalf]);
+	  break;
+	}
+	case std_null:
+	  if ( (fd = open("/dev/null", CHILD_OPEN_FLAGS(stream->mode))) >= 0 )
+	    dup2(fd, streamfd);
+	  break;
+	case std_std:
+	  fd = streamfd == 0 ? Sfileno(Suser_input)
+		: streamfd == 1 ? Sfileno(Suser_output)
+		: streamfd == 2 ? Sfileno(Suser_error)
+		: -1;
+          if ( fd >= 0 && fd != streamfd )
+	    dup2(fd, streamfd);
+	  break;
+	case std_unbound:
+	  close(streamfd);
+	  break;
       }
     }
 
@@ -1931,49 +2018,27 @@ do_create_process(p_options *info)
   if ( info->detached )
     posix_spawnattr_setpgroup(&attr, 0);
 
-  switch( info->streams[0].type )	/* stdin */
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
-      if ( !info->streams[0].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 0,
-				       "/dev/null", O_RDONLY, 0);
-      break;
-    case std_std:
-      break;
-  }
-					/* stdout */
-  switch( info->streams[1].type )
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
-      if ( !info->streams[1].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 1,
-				       "/dev/null", O_WRONLY, 0);
-      break;
-    case std_std:
-      break;
-  }
-				      /* stderr */
-  switch( info->streams[2].type )
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
-      if ( !info->streams[2].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 2,
-				       "/dev/null", O_WRONLY, 0);
-      break;
-    case std_std:
-      break;
+  FOREACH_STREAM(info, fd, stream)
+  { switch( stream->type )
+    { case std_pipe:
+      case std_stream:
+      { int pairhalf = (stream->mode & SIO_OUTPUT ) /* parent writes, child reads */
+		     ? 0 : 1;
+        posix_spawn_file_actions_adddup2(&file_actions, stream->fd[pairhalf], fd);
+        if ( !stream->cloexec )
+	  posix_spawn_file_actions_addclose(&file_actions, stream->fd[1 - pairhalf]);
+        break;
+      }
+      case std_null:
+        posix_spawn_file_actions_addopen(&file_actions, fd,
+	  				 "/dev/null", CHILD_OPEN_FLAGS(stream->mode), 0);
+        break;
+      case std_std:
+        break;
+      case std_unbound:
+        posix_spawn_file_actions_addclose(&file_actions, fd);
+	break;
+    }
   }
 
   rc = posix_spawn(&pid, info->exe,
@@ -2244,6 +2309,7 @@ install_process()
   MKATOM(stdin);
   MKATOM(stdout);
   MKATOM(stderr);
+  MKATOM(extra_streams);
   MKATOM(std);
   MKATOM(null);
   MKATOM(process);
@@ -2270,6 +2336,8 @@ install_process()
   MKFUNCTOR(type, 1);
   MKFUNCTOR(encoding, 1);
   MKFUNCTOR(stream, 1);
+  MKFUNCTOR(from_child, 1);
+  MKFUNCTOR(to_child, 1);
   MKFUNCTOR(error, 2);
   MKFUNCTOR(process_error, 2);
   MKFUNCTOR(system_error, 2);
