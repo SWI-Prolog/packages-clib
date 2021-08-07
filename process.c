@@ -320,6 +320,19 @@ already_in_env(const char *env, int count, const char *e)
 }
 #endif
 
+#ifndef __WINDOWS__
+static char**
+get_environ(void)
+{
+#ifdef HAVE__NSGETENVIRON
+    char **environ = *_NSGetEnviron();
+#else
+    extern char **environ;
+#endif
+  return environ;
+}
+#endif
+
 static int
 parse_environment(term_t t, p_options *info, int pass)
 { term_t tail = PL_copy_term_ref(t);
@@ -364,16 +377,10 @@ parse_environment(term_t t, p_options *info, int pass)
 
 #ifndef __WINDOWS__
   if ( pass )
-  {
-#ifdef HAVE__NSGETENVIRON
-    char **environ = *_NSGetEnviron();
-#else
-    extern char **environ;
-#endif
-    char **e;
+  { char **e;
     int count0 = count;
 
-    for(e=environ; e && *e; e++)
+    for(e=get_environ(); e && *e; e++)
     { if ( !already_in_env(eb->buffer, count0, *e) )
       { add_ecbuf(eb, *e, strlen(*e));
 	add_ecbuf(eb, ECHARS("\0"), 1);
@@ -1951,14 +1958,19 @@ do_create_process_fork(p_options *info, create_method method)
 	case std_stream:
 	{ int pairhalf = (stream->mode & SIO_OUTPUT) /* parent writes, child reads */
 		       ? 0 : 1;
-	  dup2(stream->fd[pairhalf], streamfd);
-	  if ( !stream->cloexec )
-	    close(stream->fd[1 - pairhalf]);
+	  fd = dup(stream->fd[pairhalf]);
+	  close(stream->fd[0]);
+	  close(stream->fd[1]);
+	  dup2(fd, streamfd);
+	  close(fd);
 	  break;
 	}
 	case std_null:
 	  if ( (fd = open("/dev/null", CHILD_OPEN_FLAGS(stream->mode))) >= 0 )
-	    dup2(fd, streamfd);
+	  { dup2(fd, streamfd);
+	    if ( fd != streamfd )
+	      close(fd);
+	  }
 	  break;
 	case std_std:
 	  fd = streamfd == 0 ? Sfileno(Suser_input)
@@ -1977,13 +1989,7 @@ do_create_process_fork(p_options *info, create_method method)
     if ( info->envp )
     { execve(info->exe, info->argv, info->envp);
     } else
-    {
-#ifdef HAVE__NSGETENVIRON
-      char **environ = *_NSGetEnviron();
-#else
-      extern char **environ;
-#endif
-      execve(info->exe, info->argv, environ);
+    { execve(info->exe, info->argv, get_environ());
     }
 
     perror(info->exe);
@@ -2043,7 +2049,7 @@ do_create_process(p_options *info)
 
   rc = posix_spawn(&pid, info->exe,
 		   &file_actions, &attr,
-		   info->argv, info->envp);
+		   info->argv, info->envp ? info->envp : get_environ());
 
   posix_spawn_file_actions_destroy(&file_actions);
   posix_spawnattr_destroy(&attr);
