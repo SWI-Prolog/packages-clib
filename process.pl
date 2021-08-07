@@ -3,9 +3,10 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2019, University of Amsterdam
+    Copyright (c)  2008-2021, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -60,6 +61,7 @@
                      [ stdin(any),
                        stdout(any),
                        stderr(any),
+                       extra_streams(list(any)),
                        cwd(atom),
                        env(list(any)),
                        environment(list(any)),
@@ -82,11 +84,11 @@ the process resources are reclaimed automatically.
 In addition to the predicates, this module   defines  a file search path
 (see user:file_search_path/2 and absolute_file_name/3) named =path= that
 locates files on the system's  search   path  for  executables. E.g. the
-following finds the executable for =ls=:
+following finds the executable for ``ls``:
 
-    ==
+    ```
     ?- absolute_file_name(path(ls), Path, [access(execute)]).
-    ==
+    ```
 
 *|Incompatibilities and current limitations|*
 
@@ -113,7 +115,7 @@ following finds the executable for =ls=:
 %
 %   Create a new process running the   file  Exe and using arguments
 %   from the given list. Exe is a   file  specification as handed to
-%   absolute_file_name/3. Typically one use the =path= file alias to
+%   absolute_file_name/3. Typically one use the `path` file alias to
 %   specify an executable file on the current   PATH. Args is a list
 %   of arguments that  are  handed  to   the  new  process.  On Unix
 %   systems, each element in the list becomes a separate argument in
@@ -133,9 +135,9 @@ following finds the executable for =ls=:
 %       the terms below. If pipe(Pipe) is used, the Prolog stream is
 %       a stream in text-mode using the encoding of the default
 %       locale.  The encoding can be changed using set_stream/2,
-%       or by using the two-argument form of =pipe=, which accepts an
+%       or by using the two-argument form of `pipe`, which accepts an
 %       encoding(Encoding) option.
-%       The options =stdout= and =stderr= may use the same stream,
+%       The options `stdout` and `stderr` may use the same stream,
 %       in which case both output streams are connected to the same
 %       Prolog stream.
 %
@@ -165,6 +167,35 @@ following finds the executable for =ls=:
 %           This option is __not__ provided by the SICStus
 %           implementation.
 %
+%       * extra_streams(+SpecList)
+%       Unix-only: Bind extra file descriptors in the new process,
+%       beyond the standard 0,1,2. Each entry in Speclist describes
+%       the next sequential descriptor, starting with 3. Each list
+%       member follows the same format as the arguments to the
+%       `stdin`, `stdout`, and `stderr` options, with the following
+%       additional or changed semantics:
+%
+%           * _
+%           Any member of SpecList which is an unbound variable will
+%           not be passed to the child process. This enables skipping
+%           file descriptors; for example, a SpecList defined as
+%           `[_,_,_,stream(In)]` will bind file descriptor 6 while
+%           leaving 3, 4, and 5 unbound.
+%           * from_child(+Spec)
+%           * to_child(+Spec)
+%           Defines the direction of the stream handed to the child
+%           process. Exactly one of these __must__ be specified for
+%           any additional file descriptor, unless the descriptor
+%           is using the stream(+Stream) format and the referenced
+%           stream is unidirectional. The Spec argument can take any
+%           of the forms given to the `stdin` option family.
+%           * std
+%           When specified for an extra file descriptor, this passes
+%           the Prolog process's file descriptor on to the child
+%           without modification. This is probably not very useful
+%           unless the Prolog program is exercising strict control
+%           over its own file descriptors.
+%
 %       * cwd(+Directory)
 %       Run the new process in Directory.  Directory can be a
 %       compound specification, which is converted using
@@ -181,10 +212,10 @@ following finds the executable for =ls=:
 %       * process(-PID)
 %       Unify PID with the process id of the created process.
 %       * detached(+Bool)
-%       In Unix: If =true=, detach the process from the terminal
+%       In Unix: If `true`, detach the process from the terminal
 %       Currently mapped to setsid();
 %       Also creates a new process group for the child
-%       In Windows: If =true=, detach the process from the current
+%       In Windows: If `true`, detach the process from the current
 %       job via the CREATE_BREAKAWAY_FROM_JOB flag. In Vista and beyond,
 %       processes launched from the shell directly have the 'compatibility
 %       assistant' attached to them automatically unless they have a UAC
@@ -192,7 +223,7 @@ following finds the executable for =ls=:
 %       permission denied error if you try and assign the newly-created
 %       PID to a job you create yourself.
 %       * window(+Bool)
-%       If =true=, create a window for the process (Windows only)
+%       If `true`, create a window for the process (Windows only)
 %       * priority(+Priority)
 %       In Unix: specifies the process priority for the newly
 %       created process. Priority must be an integer between -20
@@ -201,7 +232,7 @@ following finds the executable for =ls=:
 %       lower their own priority. Only the super-user may _raise_ it
 %       to less-than zero.
 %
-%   If the user specifies the process(-PID)   option, he *must* call
+%   If the user specifies the process(-PID) option, they *must* call
 %   process_wait/2 to reclaim the process.  Without this option, the
 %   system will wait for completion of   the  process after the last
 %   pipe stream is closed.
@@ -220,25 +251,33 @@ following finds the executable for =ls=:
 %   is raised, otherwise double-quote are used.
 %
 %   The CreateProcess() API has  many   options.  Currently only the
-%   =CREATE_NO_WINDOW=   options   is   supported     through    the
+%   ``CREATE_NO_WINDOW``   options   is   supported     through    the
 %   window(+Bool) option. If omitted, the  default   is  to use this
 %   option if the application has no   console.  Future versions are
 %   likely to support  more  window   specific  options  and replace
 %   win_exec/2.
 %
+%   While the CreateProcess() API  allows for  specifying the stream
+%   handles  for the  three standard  file descriptors,  it does not
+%   provide any way  to specify bindings for any other numbered file
+%   descriptors.   So,  while the stream bindings themselves  can be
+%   passed to  a child process,  there is no way  to guarantee  what
+%   Unix-style file descriptor they would acquire  once in the child
+%   process's namespace.
+%
 %   *Examples*
 %
 %   First,  a  very  simple  example  that    behaves  the  same  as
-%   =|shell('ls -l')|=, except for error handling:
+%   shell('ls -l'), except for error handling:
 %
-%   ==
+%   ```
 %   ?- process_create(path(ls), ['-l'], []).
-%   ==
+%   ```
 %
 %   The following example uses grep to find  all matching lines in a
 %   file.
 %
-%   ==
+%   ```
 %   grep(File, Pattern, Lines) :-
 %           setup_call_cleanup(
 %               process_create(path(grep), [ Pattern, file(File) ],
@@ -256,7 +295,7 @@ following finds the executable for =ls=:
 %           atom_codes(Line, Codes),
 %           read_line_to_codes(Out, Line2),
 %           read_lines(Line2, Out, Lines).
-%   ==
+%   ```
 %
 %   @error  process_error(Exe, Status) where Status is one of
 %           exit(Code) or killed(Signal).  Raised if the process
@@ -376,11 +415,11 @@ process_release(PID) :-
 %   until the process is finished.  Options:
 %
 %       * timeout(+Timeout)
-%       Default: =infinite=.  If this option is a number, the
+%       Default: `infinite`.  If this option is a number, the
 %       waits for a maximum of Timeout seconds and unifies Status
-%       with =timeout= if the process does not terminate within
+%       with `timeout` if the process does not terminate within
 %       Timeout.  In this case PID is _not_ invalidated.  On Unix
-%       systems only timeout 0 and =infinite= are supported.  A
+%       systems only timeout 0 and `infinite` are supported.  A
 %       0-value can be used to poll the status of the process.
 %
 %       * release(+Bool)
@@ -398,13 +437,13 @@ process_wait(PID, Status) :-
 %!  process_kill(+PID) is det.
 %!  process_kill(+PID, +Signal) is det.
 %
-%   Send signal to process PID.  Default   is  =term=.  Signal is an
-%   integer, Unix signal name (e.g. =SIGSTOP=)   or  the more Prolog
-%   friendly variation one gets after   removing  =SIG= and downcase
-%   the result: =stop=. On Windows systems,   Signal  is ignored and
-%   the process is terminated using   the TerminateProcess() API. On
-%   Windows systems PID must  be   obtained  from  process_create/3,
-%   while any PID is allowed on Unix systems.
+%   Send signal to process PID. Default is `term`. Signal is an integer,
+%   Unix signal name (e.g. ``SIGSTOP``)  or   the  more  Prolog friendly
+%   variation one gets after removing ``SIG``   and downcase the result:
+%   `stop`. On Windows systems, Signal  is   ignored  and the process is
+%   terminated using the TerminateProcess() API.  On Windows systems PID
+%   must be obtained from process_create/3, while  any PID is allowed on
+%   Unix systems.
 %
 %   @compat SICStus does not accept the prolog friendly version.  We
 %           choose to do so for compatibility with on_signal/3.
@@ -417,7 +456,7 @@ process_kill(PID) :-
 %!  process_group_kill(+PID, +Signal) is det.
 %
 %   Send signal to the group containing process PID.  Default   is
-%   =term=.   See process_wait/1  for  a  description  of  signal
+%   `term`.   See process_wait/1  for  a  description  of  signal
 %   handling. In Windows, the same restriction on PID applies: it
 %   must have been created from process_create/3, and the the group
 %   is terminated via the TerminateJobObject API.

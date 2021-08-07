@@ -50,6 +50,8 @@
 
 test_process :-
     run_tests([ process_create,
+                'process_create[fork]',
+                'process_create[vfork]',
                 process_wait,
                 process_threads
               ]).
@@ -63,7 +65,29 @@ has_exe(Name) :-
     process:exe_options(Options),
     absolute_file_name(path(Name), _, [file_errors(fail)|Options]).
 
+:- dynamic recorded_clause/3.
+
+record_clause(Tag, Position, Clause) :-
+    \+ recorded_clause(Tag, Position, _),
+    Clause \= (:- _Directive),
+    assertz(recorded_clause(Tag, Position, Clause)).
+
+record_clauses_as(Tag) :-
+    nb_setval(record_clause_tag, Tag).
+
+stop_recording_clauses :-
+    nb_delete(record_clause_tag).
+
+term_expansion(Clause, _) :-
+    nb_current(record_clause_tag, Tag),
+    prolog_load_context(term_position, TermPos),
+    once(record_clause(Tag, TermPos, Clause)),
+    fail.
+term_expansion(replay_recorded_clauses(Tag), Clauses) :-
+    findall(Clause, recorded_clause(Tag, _, Clause), Clauses).
+
 :- begin_tests(process_create, [sto(rational_trees)]).
+:- record_clauses_as(process_create).
 
 test(echo, [condition(has_exe(true))]) :-
     process_create(path(true), [], []).
@@ -92,6 +116,41 @@ test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
                    ['-c', 'echo "error" 1>&2'],
                    [stderr(pipe(Out))]),
     read_process(Out, X).
+test(read_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'fd-3\n']) :-
+    process_create(path(sh),
+                   ['-c', 'echo "fd-3" 1>&3'],
+                   [extra_streams([from_child(pipe(Out))])]),
+    read_process(Out, X).
+test(null_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true))]) :-
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&3'],
+                   [extra_streams([from_child(null)])]).
+test(write_extra, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'hello fd4\n']) :-
+    process_create(path(sh),
+                   ['-c', 'cat 0<&4'],
+                   [stdout(pipe(Out)), extra_streams([_,to_child(pipe(In))])]),
+    format(In, 'hello fd4~n', []),
+    close(In),
+    read_process(Out, X).
+test(separate_error, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == 'separated error\n']) :-
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&2; echo "separated error" 1>&3'],
+                   [stderr(null), extra_streams([from_child(pipe(Out))])]),
+    read_process(Out, X).
+test(auto_detect_read, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true)),X == "0"]) :-
+    open('/dev/null', read, In, [type(binary)]),
+    process_create(path(sh),
+                   ['-c', 'wc -c 0<&3'],
+                   [stdout(pipe(Out)), extra_streams([stream(In)])]),
+    close(In),
+    read_process(Out, X0),
+    split_string(X0, "", " \r\n", [X]).
+test(auto_detect_write, [condition(has_exe(sh)),condition(\+current_prolog_flag(windows, true))]) :-
+    open('/dev/null', write, Out, [type(binary)]),
+    process_create(path(sh),
+                   ['-c', 'echo "THIS IS AN ERROR" 1>&3'],
+                   [extra_streams([stream(Out)])]),
+    close(Out).
 test(echo, [condition(has_exe(sh)), X == 'hello\n']) :-
     process_create(path(sh),
                    ['-c', 'echo hello'],
@@ -126,11 +185,41 @@ test(cwd, [true, condition(( current_prolog_flag(windows, true),
     read_process(Out, CWD0),
     normalize_space(atom(CWD), CWD0),
     same_file(CWD, Tmp).
+test(std_env, [condition((has_exe(sh), getenv('USER', _))),
+               forall(member(Opts,[ [], [environment([])], [environment(['TEST'=testing])] ])), X == User]) :-
+    getenv('USER', User),
+    process_create(path(sh),
+                   ['-c', 'echo -n $USER'],
+                   [ stdout(pipe(Out))|Opts ]),
+    read_process(Out, X).
+test(set_env, [condition(has_exe(sh)), forall(member(Opt,[environment(['TEST'=test_set_env]),
+                                                          environment(['FOO'=bar, 'TEST'=test_set_env]),
+                                                          env(['TEST'=test_set_env]),
+                                                          env(['FOO'=bar, 'TEST'=test_set_env]) ])), X == test_set_env]) :-
+    process_create(path(sh),
+                   ['-c', 'echo -n $TEST'],
+                   [ stdout(pipe(Out)), Opt ]),
+    read_process(Out, X).
+test(replace_env, [condition((has_exe(sh), getenv('USER', _))),
+               forall(member(Opt,[ env([]), env(['TEST'=testing]) ])), X == '']) :-
+    process_create(path(sh),
+                   ['-c', 'echo -n $USER'],
+                   [ stdout(pipe(Out)), Opt ]),
+    read_process(Out, X).
 
 tmp_dir(Dir) :-
     current_prolog_flag(tmp_dir, Dir).
 
+:- stop_recording_clauses.
 :- end_tests(process_create).
+
+:- begin_tests('process_create[fork]', [sto(rational_trees), setup(process_set_method(fork)), cleanup(process_set_method(spawn))]).
+replay_recorded_clauses(process_create).
+:- end_tests('process_create[fork]').
+
+:- begin_tests('process_create[vfork]', [sto(rational_trees), setup(process_set_method(vfork)), cleanup(process_set_method(spawn))]).
+replay_recorded_clauses(process_create).
+:- end_tests('process_create[vfork]').
 
 
 :- begin_tests(process_wait, [sto(rational_trees)]).
