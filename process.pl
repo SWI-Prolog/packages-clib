@@ -60,6 +60,7 @@
                      [ stdin(any),
                        stdout(any),
                        stderr(any),
+                       extra_streams(list(any)),
                        cwd(atom),
                        env(list(any)),
                        environment(list(any)),
@@ -165,6 +166,35 @@ following finds the executable for =ls=:
 %           This option is __not__ provided by the SICStus
 %           implementation.
 %
+%       * extra_streams(+SpecList)
+%       Unix-only: Bind extra file descriptors in the new process,
+%       beyond the standard 0,1,2. Each entry in Speclist describes
+%       the next sequential descriptor, starting with 3. Each list
+%       member follows the same format as the arguments to the
+%       =stdin=, =stdout=, and =stderr= options, with the following
+%       additional or changed semantics:
+%
+%           * _
+%           Any member of SpecList which is an unbound variable will
+%           not be passed to the child process. This enables skipping
+%           file descriptors; for example, a SpecList defined as
+%           =[_,_,_,stream(In)]= will bind file descriptor 6 while
+%           leaving 3, 4, and 5 unbound.
+%           * from_child(+Spec)
+%           * to_child(+Spec)
+%           Defines the direction of the stream handed to the child
+%           process. Exactly one of these __must__ be specified for
+%           any additional file descriptor, unless the descriptor
+%           is using the =stream(+Stream)= format and the referenced
+%           stream is unidirectional. The Spec argument can take any
+%           of the forms given to the =stdin= option family.
+%           * std
+%           When specified for an extra file descriptor, this passes
+%           the Prolog process's file descriptor on to the child
+%           without modification. This is probably not very useful
+%           unless the Prolog program is exercising strict control
+%           over its own file descriptors.
+%
 %       * cwd(+Directory)
 %       Run the new process in Directory.  Directory can be a
 %       compound specification, which is converted using
@@ -201,7 +231,7 @@ following finds the executable for =ls=:
 %       lower their own priority. Only the super-user may _raise_ it
 %       to less-than zero.
 %
-%   If the user specifies the process(-PID)   option, he *must* call
+%   If the user specifies the process(-PID) option, they *must* call
 %   process_wait/2 to reclaim the process.  Without this option, the
 %   system will wait for completion of   the  process after the last
 %   pipe stream is closed.
@@ -225,6 +255,14 @@ following finds the executable for =ls=:
 %   option if the application has no   console.  Future versions are
 %   likely to support  more  window   specific  options  and replace
 %   win_exec/2.
+%
+%   While the CreateProcess() API  allows for  specifying the stream
+%   handles  for the  three standard  file descriptors,  it does not
+%   provide any way  to specify bindings for any other numbered file
+%   descriptors.   So,  while the stream bindings themselves  can be
+%   passed to  a child process,  there is no way  to guarantee  what
+%   Unix-style file descriptor they would acquire  once in the child
+%   process's namespace.
 %
 %   *Examples*
 %
