@@ -66,6 +66,8 @@ are not included.
 */
 
 #ifdef HAVE_MALLINFO
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 static foreign_t
 pl_malinfo(term_t stats)
 { term_t tail = PL_copy_term_ref(stats);
@@ -81,6 +83,7 @@ pl_malinfo(term_t stats)
 
   return PL_unify_nil(tail);
 }
+#pragma GCC diagnostic pop
 #endif /*HAVE_MALLINFO*/
 
 #if defined(HAVE_OPEN_MEMSTREAM) && defined(HAVE_MALLOC_INFO)
