@@ -60,31 +60,28 @@ addNameInteger(term_t list, const char *name, intptr_t val)
 /** memory_statistics(-Stats) is det.
 
 Provide  statistics  on  memory  allocation    if  the  system  provides
-mallinfo(), the values of this structure  are   added  to  the list. See
-"info mallinfo" for a the defined names and their meaning. Unused values
+mallinfo2(), the values of this structure  are   added  to  the list. See
+"info mallinfo2" for the defined names and their meaning. Unused values
 are not included.
 */
 
-#ifdef HAVE_MALLINFO
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#ifdef HAVE_MALLINFO2
 static foreign_t
 pl_malinfo(term_t stats)
 { term_t tail = PL_copy_term_ref(stats);
-  struct mallinfo info = mallinfo();
+  struct mallinfo2 info = mallinfo2();
 
-  addNameInteger(tail, "arena",    (unsigned)info.arena);
-  addNameInteger(tail, "ordblks",  (unsigned)info.ordblks);
-  addNameInteger(tail, "hblks",    (unsigned)info.hblks);
-  addNameInteger(tail, "hblkhd",   (unsigned)info.hblkhd);
-  addNameInteger(tail, "uordblks", (unsigned)info.uordblks);
-  addNameInteger(tail, "fordblks", (unsigned)info.fordblks);
-  addNameInteger(tail, "keepcost", (unsigned)info.keepcost);
+  addNameInteger(tail, "arena",    info.arena);    /* size_t -> intptr_t */
+  addNameInteger(tail, "ordblks",  info.ordblks);
+  addNameInteger(tail, "hblks",    info.hblks);
+  addNameInteger(tail, "hblkhd",   info.hblkhd);
+  addNameInteger(tail, "uordblks", info.uordblks);
+  addNameInteger(tail, "fordblks", info.fordblks);
+  addNameInteger(tail, "keepcost", info.keepcost);
 
   return PL_unify_nil(tail);
 }
-#pragma GCC diagnostic pop
-#endif /*HAVE_MALLINFO*/
+#endif /*HAVE_MALLINFO2*/
 
 #if defined(HAVE_OPEN_MEMSTREAM) && defined(HAVE_MALLOC_INFO)
 
@@ -112,7 +109,7 @@ install_t
 install_mallocinfo(void)
 { FUNCTOR_equals2 = PL_new_functor(PL_new_atom("="), 2);
 
-#ifdef HAVE_MALLINFO
+#ifdef HAVE_MALLINFO2
   PL_register_foreign("$mallinfo", 1, pl_malinfo, 0);
 #endif
 #ifdef HAVE_MALLOC_INFO
