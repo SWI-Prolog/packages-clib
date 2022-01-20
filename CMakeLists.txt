@@ -27,7 +27,7 @@ check_type_size("long long" SIZEOF_LONG_LONG)
 
 AC_CHECK_FUNCS(setsid strerror utime getrlimit strcasestr vfork _NSGetEnviron
 	       pipe2 prctl sysconf poll initgroups setgroups chmod
-	       mallinfo malloc_info open_memstream posix_spawn gai_strerror
+	       mallinfo2 malloc_info open_memstream posix_spawn gai_strerror
 	       hstrerror)
 
 configure_file(config.h.cmake config.h)
@@ -52,7 +52,7 @@ endif()
 clib_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
 clib_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
 clib_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
-if(HAVE_MALLINFO)
+if(HAVE_MALLINFO2)
 clib_plugin(mallocinfo C_SOURCES error.c mallocinfo.c PL_LIBS mallocinfo.pl)
 endif()
 
