@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2015, University of Amsterdam
-                         VU University Amsterdam
+    Copyright (c)  2015-2021, University of Amsterdam
+                              VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -62,28 +63,33 @@ addNameInteger(term_t list, const char *name, intptr_t val)
 Provide  statistics  on  memory  allocation    if  the  system  provides
 mallinfo(), the values of this structure  are   added  to  the list. See
 "info mallinfo" for a the defined names and their meaning. Unused values
-are not included.
+are not included. If mallinfo2()  is   provided,  this  is used instead,
+avoiding returning results modulo 2^32 on 64 bit systems.
 */
 
+#ifdef HAVE_MALLINFO2			/* glibc >= 2.33 */
+#define mallinfo mallinfo2
+#ifndef HAVE_MALLINFO
+#define HAVE_MALLINFO
+#endif
+#endif
+
 #ifdef HAVE_MALLINFO
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 static foreign_t
 pl_malinfo(term_t stats)
 { term_t tail = PL_copy_term_ref(stats);
   struct mallinfo info = mallinfo();
 
-  addNameInteger(tail, "arena",    (unsigned)info.arena);
-  addNameInteger(tail, "ordblks",  (unsigned)info.ordblks);
-  addNameInteger(tail, "hblks",    (unsigned)info.hblks);
-  addNameInteger(tail, "hblkhd",   (unsigned)info.hblkhd);
-  addNameInteger(tail, "uordblks", (unsigned)info.uordblks);
-  addNameInteger(tail, "fordblks", (unsigned)info.fordblks);
-  addNameInteger(tail, "keepcost", (unsigned)info.keepcost);
+  addNameInteger(tail, "arena",    (size_t)info.arena);
+  addNameInteger(tail, "ordblks",  (size_t)info.ordblks);
+  addNameInteger(tail, "hblks",    (size_t)info.hblks);
+  addNameInteger(tail, "hblkhd",   (size_t)info.hblkhd);
+  addNameInteger(tail, "uordblks", (size_t)info.uordblks);
+  addNameInteger(tail, "fordblks", (size_t)info.fordblks);
+  addNameInteger(tail, "keepcost", (size_t)info.keepcost);
 
   return PL_unify_nil(tail);
 }
-#pragma GCC diagnostic pop
 #endif /*HAVE_MALLINFO*/
 
 #if defined(HAVE_OPEN_MEMSTREAM) && defined(HAVE_MALLOC_INFO)
