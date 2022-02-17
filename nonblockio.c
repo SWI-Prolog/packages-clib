@@ -1101,6 +1101,7 @@ int
 nbio_get_sockaddr(term_t Address, struct sockaddr_in *addr, term_t *varport)
 { int port;
 
+  memset(addr, 0, sizeof(*addr));
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = INADDR_ANY;
 
