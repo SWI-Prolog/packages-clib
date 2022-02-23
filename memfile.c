@@ -1197,7 +1197,7 @@ mf_to_text(term_t handle, memfile *m, size_t from, size_t len,
       case ENC_UTF8:
 	return PL_unify_chars(atom, flags|REP_UTF8, len, data);
       default:
-	assert(0);
+	return PL_domain_error("encoding", encoding);
     }
   } else
     return PL_unify_chars(atom, flags, 0, "");

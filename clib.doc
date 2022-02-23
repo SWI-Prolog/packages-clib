@@ -591,7 +591,10 @@ is in the given \arg{Encoding}. This can be used to convert from one
 encoding into another, typically from/to bytes. For example, if we
 must convert a set of bytes that contain text in UTF-8, open the memory
 file as octet stream, fill it, and get the result using \arg{Encoding}
-is \const{utf8}.
+is \const{utf8}.  Currently only supported if \arg{Encoding} is one
+of \const{iso_latin_1}, \const{octed} (the same as \const{iso_latin_1}),
+\const{wchar} or \const{utf8}.   Use with another encoding raises a
+domain error.
 
     \predicate{memory_file_to_codes}{2}{+Handle, -Codes}
 Return the content of the memory-file as a list of character-codes
