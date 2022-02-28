@@ -45,9 +45,13 @@ test_af_unix :-
     tmp_file(af_unix, File),
     server(File, Tid),
     client(File),
-    thread_signal(Tid, throw(stop)),
-    thread_join(Tid, Status),
-    assertion(Status == exception(stop)).
+    (   current_prolog_flag(signals, true)
+    ->  thread_signal(Tid, throw(stop)),
+        thread_join(Tid, Status),
+        assertion(Status == exception(stop))
+    ;   thread_join(Tid, Status),
+        assertion(Status == true)
+    ).
 
 server(File, Thread) :-
     (   access_file(File, exist)
@@ -59,14 +63,21 @@ server(File, Thread) :-
     !,
     tcp_listen(S, 5),
     tcp_open_socket(S, AcceptFd, _),
-    thread_create(dispatch(AcceptFd), Thread).
+    (   current_prolog_flag(signals, true)
+    ->  Goal = dispatch(AcceptFd)
+    ;   Goal = dispatch_one(AcceptFd)
+    ),
+    thread_create(Goal, Thread).
 
 dispatch(AcceptFd) :-
+    dispatch_one(AcceptFd),
+    dispatch(AcceptFd).
+
+dispatch_one(AcceptFd) :-
     tcp_accept(AcceptFd, Socket, Peer),
     thread_create(process_client(Socket, Peer), _,
                   [ detached(true)
-                  ]),
-    dispatch(AcceptFd).
+                  ]).
 
 process_client(Socket, Peer) :-
     debug(af_unix, "Connected from ~p~n", [Peer]),
