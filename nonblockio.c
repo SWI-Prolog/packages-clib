@@ -555,6 +555,7 @@ allocSocket(SOCKET socket)
 
   DEBUG(2, Sdprintf("[%d]: allocSocket(%d) --> %p\n",
 		    PL_thread_self(), socket, p));
+  DEBUG(4, PL_backtrace(10,1));
 
   return p;
 }
@@ -1267,12 +1268,15 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
       return NULL;
 #endif
 
+    if ( PL_handle_signals() < 0 )
+      return NULL;
+    DEBUG(3, Sdprintf("[%d] calling accept()\n", PL_thread_self()));
     slave = accept(master->socket, addr, addrlen);
+    DEBUG(3, Sdprintf("[%d] accept() --> %d\n", PL_thread_self(), slave));
 
     if ( slave == SOCKET_ERROR )
     { if ( need_retry(GET_ERRNO) )
-      { if ( PL_handle_signals() < 0 )
-	  return NULL;
+      {
 #ifdef __WINDOWS__
         if ( !wait_socket(master) )
           return NULL;
@@ -1427,7 +1431,7 @@ nbio_close_input(nbio_sock_t socket)
 
   VALID_SOCKET(socket);
 
-  DEBUG(2, Sdprintf("[%d]: nbio_close_input(%d, flags=0x%x)\n",
+  DEBUG(2, Sdprintf("[%d]: nbio_close_input(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
   if ( true(socket, PLSOCK_INSTREAM) )
   { clear(socket, PLSOCK_INSTREAM);
@@ -1458,7 +1462,7 @@ nbio_close_output(nbio_sock_t socket)
 
   VALID_SOCKET(socket);
 
-  DEBUG(2, Sdprintf("[%d]: nbio_close_output(%d, flags=0x%x)\n",
+  DEBUG(2, Sdprintf("[%d]: nbio_close_output(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
 
   if ( true(socket, PLSOCK_OUTSTREAM) )
