@@ -1270,9 +1270,11 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
 
     if ( PL_handle_signals() < 0 )
       return NULL;
-    DEBUG(3, Sdprintf("[%d] calling accept()\n", PL_thread_self()));
+    DEBUG(3, Sdprintf("[%d] calling accept(%d)\n",
+		      PL_thread_self(), master->socket));
     slave = accept(master->socket, addr, addrlen);
-    DEBUG(3, Sdprintf("[%d] accept() --> %d\n", PL_thread_self(), slave));
+    DEBUG(3, Sdprintf("[%d] accept(%d) --> %d\n",
+		      PL_thread_self(), master->socket, slave));
 
     if ( slave == SOCKET_ERROR )
     { if ( need_retry(GET_ERRNO) )
