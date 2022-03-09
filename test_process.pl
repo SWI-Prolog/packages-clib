@@ -153,8 +153,12 @@ test(kill_ok, [ X = exit(_),
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID, 9),
     process_wait(PID, X).
+% Seems to be able to kill itself on MacOS if this is ran
+% concurrently.  Too quick reuse of PIDs?
 test(kill_gone, [ error(existence_error(process, PID)),
-                  condition(\+current_prolog_flag(windows, true))]) :-
+                  condition(\+((current_prolog_flag(windows, true),
+			        current_prolog_flag(apple,true))))
+		]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID),
     process_wait(PID, X),
