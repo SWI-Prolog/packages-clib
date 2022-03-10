@@ -130,6 +130,11 @@ Defined \arg{Options}:
 	Defines the returned term-type.  \arg{Type} is one of
 	\const{atom}, \const{codes} or \const{string} (default).
 
+	\termitem{encoding}{+Encoding}
+	Specify the encoding used to intepret the message.  It is
+	one of \const{octet}. \const{iso_latin_1}, \const{text} or
+	\const{utf8}.
+
 	\termitem{max_message_size}{+Size}
 Specify the maximum number of bytes to read from a UDP datagram. Size
 must be within the range 0-65535. If unspecified, a maximum of 4096
@@ -151,7 +156,14 @@ receive(Port) :-
     \predicate{udp_send}{4}{+Socket, +Data, +To, +Options}
 Send a UDP message.  Data is a string, atom or code-list providing the
 data.  \arg{To} is an address of the form \arg{Host}:\arg{Port} where
-Host is either the hostname or a term ip/4.  \arg{Options} is currently unused.
+Host is either the hostname or a term ip/4.  Defined \arg{Options}
+are:
+
+\begin{description}
+    \termitem{encoding}{Encoding}
+Specifies the encoding to use for the string. See udp_receive/4 for
+details.
+\end{description}
 
 A simple example to send UDP data is:
 

@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2020, University of Amsterdam
+    Copyright (c)  2000-2022, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
     All rights reserved.
@@ -36,15 +36,8 @@
 
 #define O_DEBUG 1
 
+#include <SWI-Prolog.h>
 #include <config.h>
-
-#ifdef __GNUC__
-# define alloca __builtin_alloca
-#else
-# if HAVE_ALLOCA_H
-#  include <alloca.h>
-# endif
-#endif
 
 #if defined(__MINGW32__)
 #define WINVER 0x0501
@@ -92,6 +85,7 @@ static atom_t ATOM_bindtodevice;	/* "bindtodevice" */
 static atom_t ATOM_broadcast;		/* "broadcast" */
 static atom_t ATOM_nodelay;		/* "nodelay" */
 static atom_t ATOM_dispatch;		/* "dispatch" */
+static atom_t ATOM_encoding;		/* "encoding" */
 static atom_t ATOM_nonblock;		/* "nonblock" */
 static atom_t ATOM_infinite;		/* "infinite" */
 static atom_t ATOM_as;			/* "as" */
@@ -431,6 +425,28 @@ unify_address(term_t t, struct sockaddr_in *addr)
 		       PL_TERM, av+1);
 }
 
+static int
+get_representation(term_t arg, int *rp)
+{ atom_t a;
+  IOENC enc;
+  int rep;
+
+  if ( !PL_get_atom_ex(arg, &a) )
+    return FALSE;
+
+  switch((enc=PL_atom_to_encoding(a)))
+  { case ENC_OCTET:
+    case ENC_ISO_LATIN_1: rep = REP_ISO_LATIN_1; break;
+    case ENC_UTF8:        rep = REP_UTF8;        break;
+    case ENC_ANSI:        rep = REP_MB;          break;
+    default:
+      return PL_domain_error("encoding", arg);
+  }
+
+  *rp = rep;
+  return TRUE;
+}
+
 
 
 static foreign_t
@@ -450,6 +466,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   ssize_t n;
   int as = PL_STRING;
   int rc;
+  int rep = REP_ISO_LATIN_1;
 
   if ( !PL_get_nil(options) )
   { term_t tail = PL_copy_term_ref(options);
@@ -466,8 +483,8 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 	if ( name == ATOM_as )
 	{ atom_t a;
 
-	  if ( !PL_get_atom(arg, &a) )
-	    return pl_error(NULL, 0, NULL, ERR_TYPE, head, "atom");
+	  if ( !PL_get_atom_ex(arg, &a) )
+	    return FALSE;
 	  if ( a == ATOM_atom )
 	    as = PL_ATOM;
 	  else if ( a == ATOM_codes )
@@ -482,12 +499,15 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 	    return pl_error(NULL, 0, NULL, ERR_TYPE, arg, "integer");
 	  if ( bufsize < 0 || bufsize > UDP_MAXDATA )
 	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "0 - 65535");
+	} else if ( name == ATOM_encoding )
+	{ if ( !get_representation(arg, &rep) )
+	    return FALSE;
 	}
       } else
-	return pl_error(NULL, 0, NULL, ERR_TYPE, head, "option");
+	return PL_type_error("option", head);
     }
-    if ( !PL_get_nil(tail) )
-      return pl_error(NULL, 0, NULL, ERR_TYPE, tail, "list");
+    if ( !PL_get_nil_ex(tail) )
+      return FALSE;
   }
 
   if ( !tcp_get_socket(Socket, &socket) ||
@@ -505,7 +525,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
     goto out;
   }
 
-  rc = ( PL_unify_chars(Data, as, n, buf) &&
+  rc = ( PL_unify_chars(Data, as|rep, n, buf) &&
 	 unify_address(From, &sockaddr)
        );
 
@@ -518,7 +538,7 @@ out:
 
 
 static foreign_t
-udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
+udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 { struct sockaddr_in sockaddr;
 #ifdef __WINDOWS__
   int alen = sizeof(sockaddr);
@@ -530,8 +550,30 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t Options)
   char *data;
   size_t dlen;
   ssize_t n;
+  int rep = REP_ISO_LATIN_1;
 
-  if ( !PL_get_nchars(Data, &dlen, &data, CVT_ALL|CVT_EXCEPTION) )
+  if ( !PL_get_nil(options) )
+  { term_t tail = PL_copy_term_ref(options);
+    term_t head = PL_new_term_ref();
+    term_t arg  = PL_new_term_ref();
+
+    while(PL_get_list(tail, head, tail))
+    { atom_t name;
+      size_t arity;
+
+      if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
+      { if ( name == ATOM_encoding )
+	{ if ( !get_representation(arg, &rep) )
+	    return FALSE;
+	} else
+	  return PL_type_error("option", head);
+      }
+    }
+    if ( !PL_get_nil_ex(tail) )
+      return FALSE;
+  }
+
+  if ( !PL_get_nchars(Data, &dlen, &data, CVT_ALL|CVT_EXCEPTION|rep) )
     return FALSE;
 
   if ( !tcp_get_socket(Socket, &socket) ||
@@ -802,6 +844,7 @@ install_socket(void)
   ATOM_ip_drop_membership = PL_new_atom("ip_drop_membership");
   ATOM_sndbuf             = PL_new_atom("sndbuf");
   ATOM_af_unix            = PL_new_atom("af_unix");
+  ATOM_encoding           = PL_new_atom("encoding");
 
   FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
 
