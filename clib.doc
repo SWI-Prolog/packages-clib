@@ -128,7 +128,9 @@ Defined \arg{Options}:
 
 	\termitem{as}{+Type}
 	Defines the returned term-type.  \arg{Type} is one of
-	\const{atom}, \const{codes} or \const{string} (default).
+	\const{atom}, \const{codes}, \const{string} (default) or
+	\const{term}.  The value \const{term} causes the data to
+	be parsed to a Prolog string.
 
 	\termitem{encoding}{+Encoding}
 	Specify the encoding used to intepret the message.  It is

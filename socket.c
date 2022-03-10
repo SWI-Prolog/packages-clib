@@ -92,6 +92,7 @@ static atom_t ATOM_as;			/* "as" */
 static atom_t ATOM_atom;		/* "atom" */
 static atom_t ATOM_string;		/* "string" */
 static atom_t ATOM_codes;		/* "codes" */
+static atom_t ATOM_term;		/* "term" */
 static atom_t ATOM_max_message_size;    /* "message_size" */
 static atom_t ATOM_file_no;		/* "file_no" */
 static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
@@ -491,6 +492,8 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 	    as = PL_CODE_LIST;
 	  else if ( a == ATOM_string )
 	    as = PL_STRING;
+	  else if ( a == ATOM_term )
+	    as = PL_TERM;
 	  else
 	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "as_option");
 
@@ -525,9 +528,17 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
     goto out;
   }
 
-  rc = ( PL_unify_chars(Data, as|rep, n, buf) &&
-	 unify_address(From, &sockaddr)
-       );
+  if ( as == PL_TERM )
+  { term_t tmp;
+
+    rc = ( (tmp=PL_new_term_ref()) &&
+	   PL_put_term_from_chars(tmp, rep|CVT_EXCEPTION, n, buf) &&
+	   PL_unify(tmp, Data) );
+  } else
+  { rc = PL_unify_chars(Data, as|rep, n, buf);
+  }
+
+  rc = rc && unify_address(From, &sockaddr);
 
 out:
   if ( buf != smallbuf )
@@ -838,6 +849,7 @@ install_socket(void)
   ATOM_atom	          = PL_new_atom("atom");
   ATOM_string	          = PL_new_atom("string");
   ATOM_codes	          = PL_new_atom("codes");
+  ATOM_term	          = PL_new_atom("term");
   ATOM_max_message_size   = PL_new_atom("max_message_size");
   ATOM_file_no		  = PL_new_atom("file_no");
   ATOM_ip_add_membership  = PL_new_atom("ip_add_membership");
