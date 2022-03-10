@@ -147,8 +147,8 @@ The typical sequence to receive UDP data is:
 
 \begin{code}
 receive(Port) :-
-	udp_socket(S),
-	tcp_bind(S, Port),
+	udp_socket(Socket),
+	tcp_bind(Socket, Port),
 	repeat,
 	    udp_receive(Socket, Data, From, [as(atom)]),
 	    format('Got ~q from ~q~n', [Data, From]),
