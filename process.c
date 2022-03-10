@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2021, University of Amsterdam
+    Copyright (c)  2000-2022, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
 			      SWI-Prolog Solutions b.v.
@@ -40,8 +40,8 @@
 /*#define O_DEBUG 1*/
 #undef O_DEBUG
 #define _GNU_SOURCE			/* get pipe2() */
-#include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+#include <SWI-Stream.h>
 #include "error.h"
 #include <stdio.h>
 #include <string.h>
@@ -415,24 +415,14 @@ get_encoding(term_t head, IOENC *enc)
 { atom_t a;
 
   if ( PL_get_atom_ex(head, &a) )
-  { if ( a == ATOM_octet )
-      *enc = ENC_OCTET;
-    else if ( a == ATOM_ascii )
-      *enc = ENC_ASCII;
-    else if ( a == ATOM_iso_latin_1 )
-      *enc = ENC_ISO_LATIN_1;
-    else if ( a == ATOM_text )
-      *enc = ENC_ANSI;
-    else if ( a == ATOM_utf8 )
-      *enc = ENC_UTF8;
-    else if ( a == ATOM_unicode_be )
-      *enc = ENC_UNICODE_BE;
-    else if ( a == ATOM_unicode_le )
-      *enc = ENC_UNICODE_LE;
-    else
-      return PL_domain_error("encoding", head);
+  { IOENC e;
 
-    return TRUE;
+    if ( (e=PL_atom_to_encoding(a)) != ENC_UNKNOWN )
+    { *enc = ENC_UNICODE_LE;
+      return TRUE;
+    }
+
+    return PL_domain_error("encoding", head);
   }
 
   return FALSE;
