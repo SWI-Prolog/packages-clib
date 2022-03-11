@@ -448,6 +448,27 @@ get_representation(term_t arg, int *rp)
   return TRUE;
 }
 
+static int
+get_as(term_t arg, int *asp)
+{ atom_t a;
+  int as;
+
+  if ( !PL_get_atom_ex(arg, &a) )
+    return FALSE;
+  if ( a == ATOM_atom )
+    as = PL_ATOM;
+  else if ( a == ATOM_codes )
+    as = PL_CODE_LIST;
+  else if ( a == ATOM_string )
+    as = PL_STRING;
+  else if ( a == ATOM_term )
+    as = PL_TERM;
+  else
+    return PL_domain_error("as", arg);
+
+  *asp = as;
+  return TRUE;
+}
 
 
 static foreign_t
@@ -482,21 +503,8 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
       { _PL_get_arg(1, head, arg);
 
 	if ( name == ATOM_as )
-	{ atom_t a;
-
-	  if ( !PL_get_atom_ex(arg, &a) )
+	{ if ( !get_as(arg, &as) )
 	    return FALSE;
-	  if ( a == ATOM_atom )
-	    as = PL_ATOM;
-	  else if ( a == ATOM_codes )
-	    as = PL_CODE_LIST;
-	  else if ( a == ATOM_string )
-	    as = PL_STRING;
-	  else if ( a == ATOM_term )
-	    as = PL_TERM;
-	  else
-	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "as_option");
-
 	} else if ( name == ATOM_max_message_size )
 	{ if ( !PL_get_integer(arg, &bufsize) )
 	    return pl_error(NULL, 0, NULL, ERR_TYPE, arg, "integer");
@@ -562,6 +570,8 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
   size_t dlen;
   ssize_t n;
   int rep = REP_ISO_LATIN_1;
+  int as = PL_VARIABLE;			/* any */
+  int cvt;
 
   if ( !PL_get_nil(options) )
   { term_t tail = PL_copy_term_ref(options);
@@ -573,18 +583,32 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
       size_t arity;
 
       if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
-      { if ( name == ATOM_encoding )
+      {	_PL_get_arg(1, head, arg);
+
+	if ( name == ATOM_as )
+	{ if ( !get_as(arg, &as) )
+	    return FALSE;
+	} else if ( name == ATOM_encoding )
 	{ if ( !get_representation(arg, &rep) )
 	    return FALSE;
-	} else
-	  return PL_type_error("option", head);
-      }
+	}
+      } else
+	return PL_type_error("option", head);
     }
     if ( !PL_get_nil_ex(tail) )
       return FALSE;
   }
 
-  if ( !PL_get_nchars(Data, &dlen, &data, CVT_ALL|CVT_EXCEPTION|rep) )
+  switch(as)
+  { case PL_VARIABLE:  cvt = CVT_ALL;		  break;
+    case PL_ATOM:      cvt = CVT_ATOM;            break;
+    case PL_STRING:
+    case PL_CODE_LIST: cvt = CVT_STRING|CVT_LIST; break;
+    case PL_TERM:      cvt = CVT_WRITE_CANONICAL; break;
+    default:	       assert(0);                 return FALSE;
+  }
+
+  if ( !PL_get_nchars(Data, &dlen, &data, cvt|CVT_EXCEPTION|rep) )
     return FALSE;
 
   if ( !tcp_get_socket(Socket, &socket) ||
