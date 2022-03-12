@@ -165,6 +165,19 @@ are:
     \termitem{encoding}{Encoding}
 Specifies the encoding to use for the string. See udp_receive/4 for
 details.
+
+    \termitem{as}{Type}
+This uses the same values for \arg{Type} as the \term{as}{Type} option
+of udp_receive/4. The are interpreted differently though. No \arg{Type}
+corresponds to \const{CVT_ALL} of PL_get_chars(). Using \const{atom}
+corresponds to \const{CVT_ATOM} and any of \const{string} or
+\const{codes} is mapped to \const{CVT_STRING|CVT_LIST}, allowing for a
+SWI-Prolog string object, list of character codes or list of characters.
+Finally, \const{term} maps to \const{CVT_WRITE_CANONICAL}. This implies
+that arbitrary Prolog terms\footnote{write_canonical/2 does not support
+\jargon{blobs} nor \jargon{cyclic terms}} can be sent reliably using the
+option list \exam{[as(term),encoding(utf8)])}, using the same option
+list for udp_receive/4.
 \end{description}
 
 A simple example to send UDP data is:
