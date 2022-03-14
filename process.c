@@ -418,7 +418,7 @@ get_encoding(term_t head, IOENC *enc)
   { IOENC e;
 
     if ( (e=PL_atom_to_encoding(a)) != ENC_UNKNOWN )
-    { *enc = ENC_UNICODE_LE;
+    { *enc = e;
       return TRUE;
     }
 
