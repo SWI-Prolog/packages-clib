@@ -573,6 +573,8 @@ alarm_loop(void * closure)
     }
   }
 
+  free(signalled.bits);
+
   return NULL;
 }
 
