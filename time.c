@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2017, University of Amsterdam
+    Copyright (c)  2002-2022, University of Amsterdam
                               VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -378,15 +379,14 @@ cleanup(int rc, void *arg)
 { Event ev;
   schedule *sched = TheSchedule();
 
+  sched->stop = TRUE;
   while( (ev=sched->first) )
-  { removeEvent(ev);
-  }
+    removeEvent(ev);
 
   cleanupHandler();
 
   if ( scheduler_running )
   { LOCK();
-    sched->stop = TRUE;
     pthread_cond_signal(&cond);
     UNLOCK();
 
@@ -740,7 +740,10 @@ unify_timer(term_t t, Event ev)
 
 static int
 get_timer(term_t t, Event *ev)
-{ if ( PL_is_functor(t, FUNCTOR_alarm1) )
+{ if ( TheSchedule()->stop )
+    return FALSE;
+
+  if ( PL_is_functor(t, FUNCTOR_alarm1) )
   { term_t a = PL_new_term_ref();
     void *p;
 
@@ -921,12 +924,17 @@ uninstall_alarm(term_t alarm)
 
 static foreign_t
 remove_alarm(term_t alarm)
-{ Event ev = NULL;
+{ if ( !TheSchedule()->stop )
+  { Event ev = NULL;
 
-  if ( !get_timer(alarm, &ev) )
-    return FALSE;
 
-  return removeEvent(ev);
+    if ( !get_timer(alarm, &ev) )
+      return FALSE;
+
+    return removeEvent(ev);
+  }
+
+  return TRUE;
 }
 
 
