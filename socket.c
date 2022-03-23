@@ -119,7 +119,9 @@ static int
 release_socket_symbol(atom_t symbol)
 { nbio_sock_t s = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
+  nbio_closesocket(s);			/* no-op if already done */
   freeSocket(s);
+
   return TRUE;
 }
 
