@@ -306,6 +306,8 @@ typedef union {
 STATIC	init_des(void);
 STATIC	init_perm(C_block [64/CHUNKBITS][1<<CHUNKBITS],
 		       const unsigned char [64], int, int);
+STATIC	init_perm_32(C_block [32/CHUNKBITS][1<<CHUNKBITS],
+		       const unsigned char [64], int, int);
 #ifndef LARGEDATA
 STATIC	permute(const unsigned char *, C_block *, C_block *, int);
 #endif
@@ -845,7 +847,7 @@ init_des(void)
 #ifdef DEBUG
 	prtab("ietab", perm, 8);
 #endif
-	init_perm(IE3264, perm, 4, 8);
+	init_perm_32(IE3264, perm, 4, 8);
 
 	/*
 	 * Compression, then final permutation, then bit reverse.
@@ -908,6 +910,26 @@ init_des(void)
  */
 STATIC
 init_perm(C_block perm[64/CHUNKBITS][1<<CHUNKBITS], const unsigned char p[64],
+    int chars_in, int chars_out)
+{
+	int i, j, k, l;
+
+	for (k = 0; k < chars_out*8; k++) {	/* each output bit position */
+		l = p[k] - 1;		/* where this bit comes from */
+		if (l < 0)
+			continue;	/* output bit is always 0 */
+		i = l>>LGCHUNKBITS;	/* which chunk this bit comes from */
+		l = 1<<(l&(CHUNKBITS-1));	/* mask for this bit */
+		for (j = 0; j < (1<<CHUNKBITS); j++) {	/* each chunk value */
+			if ((j & l) != 0)
+				perm[i][j].b[k>>3] |= 1<<(k&07);
+		}
+	}
+}
+
+/* Needed for the IE3264 structure, see line 475 */
+STATIC
+init_perm_32(C_block perm[32/CHUNKBITS][1<<CHUNKBITS], const unsigned char p[64],
     int chars_in, int chars_out)
 {
 	int i, j, k, l;
