@@ -80,11 +80,9 @@ test(null_error, [condition(has_exe(sh))]) :-
                    ['-c', 'echo "THIS IS AN ERROR" 1>&2'],
                    [stderr(null)]).
 test(stream_input, [condition(has_exe(wc)), X == "0"]) :-
-    open('/dev/null', read, In, [type(binary)]),
     process_create(path(wc),
                    ['-c'],
-                   [stdin(stream(In)), stdout(pipe(Out))]),
-    close(In),
+                   [stdin(null), stdout(pipe(Out))]),
     read_process(Out, X0),
     split_string(X0, "", " \r\n", [X]).
 test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
@@ -156,7 +154,8 @@ test(kill_ok, [ X = exit(_),
 % Seems to be able to kill itself on MacOS if this is ran
 % concurrently.  Too quick reuse of PIDs?
 test(kill_gone, [ error(existence_error(process, PID)),
-                  condition((\+ current_prolog_flag(windows, true), \+ current_prolog_flag(apple,true)))
+                  condition(\+((current_prolog_flag(windows, true),
+			        current_prolog_flag(apple,true))))
 		]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID),
