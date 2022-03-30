@@ -606,7 +606,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
     case PL_ATOM:      cvt = CVT_ATOM;            break;
     case PL_STRING:
     case PL_CODE_LIST: cvt = CVT_STRING|CVT_LIST; break;
-    case PL_TERM:      cvt = CVT_WRITE_CANONICAL; break;
+    case PL_TERM:      cvt = CVT_WRITE_CANONICAL|REP_NL_POSIX; break;
     default:	       assert(0);                 return FALSE;
   }
 
