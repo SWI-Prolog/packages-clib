@@ -57,25 +57,25 @@ n_list_of(I, H, [H|T]) :-
 
 :- begin_tests(cgi).
 
-test(atom, In == Out) :-
+test(atom, [condition(\+ current_prolog_flag(windows, true)), In == Out]) :-
     In = [name(value)],
     trip(In, Out).
-test(atom, In == Out) :-
+test(atom, [condition(\+ current_prolog_flag(windows, true)), In == Out]) :-
     numlist(32, 126, Chars),
     n_list_of(10, Chars, ListOfStrings),
     append(ListOfStrings, AllChars),
     atom_codes(Value, AllChars),
     In = [name(Value)],
     trip(In, Out).
-test(unicode, In == Out) :-
+test(unicode, [condition(\+ current_prolog_flag(windows, true)), In == Out]) :-
     numlist(32, 1100, Chars),
     atom_codes(Value, Chars),
     In = [name(Value)],
     trip(In, Out).
-test(integer, In == Out) :-
+test(integer, [condition(\+ current_prolog_flag(windows, true)), In == Out]) :-
     In = [age(2394395340490340)],
     trip(In, Out).
-test(float, In == Out) :-
+test(float, [condition(\+ current_prolog_flag(windows, true)), In == Out]) :-
     In = [age(42.0)],
     trip(In, Out).
 
