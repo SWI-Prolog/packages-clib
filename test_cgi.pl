@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2011, VU University, Amsterdam
+    Copyright (c)  2009-2022, VU University, Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -55,7 +56,7 @@ n_list_of(I, H, [H|T]) :-
     I2 is I - 1,
     n_list_of(I2, H, T).
 
-:- begin_tests(cgi).
+:- begin_tests(cgi, [condition(\+ current_prolog_flag(windows, true))]).
 
 test(atom, In == Out) :-
     In = [name(value)],
