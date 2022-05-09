@@ -43,6 +43,8 @@
 	PL_FUNCTOR, PL_new_functor(PL_new_atom(name), (arity))
 #define AtomArg(name) \
 	PL_CHARS, name
+#define AtomMbArg(name) \
+	PL_MBCHARS, name
 #define IntArg(i) \
 	PL_INTEGER, (long)(i)
 

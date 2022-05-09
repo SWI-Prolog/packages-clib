@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2015, University of Amsterdam
+    Copyright (c)  2000-2022, University of Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -43,6 +44,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 { fid_t fid;
   term_t except, formal, swi;
   int rc;
+  int msg_locale = FALSE;
   va_list args;
 
   if ( !(fid=PL_open_foreign_frame()) )
@@ -64,6 +66,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 	object = PL_new_term_ref();
 
       msg = strerror(err);
+      msg_locale = TRUE;
 
       switch(err)
       { case ENOMEM:
@@ -200,7 +203,10 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 		      IntArg(arity));
     }
     if ( msg )
-    { rc = PL_put_atom_chars(msgterm, msg);
+    { if ( msg_locale )
+	rc = PL_unify_term(msgterm, PL_MBCHARS, msg);
+      else
+	rc = PL_put_atom_chars(msgterm, msg);
     }
 
     if ( rc )

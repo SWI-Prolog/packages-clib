@@ -788,7 +788,7 @@ nbio_error(int code, nbio_error_map mapid)
 			 CompoundArg("error", 2),
 			   CompoundArg("socket_error", 2),
 			     AtomArg(symbol),
-			     AtomArg(msg),
+			     AtomMbArg(msg),
 			   PL_VARIABLE) &&
 	   PL_raise_exception(ex)
 	 );
