@@ -172,8 +172,7 @@ following finds the executable for =ls=:
 %       absolute_file_name/3.  See also process_set_method/1.
 %       * env(+List)
 %       As environment(List), but _only_ the specified variables
-%       are passed, i.e., no variables are _inherited_.  Note that
-%       passing an _empty_ environment is invalid on Windows.
+%       are passed, i.e., no variables are _inherited_.
 %       * environment(+List)
 %       Specify _additional_ environment variables for the new process.
 %       List is a list of `Name=Value` terms, where `Value` is expanded

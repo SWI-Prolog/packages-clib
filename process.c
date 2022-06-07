@@ -376,7 +376,9 @@ parse_environment(term_t t, p_options *info, int pass)
       while(*env)
       { size_t len = wcslen(env);
 	if ( !already_in_env(eb->buffer, count0, env) )
-	  add_ecbuf(eb, env, len+1);
+	{ add_ecbuf(eb, env, len+1);
+	  count++;
+	}
 	env += len+1;
       }
     }
@@ -385,6 +387,8 @@ parse_environment(term_t t, p_options *info, int pass)
 
 #ifdef __WINDOWS__
   add_ecbuf(eb, ECHARS("\0"), 1);
+  if ( count == 0 )
+    add_ecbuf(eb, ECHARS("\0"), 1);
 #else
   info->envp = PL_malloc((count+1)*sizeof(char*));
 
