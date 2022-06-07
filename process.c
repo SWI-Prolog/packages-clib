@@ -321,9 +321,8 @@ parse_environment(term_t t, p_options *info, int pass)
   int c = 0;
 #endif
 
-  assert(eb->size == 0);
-  assert(eb->allocated == 0);
-  assert(eb->buffer == NULL);
+  if ( eb->buffer )
+    return PL_permission_error("redefine", "environment", t);
 
   while( PL_get_list(tail, head, tail) )
   { echar *s;
