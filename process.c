@@ -132,6 +132,7 @@ typedef DWORD  pid_t;
 #endif
 
 typedef wchar_t echar;			/* environment character */
+#define ecslen(s) wcslen(s)
 
 #ifndef CREATE_BREAKAWAY_FROM_JOB
 #define CREATE_BREAKAWAY_FROM_JOB 0x1000000
@@ -139,6 +140,7 @@ typedef wchar_t echar;			/* environment character */
 
 #else
 typedef char echar;
+#define ecslen(s) strlen(s)
 #endif
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -292,11 +294,10 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 #define ECHARS(s) s
 #endif
 
-#ifndef __WINDOWS__
 static int
-already_in_env(const char *env, int count, const char *e)
-{ for(; count-- > 0; env += strlen(env)+1)
-  { const char *s, *q;
+already_in_env(const echar *env, int count, const echar *e)
+{ for(; count-- > 0; env += ecslen(env)+1)
+  { const echar *s, *q;
 
     for(s=env, q=e; *s && *q && *s == *q && *s != '=' && *q != '='; s++,q++)
       ;
@@ -306,7 +307,6 @@ already_in_env(const char *env, int count, const char *e)
 
   return FALSE;
 }
-#endif
 
 static int
 parse_environment(term_t t, p_options *info, int pass)
@@ -349,9 +349,9 @@ parse_environment(term_t t, p_options *info, int pass)
   if ( pass && count == 0 )
     return TRUE;			/* environment([]) is a no-op */
 
-#ifndef __WINDOWS__
   if ( pass )
   {
+#ifndef __WINDOWS__
 #ifdef HAVE__NSGETENVIRON
     char **environ = *_NSGetEnviron();
 #else
@@ -367,8 +367,21 @@ parse_environment(term_t t, p_options *info, int pass)
 	count++;
       }
     }
-  }
+#else /*__WINDOWS__*/
+    echar *env = GetEnvironmentStringsW();
+
+    if ( env )
+    { int count0 = count;
+
+      while(*env)
+      { size_t len = wcslen(env);
+	if ( !already_in_env(eb->buffer, count0, env) )
+	  add_ecbuf(eb, env, len+1);
+	env += len+1;
+      }
+    }
 #endif /*__WINDOWS__*/
+  }
 
 #ifdef __WINDOWS__
   add_ecbuf(eb, ECHARS("\0"), 1);
