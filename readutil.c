@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2005-2015, University of Amsterdam
+    Copyright (c)  2005-2022, University of Amsterdam
                               VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -36,8 +37,10 @@
 #include <config.h>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+#include "utf8.h"
 
-#define BUFSIZE 256
+#define BUFSIZE 1024
+#define UCFLAGS (REP_UTF8|PL_CODE_LIST)
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 This library is dynamically picked up  by library(readline), which falls
@@ -56,12 +59,15 @@ Codes list is closed and Tail is unified with [].
 
 static foreign_t
 read_line_to_codes3(term_t stream, term_t codes, term_t tail)
-{ wchar_t buf[BUFSIZE];
-  wchar_t *o = buf, *e = &buf[BUFSIZE];
+{ char buf[BUFSIZE];
+  char *o = buf, *e = &buf[BUFSIZE];
   IOSTREAM *s;
-  term_t cl = PL_copy_term_ref(codes);
+  term_t diff = PL_new_term_refs(2);
+  term_t cl = diff;
   int rc = FALSE;
 
+  if ( !PL_unify(codes, cl) )
+    return FALSE;
   if ( !PL_get_stream(stream, &s, SIO_INPUT) )
     return FALSE;
 
@@ -76,30 +82,30 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
       { rc = PL_unify_atom(codes, ATOM_end_of_file);
 	goto out;
       }
-      if ( PL_unify_wchars(cl, PL_CODE_LIST, o-buf, buf) &&
+      if ( PL_unify_chars(cl, UCFLAGS, o-buf, buf) &&
            (tail == 0 || PL_unify_nil(tail)) )
 	rc = TRUE;
 
       goto out;
     }
 
-    if ( o == e )
-    { if ( !PL_unify_wchars_diff(cl, cl, PL_CODE_LIST, o-buf, buf) )
+    if ( o+8 >= e && o[-1] != '\r' ) /* UTF-8 <= 6 bytes, may discard \r */
+    { if ( !PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) ||
+	   !PL_put_term(cl, diff+1) )
 	goto out;
       o = buf;
     }
 
-    *o++ = c;
+    o = utf8_put_char(o, c);
     if ( c == '\n' )
     { if ( tail )
-      { if ( PL_unify_wchars_diff(cl, cl, PL_CODE_LIST, o-buf, buf) &&
-	     PL_unify(cl, tail) )
-	  rc = TRUE;
+      { rc = ( PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) &&
+	       PL_unify(diff+1, tail) );
       } else
       { o--;
 	if ( o>buf && o[-1] == '\r' )
 	  o--;
-	rc = PL_unify_wchars(cl, PL_CODE_LIST, o-buf, buf);
+	rc = PL_unify_chars(cl, REP_UTF8|PL_CODE_LIST, o-buf, buf);
       }
 
       goto out;
@@ -120,11 +126,14 @@ read_line_to_codes2(term_t stream, term_t codes)
 
 static foreign_t
 read_stream_to_codes3(term_t stream, term_t codes, term_t tail)
-{ wchar_t buf[BUFSIZE];
-  wchar_t *o = buf, *e = &buf[BUFSIZE];
+{ char buf[BUFSIZE];
+  char *o = buf, *e = &buf[BUFSIZE];
   IOSTREAM *s;
-  term_t cl = PL_copy_term_ref(codes);
+  term_t diff = PL_new_term_refs(2);
+  term_t cl = diff;
 
+  if ( !PL_unify(codes, cl) )
+    return FALSE;
   if ( !PL_get_stream(stream, &s, SIO_INPUT) )
     return FALSE;
 
@@ -139,24 +148,23 @@ read_stream_to_codes3(term_t stream, term_t codes, term_t tail)
 	return FALSE;
 
       if ( tail )
-      { if ( PL_unify_wchars_diff(cl, cl, PL_CODE_LIST, o-buf, buf) &&
-	     PL_unify(cl, tail) )
-	  return TRUE;
-	return FALSE;
+      { return ( PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) &&
+		 PL_unify(diff+1, tail) );
       }	else
-      { return PL_unify_wchars(cl, PL_CODE_LIST, o-buf, buf);
+      { return PL_unify_chars(cl, REP_UTF8|PL_CODE_LIST, o-buf, buf);
       }
     }
 
-    if ( o == e )
-    { if ( !PL_unify_wchars_diff(cl, cl, PL_CODE_LIST, o-buf, buf) )
+    if ( o+7 >= e )
+    { if ( !PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) ||
+	   !PL_put_term(cl, diff+1) )
       { PL_release_stream(s);
 	return FALSE;
       }
       o = buf;
     }
 
-    *o++ = c;
+    o = utf8_put_char(o, c);
   }
 }
 
