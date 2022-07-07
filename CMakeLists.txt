@@ -28,7 +28,7 @@ check_type_size("long long" SIZEOF_LONG_LONG)
 AC_CHECK_FUNCS(setsid strerror utime getrlimit strcasestr vfork _NSGetEnviron
 	       pipe2 prctl sysconf poll initgroups setgroups chmod
 	       mallinfo mallinfo2 malloc_info open_memstream posix_spawn
-	       gai_strerror hstrerror)
+	       gai_strerror hstrerror setpriority)
 
 configure_file(config.h.cmake config.h)
 
@@ -66,6 +66,7 @@ clib_plugin(unix   C_SOURCES error.c unix.c   PL_LIBS unix.pl)
 clib_plugin(uid    C_SOURCES error.c uid.c    PL_LIBS uid.pl)
 clib_plugin(rlimit C_SOURCES error.c rlimit.c PL_LIBS rlimit.pl)
 clib_plugin(syslog C_SOURCES syslog.c         PL_LIBS syslog.pl)
+clib_plugin(sched  C_SOURCES sched.c          PL_LIBS sched.pl)
 endif(UNIX)
 
 if(LIBUUID_FOUND)

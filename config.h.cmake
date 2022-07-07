@@ -70,4 +70,5 @@
 #cmakedefine _REENTRANT @_REENTRANT@
 #cmakedefine HAVE_HSTRERROR @HAVE_HSTRERROR@
 #cmakedefine HAVE_GAI_STRERROR @HAVE_GAI_STRERROR@
+#cmakedefine HAVE_SETPRIORITY @HAVE_HAVE_SETPRIORITY@
 #cmakedefine size_t @size_t@
