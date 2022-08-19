@@ -33,10 +33,7 @@ static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static void
-to64(s, v, n)
-	char *s;
-	unsigned long v;
-	int n;
+to64(char *s, unsigned long v, int n)
 {
 	while (--n >= 0) {
 		*s++ = itoa64[v&0x3f];
@@ -51,9 +48,7 @@ to64(s, v, n)
  */
 
 char *
-md5_crypt(pw, salt)
-	register const char *pw;
-	register const char *salt;
+md5_crypt(const char *pw, const char *salt)
 {
 	static char	*magic = "$1$";	/*
 						 * This string is magic for
