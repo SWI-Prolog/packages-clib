@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2015, University of Amsterdam
+    Copyright (c)  2008-2022, University of Amsterdam
                               VU University Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,10 +39,6 @@
             server/1,                   % +Port
             client/1                    % +Address
           ]).
-
-:- asserta(user:file_search_path(library, '.')).
-:- asserta(user:file_search_path(foreign, '.')).
-
 :- use_module(library(socket)).
 :- use_module(library(streampool)).
 :- use_module(library(debug)).

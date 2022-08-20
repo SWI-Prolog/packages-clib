@@ -104,8 +104,10 @@ endif(NOT EMSCRIPTEN)
 ################
 # Tests
 
-test_libs(cgi crypt memfile process readutil socket af_unix stream time uri
-	  udp_sockets)
+test_libs(cgi crypt memfile readutil stream uri)
+if(MULTI_THREADED)
+test_libs(process socket af_unix udp_sockets time)
+endif()
 
 ################
 # Documentation
