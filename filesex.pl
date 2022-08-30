@@ -163,7 +163,10 @@ relative_file_name(Path, RelTo, RelPath) :- % +,+,-
     atomic_list_concat(RL, /, AbsRelTo),
     delete_common_prefix(PL, RL, PL1, PL2),
     to_dot_dot(PL2, DotDot, PL1),
-    atomic_list_concat(DotDot, /, RelPath).
+    (   DotDot == []
+    ->  RelPath = '.'
+    ;   atomic_list_concat(DotDot, /, RelPath)
+    ).
 relative_file_name(Path, RelTo, RelPath) :-
     (   is_absolute_file_name(RelPath)
     ->  Path = RelPath
