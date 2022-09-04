@@ -47,6 +47,7 @@
 :- use_module(library(apply)).
 :- use_module(library(readutil)).
 :- use_module(library(process)).
+:- use_module(library(option)).
 
 test_process :-
     run_tests([ process_create,
@@ -61,7 +62,9 @@ read_process(In, Text) :-
 
 has_exe(Name) :-
     process:exe_options(Options),
-    absolute_file_name(path(Name), _, [file_errors(fail)|Options]).
+    merge_options([file_errors(fail)], Options, Options1),
+    absolute_file_name(path(Name), _, Options1),
+    !.
 
 :- begin_tests(process_create, [sto(rational_trees)]).
 
