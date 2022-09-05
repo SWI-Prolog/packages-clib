@@ -44,11 +44,12 @@ function(clib_plugin name)
   swipl_plugin(${name} ${ARGN})
 endfunction()
 
-clib_plugin(memfile    C_SOURCES error.c memfile.c    PL_LIBS memfile.pl THREADED)
-clib_plugin(uri           C_SOURCES uri.c           PL_LIBS uri.pl THREADED)
-clib_plugin(readutil      C_SOURCES readutil.c	    PL_LIBS)
-clib_plugin(prolog_stream C_SOURCES prolog_stream.c PL_LIBS prolog_stream.pl)
-clib_plugin(md54pl        C_SOURCES md54pl.c md5.c  PL_LIBS md5.pl)
+clib_plugin(memfile       C_SOURCES error.c memfile.c PL_LIBS memfile.pl THREADED)
+clib_plugin(files         C_SOURCES error.c files.c   PL_LIBS filesex.pl)
+clib_plugin(uri           C_SOURCES uri.c             PL_LIBS uri.pl THREADED)
+clib_plugin(readutil      C_SOURCES readutil.c	      PL_LIBS)
+clib_plugin(prolog_stream C_SOURCES prolog_stream.c   PL_LIBS prolog_stream.pl)
+clib_plugin(md54pl        C_SOURCES md54pl.c md5.c    PL_LIBS md5.pl)
 clib_plugin(crypt
 	     C_SOURCES error.c crypt.c md5.c md5passwd.c ${CRYPT_SOURCE}
 	     THREADED C_LIBS ${CRYPT_LIBS}
@@ -60,18 +61,21 @@ clib_plugin(sha4pl
 	     C_SOURCES error.c sha4pl.c sha1/sha1.c sha1/sha2.c
 	               sha1/hmac_sha1.c sha1/hmac_sha256.c
 	     PL_LIBS sha.pl)
+test_libs(crypt memfile readutil stream uri)
 
 if(NOT EMSCRIPTEN)
 clib_plugin(cgi        C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)
+test_libs(cgi)
 if(MULTI_THREADED)
 clib_plugin(time       C_SOURCES error.c time.c       PL_LIBS time.pl THREADED)
+test_libs(time)
 endif()
-clib_plugin(files      C_SOURCES error.c files.c      PL_LIBS filesex.pl)
 clib_plugin(process    C_SOURCES error.c process.c    PL_LIBS process.pl)
 clib_plugin(streaminfo C_SOURCES error.c streaminfo.c PL_LIBS streaminfo.pl)
 if(HAVE_MALLINFO)
 clib_plugin(mallocinfo C_SOURCES error.c mallocinfo.c PL_LIBS mallocinfo.pl)
 endif()
+test_libs(process)
 
 if(UNIX)
 clib_plugin(unix   C_SOURCES error.c unix.c   PL_LIBS unix.pl)
@@ -98,16 +102,9 @@ clib_plugin(
     C_SOURCES error.c socket.c nonblockio.c
     C_LIBS ${SOCKET_LIBRARIES}
     PL_LIBS socket.pl streampool.pl prolog_server.pl udp_broadcast.pl)
+test_libs(socket af_unix udp_sockets)
 endif(HAVE_SOCKET)
 endif(NOT EMSCRIPTEN)
-
-################
-# Tests
-
-test_libs(cgi crypt memfile readutil stream uri)
-if(MULTI_THREADED)
-test_libs(process socket af_unix udp_sockets time)
-endif()
 
 ################
 # Documentation
