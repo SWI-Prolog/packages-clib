@@ -4,7 +4,7 @@
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
     Copyright (c)  2008-2014, University of Amsterdam,
-                              VU University Amsterdam
+			      VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -35,8 +35,8 @@
 
 
 :- module(test_process,
-          [ test_process/0
-          ]).
+	  [ test_process/0
+	  ]).
 
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '.')).
@@ -51,9 +51,9 @@
 
 test_process :-
     run_tests([ process_create,
-                process_wait,
-                process_threads
-              ]).
+		process_wait,
+		process_threads
+	      ]).
 
 read_process(In, Text) :-
     read_stream_to_codes(In, Codes),
@@ -76,54 +76,54 @@ test(null_input, [condition(has_exe(cat)), Codes == []]) :-
     close(Out).
 test(null_output, [condition(has_exe(sh))]) :-
     process_create(path(sh),
-                   ['-c', 'echo THIS IS AN ERROR'],
-                   [stdout(null)]).
+		   ['-c', 'echo THIS IS AN ERROR'],
+		   [stdout(null)]).
 test(null_error, [condition(has_exe(sh))]) :-
     process_create(path(sh),
-                   ['-c', 'echo "THIS IS AN ERROR" 1>&2'],
-                   [stderr(null)]).
+		   ['-c', 'echo "THIS IS AN ERROR" 1>&2'],
+		   [stderr(null)]).
 test(stream_input, [condition(has_exe(wc)), X == "0"]) :-
     process_create(path(wc),
-                   ['-c'],
-                   [stdin(null), stdout(pipe(Out))]),
+		   ['-c'],
+		   [stdin(null), stdout(pipe(Out))]),
     read_process(Out, X0),
     split_string(X0, "", " \r\n", [X]).
 test(read_error, [condition(has_exe(sh)),X == 'error\n']) :-
     process_create(path(sh),
-                   ['-c', 'echo "error" 1>&2'],
-                   [stderr(pipe(Out))]),
+		   ['-c', 'echo "error" 1>&2'],
+		   [stderr(pipe(Out))]),
     read_process(Out, X).
 test(echo, [condition(has_exe(sh)), X == 'hello\n']) :-
     process_create(path(sh),
-                   ['-c', 'echo hello'],
-                   [ stdout(pipe(Out))
-                   ]),
+		   ['-c', 'echo hello'],
+		   [ stdout(pipe(Out))
+		   ]),
     read_process(Out, X).
 test(lwr, [condition(has_exe(tr)), X == 'HELLO']) :-
     process_create(path(tr), [hello, 'HELLO'], % a-z A-Z is non-portable
-                   [ stdin(pipe(In)),
-                     stdout(pipe(Out))
-                   ]),
+		   [ stdin(pipe(In)),
+		     stdout(pipe(Out))
+		   ]),
     format(In, hello, []),
     close(In),
     read_process(Out, X).
 test(cwd, [true, condition(\+current_prolog_flag(windows, true))]) :-
     tmp_dir(Tmp),
     process_create(path(pwd), [],
-                   [ stdout(pipe(Out)),
-                     cwd(Tmp)
-                   ]),
+		   [ stdout(pipe(Out)),
+		     cwd(Tmp)
+		   ]),
     read_process(Out, CWD0),
     normalize_space(atom(CWD), CWD0),
     same_file(CWD, Tmp).
 test(cwd, [true, condition(( current_prolog_flag(windows, true),
-                             \+current_prolog_flag(wine_version, _)))]) :-
+			     \+current_prolog_flag(wine_version, _)))]) :-
     tmp_dir(Tmp),
     getenv('COMSPEC', Shell),
     process_create(Shell, ['/c', cd],
-                   [ stdout(pipe(Out)),
-                     cwd(Tmp)
-                   ]),
+		   [ stdout(pipe(Out)),
+		     cwd(Tmp)
+		   ]),
     read_process(Out, CWD0),
     normalize_space(atom(CWD), CWD0),
     same_file(CWD, Tmp).
@@ -143,21 +143,21 @@ test(wait_ok, [condition(has_exe(sh)), X == exit(42)]) :-
     process_create(path(sh), ['-c', 'exit 42'], [process(PID)]),
     process_wait(PID, X).
 test(kill_ok, [ X == killed(9),
-                condition(\+current_prolog_flag(windows, true))]) :-
+		condition(\+current_prolog_flag(windows, true))]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID, 9),
     process_wait(PID, X).
 test(kill_ok, [ X = exit(_),
-                condition((current_prolog_flag(windows, true),
-                           has_exe(sleep)))
-              ]) :-
+		condition((current_prolog_flag(windows, true),
+			   has_exe(sleep)))
+	      ]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID, 9),
     process_wait(PID, X).
 % Seems to be able to kill itself on MacOS if this is ran
 % concurrently.  Too quick reuse of PIDs?
 test(kill_gone, [ error(existence_error(process, PID)),
-                  condition((\+ current_prolog_flag(windows, true), \+ current_prolog_flag(apple,true)))
+		  condition((\+ current_prolog_flag(windows, true), \+ current_prolog_flag(apple,true)))
 		]) :-
     process_create(path(sleep), [2], [process(PID)]),
     process_kill(PID),
@@ -176,7 +176,10 @@ test(wait_timeout, [ condition(has_exe(sleep)), X = timeout ]) :-
 
 :- end_tests(process_wait).
 
-:- begin_tests(process_threads, [sto(rational_trees)]).
+:- begin_tests(process_threads,
+	       [ sto(rational_trees),
+		 condition(current_prolog_flag(threads, true))
+	       ]).
 
 join(Id) :-
     thread_join(Id, Status),
@@ -187,9 +190,9 @@ thread_create_and_wait(Id) :-
 
 create_and_wait :-
     process_create(path(cat), [],
-                   [ stdin(pipe(ToDOT)),
-                     stdout(pipe(XDotOut))
-                   ]),
+		   [ stdin(pipe(ToDOT)),
+		     stdout(pipe(XDotOut))
+		   ]),
     Term = hello(world),
     format(ToDOT, '~q.~n', [Term]),
     close(ToDOT),
@@ -208,8 +211,6 @@ create_and_wait_once :-
 
 test(concurr, [condition(has_exe(cat))]) :-
     forall(between(1, 50, _),
-           create_and_wait_once).
+	   create_and_wait_once).
 
 :- end_tests(process_threads).
-
-

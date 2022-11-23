@@ -102,7 +102,9 @@ clib_plugin(
     C_SOURCES error.c socket.c nonblockio.c
     C_LIBS ${SOCKET_LIBRARIES}
     PL_LIBS socket.pl streampool.pl prolog_server.pl udp_broadcast.pl)
-test_libs(socket af_unix udp_sockets)
+if(MULTI_THREADED)
+  test_libs(socket af_unix udp_sockets)
+endif()
 endif(HAVE_SOCKET)
 endif(NOT EMSCRIPTEN)
 
