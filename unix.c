@@ -391,9 +391,13 @@ static foreign_t
 pl_detach_IO(term_t stream)
 { if ( !log_stream )
   { IOSTREAM *s;
+    atom_t symbol;
 
     if ( !PL_get_stream_handle(stream, &s) )
       return FALSE;
+    if ( PL_get_atom(stream, &symbol) )
+      PL_register_atom(symbol);	/* avoid AGC to close the stream */
+
     log_stream = s;
     PL_release_stream(s);
 
@@ -529,10 +533,3 @@ install_unix()
   PL_register_foreign("sysconf",   1, pl_sysconf, 0);
 #endif
 }
-
-
-
-
-
-
-
