@@ -577,9 +577,9 @@ closeSocket(plsocket *s)
 { int rval;
   SOCKET sock;
 
-  DEBUG(2, Sdprintf("Closing %p (%d)\n", s, s->socket));
+  DEBUG(2, Sdprintf("Closing %p (%zd)\n", s, (size_t)s->socket));
   if ( !s || s->magic != PLSOCK_MAGIC )
-  { DEBUG(1, Sdprintf("OOPS: closeSocket(%p) s->magic = %ld\n",
+  { DEBUG(1, Sdprintf("OOPS: closeSocket(%p) s->magic = %d\n",
 		      s, s ? s->magic : 0));
     errno = EINVAL;
     return -1;
@@ -1191,10 +1191,10 @@ int
 nbio_unify_ip4(term_t Ip, unsigned long hip)
 { return PL_unify_term(Ip,
 		       PL_FUNCTOR, FUNCTOR_ip4,
-		         IntArg((hip >> 24) & 0xff),
-		         IntArg((hip >> 16) & 0xff),
-		         IntArg((hip >>  8) & 0xff),
-		         IntArg((hip >>  0) & 0xff));
+			 IntArg((hip >> 24) & 0xff),
+			 IntArg((hip >> 16) & 0xff),
+			 IntArg((hip >>  8) & 0xff),
+			 IntArg((hip >>  0) & 0xff));
 }
 
 

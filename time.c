@@ -150,7 +150,7 @@ print_trace (void)
 
   for(i = 0; i < size; i++)
   { if ( !strstr(strings[i], "checkData") )
-      Sdprintf("\t[%d] %s\n", i, strings[i]);
+      Sdprintf("\t[%zd] %s\n", i, strings[i]);
   }
 
   free(strings);
@@ -272,7 +272,7 @@ insertEvent(Event ev)
 { schedule *sched = TheSchedule();
   Event e;
 
-  DEBUG(1, Sdprintf("insertEvent(%d.%06d)\n", ev->at.tv_sec, ev->at.tv_usec));
+  DEBUG(1, Sdprintf("insertEvent(%ld.%06ld)\n", ev->at.tv_sec, ev->at.tv_usec));
 
   for(e = sched->first; e; e = e->next)
   { struct timeval d;

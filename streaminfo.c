@@ -62,7 +62,7 @@ print_buffer(IOSTREAM *out, const char *data, size_t len)
       for(zeros = 0; i+zeros < len && data[i+zeros] == 0; zeros++)
 	;
       if ( zeros > 10 )
-      { Sfprintf(out, "<%d 0-bytes>", zeros);
+      { Sfprintf(out, "<%zd 0-bytes>", zeros);
       }
       i += zeros;
     } else
