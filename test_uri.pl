@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2015, University of Amsterdam,
+    Copyright (c)  2009-2023, University of Amsterdam,
                               VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -114,6 +115,8 @@ test(normalise_iri, NormalIRI == 'http://a.b/a?x=1&y=2#aap%20noot') :-
     uri_normalized_iri('http://a.b/a?x=1&y=2#aap+noot', NormalIRI).
 test(normalise_iri, NormalIRI == 'http://a.b:3020/') :-
     uri_normalized_iri('http://a.b:3020/', NormalIRI).
+test(query, IRI == 'http://x.y/z?q%3Dr=1%3D2ü&x=y') :-
+    uri_iri('http://x.y/z?q%3Dr=1%3D2%C3%BC&x=y', IRI).
 
 :- end_tests(iri).
 
