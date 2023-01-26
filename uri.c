@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2022, VU University Amsterdam
+    Copyright (c)  2009-2023, VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -79,7 +79,7 @@ syntax_error(const char *culprit)
        PL_unify_term(ex,
 		     PL_FUNCTOR, FUNCTOR_error2,
 		       PL_FUNCTOR, FUNCTOR_syntax_error1,
-		         PL_CHARS, culprit,
+			 PL_CHARS, culprit,
 		       PL_VARIABLE) )
     return PL_raise_exception(ex);
 
@@ -95,7 +95,7 @@ type_error(const char *expected, term_t found)
        PL_unify_term(ex,
 		     PL_FUNCTOR, FUNCTOR_error2,
 		       PL_FUNCTOR, FUNCTOR_type_error2,
-		         PL_CHARS, expected,
+			 PL_CHARS, expected,
 			 PL_TERM, found,
 		       PL_VARIABLE) )
     return PL_raise_exception(ex);
@@ -112,7 +112,7 @@ domain_error(const char *expected, term_t found)
        PL_unify_term(ex,
 		     PL_FUNCTOR, FUNCTOR_error2,
 		       PL_FUNCTOR, FUNCTOR_domain_error2,
-		         PL_CHARS, expected,
+			 PL_CHARS, expected,
 			 PL_TERM, found,
 		       PL_VARIABLE) )
     return PL_raise_exception(ex);
@@ -507,7 +507,13 @@ add_normalized_range_charbuf(charbuf *cb, const range *r, int iri, int flags)
     { const pl_wchar_t *e;
 
       if ( (e=get_encoded_utf8(s, &c)) )
-      { s = e;
+      { if ( flags == ESC_QUERY &&
+	     (c == '=' || c == '&' || c == ';') )
+	{ while( s<e )
+	    add_charbuf(cb, *s++);
+	  continue;
+	}
+	s = e;
       } else if (hex(s+1, 2, &c) )
       { s += 3;
       } else
