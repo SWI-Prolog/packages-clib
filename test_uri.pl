@@ -37,7 +37,7 @@
 :- module(test_uri,
           [ test_uri/0
           ]).
-:- set_prolog_flag(encoding, utf8).
+:- encoding(utf8).
 
 :- asserta(user:file_search_path(library, '../plunit')).
 :- asserta(user:file_search_path(library, '.')).
