@@ -114,7 +114,7 @@ endif(NOT EMSCRIPTEN)
 # Files that have PlDoc comments whose TeX file is included in clib.tex
 set(pldoc_files process.pl uri.pl filesex.pl uid.pl udp_broadcast.pl
     uuid.pl unix.pl syslog.pl socket.pl prolog_stream.pl md5.pl
-    hash_stream.pl)
+    hash_stream.pl time.pl)
 
 # Filter the ones we will build
 set(pldoc_ok)
