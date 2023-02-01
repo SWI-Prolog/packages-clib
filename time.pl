@@ -3,9 +3,10 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2020, University of Amsterdam
+    Copyright (c)  2002-2023, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -44,7 +45,8 @@
             install_alarm/2,            % +Id, +Time
             uninstall_alarm/1,          % +Id
             current_alarm/4,            % ?At, ?:Goal, ?Id, ?Status
-            call_with_time_limit/2      % +Time, :Callable
+            call_with_time_limit/2,     % +Time, :Callable
+            call_with_time_limit/3      % +Time, :Callable, +Context
           ]).
 :- autoload(library(lists),[member/2]).
 
@@ -52,6 +54,7 @@
 
 :- meta_predicate
     call_with_time_limit(+, 0),
+    call_with_time_limit(+, 0, +),
     alarm(+, 0, -),
     alarm(+, 0, -, +),
     alarm_at(+, 0, -, +),
@@ -64,6 +67,13 @@
 
 
 /** <module> Time and alarm library
+
+The library(time) provides timing and alarm functions. Alarms are
+thread-specific, i.e., creating an alarm causes the alarm goal to be
+called in the thread that created it. The predicate current_alarm/4 only
+reports alarms that are related to the calling thread. If a thread
+terminates, all remaining alarms are silently removed. Most applications
+use call_with_time_limit/2.
 */
 
 %!  alarm(+Time, :Callable, -Id) is det.
@@ -124,22 +134,28 @@
 :- use_foreign_library(foreign(time)).
 :- public time_debug/1.                 % set debugging
 
-%!  call_with_time_limit(+Time, :Goal) is semidet.
+%!  call_with_time_limit(+Time, :Goal) is det.
+%!  call_with_time_limit(+Time, :Goal, +Context) is det.
 %
-%   Call Goal, while watching out for   a (wall-time) limit. If this
-%   limit  is  exceeded,  the   exception  =time_limit_exceeded=  is
-%   raised. Goal is called as in once/1.
+%   Call Goal, while watching out for a (wall-time) limit. If this limit
+%   is  exceeded,  the  exception    `time_limit_exceeded`   is  raised.
+%   call_with_time_limit/3 throws time_limit_exceeded(Context).  Goal is
+%   called as in once/1.
 %
-%   @throws =time_limit_exceeded=
+%   @throws `time_limit_exceeded` (call_with_time_limit/2) or
+%   time_limit_exceeded(Context) (call_with_time_limit/3).
 
 call_with_time_limit(Time, Goal) :-
+    call_with_time_limit(Time, Goal, '$no_ctx').
+
+call_with_time_limit(Time, Goal, Ctx) :-
     Time > 0,
     !,
-    setup_call_cleanup(alarm(Time, time_limit_exceeded(Time),
+    setup_call_cleanup(alarm(Time, time_limit_exceeded(Time, Ctx),
                              Id, [install(false)]),
                        run_alarm_goal(Id, Goal),
                        remove_alarm_notrace(Id)).
-call_with_time_limit(_Time, _Goal) :-
+call_with_time_limit(_Time, _Goal, _Ctx) :-
     throw(time_limit_exceeded).
 
 run_alarm_goal(AlarmID, Goal) :-
@@ -147,8 +163,11 @@ run_alarm_goal(AlarmID, Goal) :-
     Goal,
     !.
 
-time_limit_exceeded(_Time) :-
-    throw(time_limit_exceeded).
+time_limit_exceeded(_Time, Ctx) :-
+    (   Ctx == '$no_ctx'
+    ->  throw(time_limit_exceeded)
+    ;   throw(time_limit_exceeded(Ctx))
+    ).
 
 current_alarm(Time, Goal, Id, Status) :-
     current_alarms(Time, Goal, Id, Status, List),
@@ -163,6 +182,8 @@ current_alarm(Time, Goal, Id, Status) :-
 
 prolog:message(time_limit_exceeded) -->
     [ 'Time limit exceeded' ].
+prolog:message(time_limit_exceeded(Context)) -->
+    [ 'Time limit exceeded: ~p'-[Context] ].
 
                  /*******************************
                  *             ALARM            *
