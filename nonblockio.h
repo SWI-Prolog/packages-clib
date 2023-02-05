@@ -172,7 +172,8 @@ extern SOCKET	nbio_fd(nbio_sock_t socket);
 extern int	nbio_domain(nbio_sock_t socket);
 
 extern int	nbio_unify_ip4(term_t ip4, unsigned long hip);
-extern int	nbio_get_ip(term_t ip4, struct in_addr *ip);
+extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip);
+extern int	nbio_get_ip(int domain, term_t ip4, struct sockaddr_storage *ip);
 
 extern int	nbio_error(int code, nbio_error_map map);
 extern const char*
@@ -185,9 +186,11 @@ extern int	nbio_get_flags(nbio_sock_t socket);
 		 *	    CONVERSION		*
 		 *******************************/
 
-extern int	nbio_get_sockaddr(term_t Address,
-				  struct sockaddr_in *addr,
+extern int	nbio_get_sockaddr(nbio_sock_t socket,
+				  term_t Address,
+				  struct sockaddr_storage *addr,
 				  term_t *varport);
-extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip);
+extern int	nbio_get_ip(int domain, term_t ip4,
+			    struct sockaddr_storage *addr);
 
 #endif /*H_NONBLOCKIO_INCLUDED*/

@@ -36,7 +36,8 @@
 */
 
 :- module(socket,
-          [ tcp_socket/1,               % -Socket
+          [ socket_create/2,	% -Socket, +Options
+	    tcp_socket/1,               % -Socket
             tcp_close_socket/1,         % +Socket
             tcp_open_socket/3,          % +Socket, -Read, -Write
             tcp_connect/2,              % +Socket, +Address
@@ -187,11 +188,24 @@ defined.
 :- export(unix_domain_socket/1).  % -Socket
 :- endif.
 
+%!  socket_create(-SocketId, +Options) is det.
+%
+%   Create a socket according to Options.   Supported Options are:
+%
+%     - domain(+Domain)
+%       One of `inet` (default), `inet6`, `unix` or `local` (same
+%       as `unix`)
+%     - type(+Type)
+%       One of `stream` (default) to create a TCP connection or
+%       `dgram` to create a UDP socket.
+%
+%   This   predicate   subsumes    tcp_socket/1m,   udp_socket/1   and
+%   unix_domain_socket/1.
+
 %!  tcp_socket(-SocketId) is det.
 %
-%   Creates an INET-domain stream-socket and   unifies an identifier
-%   to it with SocketId. On MS-Windows, if the socket library is not
-%   yet initialised, this will also initialise the library.
+%   Equivalent   to   socket_create(SocketId,    [])   or,   explicit,
+%   socket_create(SocketId, [domain(inet), type(stream)]).
 
 %!  tcp_close_socket(+SocketId) is det.
 %
@@ -512,6 +526,11 @@ try_proxy(socks(Host, Port), Address, Socket, StreamPair) :-
 :- multifile
     proxy_for_url/3.
 
+%!  udp_socket(-SocketId) is det.
+%
+%   Equivalent to socket_create(SocketId, [type(dgram)]) or, explicit,
+%   socket_create(SocketId, [domain(inet), type(dgram)]).
+
 
                  /*******************************
                  *            OPTIONS           *
@@ -731,4 +750,3 @@ proxy_tried(error(Proxy, Error)) -->
     '$messages':translate_message(Error).
 proxy_tried(false(Proxy)) -->
     [ '~w: failed with unspecified error'-[Proxy] ].
-

@@ -203,7 +203,7 @@ tcp_get_socket(term_t handle, nbio_sock_t *sp)
 
 static foreign_t
 pl_host_to_address(term_t Host, term_t Ip)
-{ struct in_addr ip;
+{ struct sockaddr_storage addr;
   char *host_name;
 
   if ( PL_get_atom_chars(Host, &host_name) )
@@ -239,10 +239,12 @@ pl_host_to_address(term_t Host, term_t Ip)
     } else
     { return nbio_error(rc, TCP_GAI_ERRNO);
     }
-  } else if ( nbio_get_ip(Ip, &ip) )
+  } else if ( nbio_get_ip(AF_INET, Ip, &addr) )
   { struct hostent *host;
+    struct sockaddr_in *sin = (struct sockaddr_in*)&addr;
+    struct addr_in *in = (struct addr_in *)&sin->sin_addr;
 
-    if ( (host = gethostbyaddr((char *)&ip, sizeof(ip), AF_INET)) )
+    if ( (host = gethostbyaddr((char *)&in, sizeof(in), AF_INET)) )
       return PL_unify_atom_chars(Host, host->h_name);
     else
       return nbio_error(GET_H_ERRNO, TCP_HERRNO);
@@ -333,13 +335,19 @@ pl_setopt(term_t Socket, term_t opt)
       int opname = (a == ATOM_ip_add_membership) ? IP_ADD_MEMBERSHIP
 						 : IP_DROP_MEMBERSHIP;
 
+      if ( nbio_domain(socket) != AF_INET )
+	return PL_permission_error(a == ATOM_ip_add_membership ? "ip_add_membership"
+							       : "ip_drop_membership",
+				   "socket",
+				   Socket);
+
       _PL_get_arg(1, opt, arg);
       memset(&mreq, 0, sizeof(mreq));
-      if ( !nbio_get_ip(arg, &mreq.imr_multiaddr) )
+      if ( !nbio_get_ip4(arg, &mreq.imr_multiaddr) )
 	return PL_domain_error("ip", arg);
       if ( arity >= 2 )
       { _PL_get_arg(2, opt, arg);
-	if ( !nbio_get_ip(arg, &mreq.imr_address) )
+	if ( !nbio_get_ip4(arg, &mreq.imr_address) )
 	  return PL_domain_error("ip", arg);
       } else
 	mreq.imr_address.s_addr = htonl(INADDR_ANY);
@@ -422,12 +430,20 @@ From/To are of the format <Host>:<Port>
 #define UDP_DEFAULT_BUFSIZE  4096
 
 static int
-unify_address(term_t t, struct sockaddr_in *addr)
+unify_address(term_t t, struct sockaddr_storage *addr)
 { term_t av = PL_new_term_refs(2);
 
-  if ( !nbio_unify_ip4(av+0, ntohl(addr->sin_addr.s_addr)) ||
-       !PL_unify_integer(av+1, ntohs(addr->sin_port)) )
-    return FALSE;
+  switch ( addr->ss_family )
+  { case AF_INET:
+    { struct sockaddr_in *addr4 = (struct sockaddr_in*)addr;
+      if ( !nbio_unify_ip4(av+0, ntohl(addr4->sin_addr.s_addr)) ||
+	   !PL_unify_integer(av+1, ntohs(addr4->sin_port)) )
+	return FALSE;
+      break;
+    }
+    default:
+      assert(0);
+  }
 
   return PL_unify_term(t, PL_FUNCTOR_CHARS, ":", 2,
 		       PL_TERM, av+0,
@@ -479,14 +495,14 @@ get_as(term_t arg, int *asp)
 }
 
 
+#ifdef __WINDOWS__
+#define socklen_t int
+#endif
+
 static foreign_t
 udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
-{ struct sockaddr_in sockaddr;
-#ifdef __WINDOWS__
-  int alen = sizeof(sockaddr);
-#else
+{ struct sockaddr_storage sockaddr;
   socklen_t alen = sizeof(sockaddr);
-#endif
   nbio_sock_t socket;
   int flags = 0;
   char smallbuf[UDP_DEFAULT_BUFSIZE];
@@ -530,7 +546,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   }
 
   if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(From, &sockaddr, &varport) )
+       !nbio_get_sockaddr(socket, From, &sockaddr, &varport) )
     return FALSE;
 
   if ( bufsize > UDP_DEFAULT_BUFSIZE )
@@ -566,12 +582,8 @@ out:
 
 static foreign_t
 udp_send(term_t Socket, term_t Data, term_t To, term_t options)
-{ struct sockaddr_in sockaddr;
-#ifdef __WINDOWS__
+{ struct sockaddr_storage sockaddr;
   int alen = sizeof(sockaddr);
-#else
-  int alen = sizeof(sockaddr);
-#endif
   nbio_sock_t socket;
   int flags = 0L;
   char *data;
@@ -620,7 +632,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
     return FALSE;
 
   if ( !tcp_get_socket(Socket, &socket) ||
-       !nbio_get_sockaddr(To, &sockaddr, NULL) )
+       !nbio_get_sockaddr(socket, To, &sockaddr, NULL) )
     return FALSE;
 
   if ( (n=nbio_sendto(socket, data,
@@ -777,7 +789,7 @@ af_unix_bind(nbio_sock_t sock, term_t Address)
 static foreign_t
 pl_connect(term_t Socket, term_t Address)
 { nbio_sock_t sock;
-  struct sockaddr_in sockaddr;
+  struct sockaddr_storage sockaddr;
   int rc;
 
   if ( !tcp_get_socket(Socket, &sock) )
@@ -786,7 +798,7 @@ pl_connect(term_t Socket, term_t Address)
   if ( (rc=af_unix_connect(sock, Address)) != -1 )
     return rc;
 
-  if ( !nbio_get_sockaddr(Address, &sockaddr, NULL) )
+  if ( !nbio_get_sockaddr(sock, Address, &sockaddr, NULL) )
     return FALSE;
 
   if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) == 0 )
@@ -807,11 +819,11 @@ pl_bind(term_t Socket, term_t Address)
   if ( (rc=af_unix_bind(socket, Address)) != -1 )
   { return rc;
   } else
-  { struct sockaddr_in sockaddr;
+  { struct sockaddr_storage sockaddr;
     term_t varport = 0;
 
     memset(&sockaddr, 0, sizeof(sockaddr));
-    if ( !nbio_get_sockaddr(Address, &sockaddr, &varport) )
+    if ( !nbio_get_sockaddr(socket, Address, &sockaddr, &varport) )
       return FALSE;
 
     if ( nbio_bind(socket, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0 )
