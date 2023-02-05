@@ -81,26 +81,31 @@
 #define ip_mreqn ip_mreq
 #endif
 
-static atom_t ATOM_reuseaddr;		/* "reuseaddr" */
-static atom_t ATOM_bindtodevice;	/* "bindtodevice" */
-static atom_t ATOM_broadcast;		/* "broadcast" */
-static atom_t ATOM_nodelay;		/* "nodelay" */
-static atom_t ATOM_dispatch;		/* "dispatch" */
-static atom_t ATOM_encoding;		/* "encoding" */
-static atom_t ATOM_nonblock;		/* "nonblock" */
-static atom_t ATOM_infinite;		/* "infinite" */
-static atom_t ATOM_as;			/* "as" */
-static atom_t ATOM_atom;		/* "atom" */
-static atom_t ATOM_string;		/* "string" */
-static atom_t ATOM_codes;		/* "codes" */
-static atom_t ATOM_term;		/* "term" */
-static atom_t ATOM_max_message_size;    /* "message_size" */
-static atom_t ATOM_file_no;		/* "file_no" */
-static atom_t ATOM_ip_add_membership;	/* "ip_add_membership" */
-static atom_t ATOM_ip_drop_membership;	/* "ip_drop_membership" */
-static atom_t ATOM_sndbuf;	        /* "sndbuf" */
-static atom_t ATOM_af_unix;		/* "af_unix" */
-static functor_t FUNCTOR_socket1;	/* $socket(Id) */
+static atom_t ATOM_af_unix;
+static atom_t ATOM_as;
+static atom_t ATOM_atom;
+static atom_t ATOM_bindtodevice;
+static atom_t ATOM_broadcast;
+static atom_t ATOM_codes;
+static atom_t ATOM_dgram;
+static atom_t ATOM_dispatch;
+static atom_t ATOM_encoding;
+static atom_t ATOM_file_no;
+static atom_t ATOM_inet6;
+static atom_t ATOM_inet;
+static atom_t ATOM_infinite;
+static atom_t ATOM_ip_add_membership;
+static atom_t ATOM_ip_drop_membership;
+static atom_t ATOM_local;
+static atom_t ATOM_max_message_size;
+static atom_t ATOM_nodelay;
+static atom_t ATOM_nonblock;
+static atom_t ATOM_reuseaddr;
+static atom_t ATOM_sndbuf;
+static atom_t ATOM_stream;
+static atom_t ATOM_string;
+static atom_t ATOM_term;
+static atom_t ATOM_unix;
 
 static int get_socket_from_stream(term_t t, IOSTREAM **s, nbio_sock_t *sp);
 
@@ -326,7 +331,7 @@ pl_setopt(term_t Socket, term_t opt)
     { struct ip_mreqn mreq;
       term_t arg = PL_new_term_ref();
       int opname = (a == ATOM_ip_add_membership) ? IP_ADD_MEMBERSHIP
-					         : IP_DROP_MEMBERSHIP;
+						 : IP_DROP_MEMBERSHIP;
 
       _PL_get_arg(1, opt, arg);
       memset(&mreq, 0, sizeof(mreq));
@@ -631,9 +636,59 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 		 *	PROLOG CONNECTION	*
 		 *******************************/
 
+static int
+atom_domain_error(const char *domain, atom_t a)
+{ term_t t;
+
+  return ( (t=PL_new_term_ref()) &&
+	   PL_put_atom(t, a) &&
+	   PL_domain_error(domain, t) );
+}
+
+
+static PL_option_t socket_options[] =
+{ PL_OPTION("domain",   OPT_ATOM),
+  PL_OPTION("type",	OPT_ATOM),
+  PL_OPTIONS_END
+};
+
 
 static foreign_t
-create_socket(int domain, term_t socket, int type)
+socket_create(term_t socket, term_t options)
+{ atom_t a_domain = ATOM_inet;
+  atom_t a_type   = ATOM_stream;
+  int domain;
+  int type;
+  nbio_sock_t sock;
+
+  if ( !PL_scan_options(options, 0, "socket_options", socket_options,
+                        &a_domain, &a_type) )
+    return FALSE;
+
+  if ( a_domain == ATOM_inet )
+    domain = AF_INET;
+  else if ( a_domain == ATOM_inet6 )
+    domain = AF_INET6;
+  else if ( a_domain == ATOM_unix || a_domain == ATOM_local )
+    domain = AF_UNIX;
+  else
+    return atom_domain_error("socket_domain", a_domain);
+
+  if ( a_type == ATOM_stream )
+    type = SOCK_STREAM;
+  else if ( a_type == ATOM_dgram )
+    type = SOCK_DGRAM;
+  else
+    return atom_domain_error("socket_type", a_type);
+
+  if ( !(sock = nbio_socket(domain, type, 0)) )
+    return FALSE;
+
+  return tcp_unify_socket(socket, sock);
+}
+
+static foreign_t
+create_socket(int domain, int type, term_t socket)
 { nbio_sock_t sock;
 
   if ( !(sock = nbio_socket(domain, type, 0)) )
@@ -645,20 +700,20 @@ create_socket(int domain, term_t socket, int type)
 
 static foreign_t
 tcp_socket(term_t socket)
-{ return create_socket(AF_INET, socket, SOCK_STREAM);
+{ return create_socket(AF_INET, SOCK_STREAM, socket);
 }
 
 
 static foreign_t
 udp_socket(term_t socket)
-{ return create_socket(AF_INET, socket, SOCK_DGRAM);
+{ return create_socket(AF_INET, SOCK_DGRAM, socket);
 }
 
 
 #ifdef AF_UNIX
 static foreign_t
 unix_domain_socket(term_t socket)
-{ return create_socket(AF_UNIX, socket, SOCK_STREAM);
+{ return create_socket(AF_UNIX, SOCK_STREAM, socket);
 }
 
 static int
@@ -861,31 +916,37 @@ pl_debug(term_t val)
 }
 #endif
 
+#define MKATOM(n) ATOM_ ## n = PL_new_atom(#n);
+
 install_t
 install_socket(void)
 { nbio_init("socket");
 
-  ATOM_reuseaddr          = PL_new_atom("reuseaddr");
-  ATOM_bindtodevice       = PL_new_atom("bindtodevice");
-  ATOM_broadcast          = PL_new_atom("broadcast");
-  ATOM_nodelay	          = PL_new_atom("nodelay");
-  ATOM_dispatch	          = PL_new_atom("dispatch");
-  ATOM_nonblock	          = PL_new_atom("nonblock");
-  ATOM_infinite	          = PL_new_atom("infinite");
-  ATOM_as	          = PL_new_atom("as");
-  ATOM_atom	          = PL_new_atom("atom");
-  ATOM_string	          = PL_new_atom("string");
-  ATOM_codes	          = PL_new_atom("codes");
-  ATOM_term	          = PL_new_atom("term");
-  ATOM_max_message_size   = PL_new_atom("max_message_size");
-  ATOM_file_no		  = PL_new_atom("file_no");
-  ATOM_ip_add_membership  = PL_new_atom("ip_add_membership");
-  ATOM_ip_drop_membership = PL_new_atom("ip_drop_membership");
-  ATOM_sndbuf             = PL_new_atom("sndbuf");
-  ATOM_af_unix            = PL_new_atom("af_unix");
-  ATOM_encoding           = PL_new_atom("encoding");
-
-  FUNCTOR_socket1 = PL_new_functor(PL_new_atom("$socket"), 1);
+  MKATOM(af_unix);
+  MKATOM(as);
+  MKATOM(atom);
+  MKATOM(bindtodevice);
+  MKATOM(broadcast);
+  MKATOM(codes);
+  MKATOM(dgram);
+  MKATOM(dispatch);
+  MKATOM(encoding);
+  MKATOM(file_no);
+  MKATOM(inet);
+  MKATOM(inet6);
+  MKATOM(infinite);
+  MKATOM(ip_add_membership);
+  MKATOM(ip_drop_membership);
+  MKATOM(local);
+  MKATOM(max_message_size);
+  MKATOM(nodelay);
+  MKATOM(nonblock);
+  MKATOM(reuseaddr);
+  MKATOM(sndbuf);
+  MKATOM(stream);
+  MKATOM(string);
+  MKATOM(term);
+  MKATOM(unix);
 
   PL_register_foreign("tcp_accept",           3, pl_accept,           0);
   PL_register_foreign("tcp_bind",             2, pl_bind,             0);
@@ -899,6 +960,7 @@ install_socket(void)
   PL_register_foreign("tcp_host_to_address",  2, pl_host_to_address,  0);
   PL_register_foreign("gethostname",          1, pl_gethostname,      0);
 
+  PL_register_foreign("socket_create",        2, socket_create,       0);
   PL_register_foreign("udp_socket",           1, udp_socket,          0);
   PL_register_foreign("udp_receive",	      4, udp_receive,	      0);
   PL_register_foreign("udp_send",	      4, udp_send,	      0);
