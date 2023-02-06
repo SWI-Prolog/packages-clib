@@ -1245,7 +1245,7 @@ nbio_get_ip6(term_t ip8, struct in6_addr *ip)
     for(int i=1; i<=8; i++)
     { _PL_get_arg(i, ip8, a);
       if ( PL_cvt_i_ushort(a, &ia) )
-      { ip->s6_addr16[i] = ia;
+      { ip->s6_addr16[i-1] = htons(ia);
       } else
 	return FALSE;
     }
@@ -1293,18 +1293,20 @@ nbio_unify_ip4(term_t Ip, uint32_t hip)
 }
 
 
+#define NSHORTARG(i) PL_INT, ntohs(i)
+
 static int
 nbio_unify_ip6(term_t t, struct in6_addr *addr)
 { return PL_unify_term(t,
 		       PL_FUNCTOR, FUNCTOR_ip8,
-			 IntArg(addr->s6_addr16[0]),
-			 IntArg(addr->s6_addr16[1]),
-			 IntArg(addr->s6_addr16[2]),
-			 IntArg(addr->s6_addr16[3]),
-			 IntArg(addr->s6_addr16[4]),
-			 IntArg(addr->s6_addr16[5]),
-			 IntArg(addr->s6_addr16[6]),
-			 IntArg(addr->s6_addr16[7]));
+			 NSHORTARG(addr->s6_addr16[0]),
+			 NSHORTARG(addr->s6_addr16[1]),
+			 NSHORTARG(addr->s6_addr16[2]),
+			 NSHORTARG(addr->s6_addr16[3]),
+			 NSHORTARG(addr->s6_addr16[4]),
+			 NSHORTARG(addr->s6_addr16[5]),
+			 NSHORTARG(addr->s6_addr16[6]),
+			 NSHORTARG(addr->s6_addr16[7]));
 }
 
 
