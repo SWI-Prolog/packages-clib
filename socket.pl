@@ -896,6 +896,7 @@ ip_to_name(IP, Atom) :-
     !,
     IP =.. [ip|Parts],
     (   zero_seq(Parts, Pre, Post, Len),
+        Len > 1,
         \+ ( zero_seq(Post, _, _, Len2),
 	     Len2 > Len
 	   )
