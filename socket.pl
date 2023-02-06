@@ -41,7 +41,7 @@
             tcp_close_socket/1,         % +Socket
             tcp_open_socket/3,          % +Socket, -Read, -Write
             tcp_connect/2,              % +Socket, +Address
-            tcp_connect/3,              % +Socket, +Address, -StreamPair
+            tcp_connect/3,              % +Address, -StreamPair, +Options
             tcp_connect/4,              % +Socket, +Address, -Read, -Write)
             tcp_bind/2,                 % +Socket, +Address
             tcp_accept/3,               % +Master, -Slave, -PeerName
@@ -204,7 +204,8 @@ representation and the above defined address terms.
 
 :- predicate_options(tcp_connect/3, 3,
                      [ bypass_proxy(boolean),
-                       nodelay(boolean)
+                       nodelay(boolean),
+                       domain(oneof([inet,inet6]))
                      ]).
 
 :- use_foreign_library(foreign(socket)).
@@ -407,7 +408,8 @@ tcp_connect(Socket, Address, Read, Write) :-
 %        resulting socket using tcp_setopt(Socket, nodelay)
 %
 %      * domain(+Domain)
-%        One of `inet` (default) or `inet6`.
+%        One of `inet' or `inet6`.  When omitted we use host_address/2
+%        with type(stream) and try the returned addresses in order.
 %
 %   The +,+,- mode is  deprecated  and   does  not  support  proxies. It
 %   behaves  like  tcp_connect/4,  but  creates    a  stream  pair  (see
@@ -452,21 +454,40 @@ tcp_connect(Socket, Address, StreamPair) :-
     !,
     StreamPair = StreamPair0.
 tcp_connect(Socket, Address, StreamPair) :-
-    tcp_connect(Socket, Address, Read, Write),
-    stream_pair(StreamPair, Read, Write).
-
+    connect_stream_pair(Socket, Address, StreamPair).
 
 :- public tcp_connect_direct/3.   % used by HTTP proxy code.
 tcp_connect_direct(Address, Socket, StreamPair) :-
     tcp_connect_direct(Address, Socket, StreamPair, []).
 
+tcp_connect_direct(Host:Port, Socket, StreamPair, Options) :-
+    \+ option(domain(_), Options),
+    host_address(Host, Address, [type(stream)]),
+    socket_create(Socket, [domain(Address.domain)]),
+    E = error(_,_),
+    catch(connect_or_discard_socket(Socket, Address.address:Port,
+				    StreamPair),
+	  E, fail),
+    debug(socket, '~p: connected to ~p', [Host, Address.address]),
+    !.
 tcp_connect_direct(Address, Socket, StreamPair, Options) :-
     make_socket(Address, Socket, Options),
-    catch(tcp_connect(Socket, Address, StreamPair),
-          Error,
-          ( tcp_close_socket(Socket),
-            throw(Error)
-          )).
+    connect_or_discard_socket(Socket, Address, StreamPair).
+
+connect_or_discard_socket(Socket, Address, StreamPair) :-
+    setup_call_catcher_cleanup(
+	true,
+	connect_stream_pair(Socket, Address, StreamPair),
+	Catcher, cleanup(Catcher, Socket)).
+
+cleanup(exit, _) :- !.
+cleanup(_, Socket) :-
+    tcp_close_socket(Socket).
+
+connect_stream_pair(Socket, Address, StreamPair) :-
+    tcp_connect(Socket, Address, Read, Write),
+    stream_pair(StreamPair, Read, Write).
+
 
 :- if(current_predicate(unix_domain_socket/1)).
 make_socket(Address, Socket, _Options) :-
