@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2022, University of Amsterdam
+    Copyright (c)  2008-2023, University of Amsterdam
                               VU University Amsterdam
                               SWI-Prolog Solutions b.v.
     All rights reserved.
@@ -42,10 +42,12 @@
 :- use_module(library(socket)).
 :- use_module(library(streampool)).
 :- use_module(library(debug)).
+:- use_module(library(plunit)).
 
 test_socket :-
     test_udp,
-    test_tcp.
+    test_tcp,
+    run_tests([ip_name]).
 
 test_tcp :-
     make_server(Port, Socket),
@@ -304,3 +306,21 @@ blocked(Reason) :-
     throw(blocked(Reason)).
 
 
+:- begin_tests(ip_name).
+
+term_expansion(
+    ip(Name, IP),
+    [ (test(ip_name, N == Name) :- ip_name(IP, N)),
+      (test(ip_name, I == IP)   :- ip_name(I, Name))
+    ]).
+
+ip('1.2.3.4',      ip(1,2,3,4)).
+ip('::',           ip(0,0,0,0,0,0,0,0)).
+ip('1::',          ip(1,0,0,0,0,0,0,0)).
+ip('::2',          ip(0,0,0,0,0,0,0,2)).
+ip('1::2',         ip(1,0,0,0,0,0,0,2)).
+ip('1::3:0:0:2',   ip(1,0,0,0,3,0,0,2)).
+ip('1::3:4:0:0:2', ip(1,0,0,3,4,0,0,2)).
+ip('abcd::',       ip(43981,0,0,0,0,0,0,0)).
+
+:- end_tests(ip_name).
