@@ -1267,7 +1267,7 @@ nbio_get_ip(int domain, term_t Ip, struct sockaddr_storage *storage)
 
 
 int
-nbio_unify_ip4(term_t Ip, unsigned long hip)
+nbio_unify_ip4(term_t Ip, uint32_t hip)
 { return PL_unify_term(Ip,
 		       PL_FUNCTOR, FUNCTOR_ip4,
 			 IntArg((hip >> 24) & 0xff),
@@ -1276,6 +1276,38 @@ nbio_unify_ip4(term_t Ip, unsigned long hip)
 			 IntArg((hip >>  0) & 0xff));
 }
 
+
+static int
+nbio_unify_ip6(term_t t, struct in6_addr *addr)
+{ return PL_unify_term(t,
+		       PL_FUNCTOR, FUNCTOR_ip8,
+			 IntArg(addr->s6_addr16[0]),
+			 IntArg(addr->s6_addr16[1]),
+			 IntArg(addr->s6_addr16[2]),
+			 IntArg(addr->s6_addr16[3]),
+			 IntArg(addr->s6_addr16[4]),
+			 IntArg(addr->s6_addr16[5]),
+			 IntArg(addr->s6_addr16[6]),
+			 IntArg(addr->s6_addr16[7]));
+}
+
+
+int
+nbio_unify_addr(term_t t, struct sockaddr *addr)
+{ switch( addr->sa_family )
+  { case AF_INET:
+    { struct sockaddr_in *addr4 = (struct sockaddr_in*)addr;
+      return nbio_unify_ip4(t, ntohl(addr4->sin_addr.s_addr));
+    }
+    case AF_INET6:
+    { struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)addr;
+      return nbio_unify_ip6(t, &addr6->sin6_addr);
+    }
+    default:
+      assert(0);
+      return FALSE;
+  }
+}
 
 int
 nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, size_t addrlen)

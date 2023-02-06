@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2022, University of Amsterdam
+    Copyright (c)  2000-2023, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -49,6 +49,7 @@
             tcp_fcntl/3,                % +Socket, +Command, ?Arg
             tcp_setopt/2,               % +Socket, +Option
             tcp_getopt/2,               % +Socket, ?Option
+	    host_address/3,		% ?HostName, ?Address, +Options
             tcp_host_to_address/2,      % ?HostName, ?Ip-nr
             tcp_select/3,               % +Inputs, -Ready, +Timeout
             gethostname/1,              % -HostName
@@ -625,6 +626,41 @@ tcp_fcntl(Socket, setfl, nonblock) :-
 %     Get the OS file handle as an integer.  This may be used for
 %     debugging and integration.
 
+%!  host_address(+HostName, -Address, +Options) is nondet.
+%!  host_address(-HostName, +Address, +Options) is det.
+%
+%   Translate  between a  machines  host-name  and it's  (IP-)address.
+%   Supported options:
+%
+%     - domain(+Domain)
+%       One of `inet` or `inet6` to limit the results to the given
+%       family.
+%     - type(+Type)
+%       One of `stream` or `dgram`.
+%     - canonname(+Boolean)
+%       If `true` (default `false`), return the canonical host name
+%       in the frist answer
+%
+%   In mode (+,-,+) Address is unified to a dict with the following keys:
+%
+%     - address
+%       A Prolog terms describing the ip address.
+%     - domain
+%       One of `inet` or `inet6`.  The underlying getaddrinfo() calls
+%       this `family`.  We use `domain` for consistency with
+%       socket_create/2.
+%     - `type`
+%       Currently one of `stream` or `dgram`.
+%     - `host`
+%       Available if canonname(true) is specified on the first
+%       returned address.  Holds the official canonical host name.
+
+host_address(HostName, Address, Options), ground(HostName) =>
+    '$host_address'(HostName, Addresses, Options),
+    member(Address, Addresses).
+host_address(HostName, Address, Options), ground(Address) =>
+    '$host_address'(HostName, Address, Options).
+
 %!  tcp_host_to_address(?HostName, ?Address) is det.
 %
 %   Translate between a machines host-name and it's (IP-)address. If
@@ -637,6 +673,13 @@ tcp_fcntl(Socket, setfl, nonblock) :-
 %
 %   @tbd This function should support more functionality provided by
 %   gethostbyaddr, probably by adding an option-list.
+
+tcp_host_to_address(Host, Address), ground(Address) =>
+    host_address(Host, Address, []).
+tcp_host_to_address(Host, Address), ground(Host) =>
+    host_address(Host, [Dict|_], [domain(inet)]),
+    Address = Dict.address.
+
 
 %!  gethostname(-Hostname) is det.
 %

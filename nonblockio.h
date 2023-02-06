@@ -171,7 +171,8 @@ extern int	nbio_wait(nbio_sock_t socket, nbio_request);
 extern SOCKET	nbio_fd(nbio_sock_t socket);
 extern int	nbio_domain(nbio_sock_t socket);
 
-extern int	nbio_unify_ip4(term_t ip4, unsigned long hip);
+extern int	nbio_unify_addr(term_t ip4, struct sockaddr *addr);
+extern int	nbio_unify_ip4(term_t ip4, uint32_t hip);
 extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip);
 extern int	nbio_get_ip(int domain, term_t ip4, struct sockaddr_storage *ip);
 
