@@ -173,7 +173,7 @@ extern int	nbio_domain(nbio_sock_t socket);
 
 extern int	nbio_unify_addr(term_t ip4, struct sockaddr *addr);
 extern int	nbio_unify_ip4(term_t ip4, uint32_t hip);
-extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip);
+extern int	nbio_get_ip4(term_t ip4, struct in_addr *ip, int error);
 extern int	nbio_get_ip(int domain, term_t ip4, struct sockaddr_storage *ip);
 
 extern int	nbio_error(int code, nbio_error_map map);

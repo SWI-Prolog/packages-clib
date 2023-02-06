@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2022, University of Amsterdam
+    Copyright (c)  2000-2023, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
 			      SWI-Prolog Solutions b.v.
@@ -430,11 +430,11 @@ pl_setopt(term_t Socket, term_t opt)
 
       _PL_get_arg(1, opt, arg);
       memset(&mreq, 0, sizeof(mreq));
-      if ( !nbio_get_ip4(arg, &mreq.imr_multiaddr) )
+      if ( !nbio_get_ip4(arg, &mreq.imr_multiaddr, TRUE) )
 	return PL_domain_error("ip", arg);
       if ( arity >= 2 )
       { _PL_get_arg(2, opt, arg);
-	if ( !nbio_get_ip4(arg, &mreq.imr_address) )
+	if ( !nbio_get_ip4(arg, &mreq.imr_address, TRUE) )
 	  return PL_domain_error("ip", arg);
       } else
 	mreq.imr_address.s_addr = htonl(INADDR_ANY);
@@ -768,8 +768,10 @@ socket_create(term_t socket, term_t options)
     domain = AF_INET;
   else if ( a_domain == ATOM_inet6 )
     domain = AF_INET6;
+#ifdef AF_UNIX
   else if ( a_domain == ATOM_unix || a_domain == ATOM_local )
     domain = AF_UNIX;
+#endif
   else
     return atom_domain_error("socket_domain", a_domain);
 

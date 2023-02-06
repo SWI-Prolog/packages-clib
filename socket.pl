@@ -36,7 +36,7 @@
 */
 
 :- module(socket,
-          [ socket_create/2,	% -Socket, +Options
+          [ socket_create/2,		% -Socket, +Options
 	    tcp_socket/1,               % -Socket
             tcp_close_socket/1,         % +Socket
             tcp_open_socket/3,          % +Socket, -Read, -Write
@@ -658,6 +658,8 @@ tcp_fcntl(Socket, setfl, nonblock) :-
 host_address(HostName, Address, Options), ground(HostName) =>
     '$host_address'(HostName, Addresses, Options),
     member(Address, Addresses).
+host_address(HostName, Address, Options), is_dict(Address) =>
+    '$host_address'(HostName, Address.address, Options).
 host_address(HostName, Address, Options), ground(Address) =>
     '$host_address'(HostName, Address, Options).
 
@@ -677,7 +679,7 @@ host_address(HostName, Address, Options), ground(Address) =>
 tcp_host_to_address(Host, Address), ground(Address) =>
     host_address(Host, Address, []).
 tcp_host_to_address(Host, Address), ground(Host) =>
-    host_address(Host, [Dict|_], [domain(inet)]),
+    host_address(Host, [Dict|_], [domain(inet), type(stream)]),
     Address = Dict.address.
 
 
