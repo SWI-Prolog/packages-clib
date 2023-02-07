@@ -889,11 +889,15 @@ name_to_ip(Atom, _) :-
     syntax_error(ip_address(Atom)).
 
 clean_ends([""|T0], T) :-
-    append(T, [""], T0),
-    !.
+    !,
+    (   append(T1, [""], T0)
+    ->  T = T1
+    ;   T = T0
+    ).
 clean_ends(T0, T) :-
-    append(T, [""], T0),
-    !.
+    append(T1, [""], T0),
+    !,
+    T = T1.
 clean_ends(T, T).
 
 string_byte(String, Byte) :-
