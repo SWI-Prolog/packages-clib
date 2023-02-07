@@ -64,12 +64,12 @@
 
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
           ]).
-:- autoload(library(debug), [debug/3]).
+:- autoload(library(debug), [assertion/1, debug/3]).
 :- autoload(library(lists), [last/2, member/2, append/3, append/2]).
 :- autoload(library(apply), [maplist/3, maplist/2]).
 :- autoload(library(error),
             [instantiation_error/1, syntax_error/1, must_be/2, domain_error/2]).
-:- autoload(library(option), [option/3]).
+:- autoload(library(option), [option/2, option/3]).
 
 /** <module> Network socket (TCP and UDP) library
 
@@ -460,16 +460,29 @@ tcp_connect(Socket, Address, StreamPair) :-
 tcp_connect_direct(Address, Socket, StreamPair) :-
     tcp_connect_direct(Address, Socket, StreamPair, []).
 
+%!  tcp_connect_direct(+Address, +Socket, -StreamPair, +Options) is det.
+%
+%   Make a direct connection to a TCP address, i.e., do not take proxy
+%   rules into  account.  If  no explicit  domain (`inet`,  `inet6` is
+%   given,  perform  a  getaddrinfo()  call  to  obtain  the  relevant
+%   addresses.
+
 tcp_connect_direct(Host:Port, Socket, StreamPair, Options) :-
     \+ option(domain(_), Options),
-    host_address(Host, Address, [type(stream)]),
-    socket_create(Socket, [domain(Address.domain)]),
-    E = error(_,_),
-    catch(connect_or_discard_socket(Socket, Address.address:Port,
-				    StreamPair),
-	  E, fail),
-    debug(socket, '~p: connected to ~p', [Host, Address.address]),
-    !.
+    !,
+    State = error(_),
+    (   host_address(Host, Address, [type(stream)]),
+	socket_create(Socket, [domain(Address.domain)]),
+	E = error(_,_),
+	catch(connect_or_discard_socket(Socket, Address.address:Port,
+					StreamPair),
+	      E, store_error_and_fail(State, E)),
+	debug(socket, '~p: connected to ~p', [Host, Address.address])
+    ->  true
+    ;   arg(1, State, Error),
+	assertion(nonvar(Error)),
+	throw(Error)
+    ).
 tcp_connect_direct(Address, Socket, StreamPair, Options) :-
     make_socket(Address, Socket, Options),
     connect_or_discard_socket(Socket, Address, StreamPair).
@@ -488,6 +501,11 @@ connect_stream_pair(Socket, Address, StreamPair) :-
     tcp_connect(Socket, Address, Read, Write),
     stream_pair(StreamPair, Read, Write).
 
+store_error_and_fail(State, E) :-
+    arg(1, State, E0),
+    var(E0),
+    nb_setarg(1, State, E),
+    fail.
 
 :- if(current_predicate(unix_domain_socket/1)).
 make_socket(Address, Socket, _Options) :-
