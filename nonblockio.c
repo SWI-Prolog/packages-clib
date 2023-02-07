@@ -169,8 +169,15 @@ leave the details to this function.
 #define SOCKET_ERROR (-1)
 #endif
 
-#if !defined(s6_addr16) && defined(s6_words)
+/* Everybody seems to defined `struct in6_addr` in a different way ...
+ */
+
+#ifndef s6_addr16
+#if defined(s6_words)
 #define s6_addr16 s6_words
+#elif defined(__APPLE__)
+#define s6_addr16 __u6_addr.__u6_addr16
+#endif
 #endif
 
 #define set(s, f)   ((s)->flags |= (f))
