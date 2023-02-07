@@ -219,8 +219,17 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %!  uri_authority_components(+Authority, -Components) is det.
 %!  uri_authority_components(-Authority, +Components) is det.
 %
-%   Break-down the authority component of a   URI. The fields of the
-%   structure Components can be accessed using uri_authority_data/3.
+%   Break-down the  authority component of  a URI.  The fields  of the
+%   structure Components  can be accessed  using uri_authority_data/3.
+%   This  predicate deals  with  IPv6 addresses  written as  ``[ip]``,
+%   returning the  _ip_ as `host`,  without the enclosing  `[]`.  When
+%   constructing an  authority string and  the host contains  `:`, the
+%   host is  embraced in  `[]`.  If  `[]` is  not used  correctly, the
+%   behavior  should be  considered poorly  defined.  If  there is  no
+%   balancing  `]` or  the  host part  does not  end  with `]`,  these
+%   characters  are  considered  normal  characters and  part  of  the
+%   (invalid) host name.
+
 
 %!  uri_authority_data(+Field, ?Components, ?Data) is semidet.
 %

@@ -148,9 +148,30 @@ test(break, [User,Pwd,Host,Port] == [jan,xxx,'swi-prolog.org', 3040]) :-
     uri_authority_data(password, C, Pwd),
     uri_authority_data(host, C, Host),
     uri_authority_data(port, C, Port).
+test(break, [User,Host,Port] == [jan,'::1', 3040]) :-
+    uri_authority_components('jan@[::1]:3040', C),
+    uri_authority_data(user, C, User),
+    uri_authority_data(host, C, Host),
+    uri_authority_data(port, C, Port).
+test(break, [User,Host,Port] == [jan,'[::1]ex', 3040]) :-
+    uri_authority_components('jan@[::1]ex:3040', C),
+    uri_authority_data(user, C, User),
+    uri_authority_data(host, C, Host),
+    uri_authority_data(port, C, Port).
+test(break, [User,Host] == [jan,'::1']) :-
+    uri_authority_components('jan@[::1]', C),
+    uri_authority_data(user, C, User),
+    uri_authority_data(host, C, Host),
+    uri_authority_data(port, C, Port),
+    assertion(var(Port)).
 test(construct, Auth == 'jan@swi-prolog.org:3040') :-
     uri_authority_data(user, C, jan),
     uri_authority_data(host, C, 'swi-prolog.org'),
+    uri_authority_data(port, C, 3040),
+    uri_authority_components(Auth, C).
+test(construct, Auth == 'jan@[::1]:3040') :-
+    uri_authority_data(user, C, jan),
+    uri_authority_data(host, C, '::1'),
     uri_authority_data(port, C, 3040),
     uri_authority_components(Auth, C).
 

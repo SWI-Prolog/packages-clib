@@ -1057,12 +1057,31 @@ unify_uri_authority_components(term_t components,
     }
   }
   host.start = s;
+  if ( *s == '[' )
+  { host.end = skip_not(s+1, end, L"]");
+    if ( host.end == end )	/* No "]" */
+      goto no_ipv6;
+    if ( host.end == end-1 )	/* ends with "]" */
+    { host.start++;
+      goto done;
+    }
+    if ( host.end+1 < end && host.end[1] == ':' )
+    { host.start++;
+      port.start = host.end+2;
+      port.end = end;
+      goto done;
+    }
+    s = host.end;
+  }
+
+no_ipv6:
   host.end = skip_not(s, end, L":");
   if ( host.end < end )
   { port.start = host.end+1;
     port.end = end;
   }
 
+done:
   if ( user.start )
     unify_decoded_atom(av+0, &user, ESC_USER);
   if ( passwd.start )
@@ -1101,6 +1120,7 @@ uri_authority_components(term_t Authority, term_t components)
     int rc;
 
     init_charbuf(&b);
+    /* user[:password] */
     if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == TRUE )
     { add_nchars_charbuf(&b, len, s);
       if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == TRUE )
@@ -1115,12 +1135,20 @@ uri_authority_components(term_t Authority, term_t components)
     { free_charbuf(&b);
       return FALSE;
     }
+    /* host */
     if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == TRUE )
-    { add_nchars_charbuf(&b, len, s);
+    { if ( wcschr(s, ':') )
+      { add_charbuf(&b, '[');
+	add_nchars_charbuf(&b, len, s);
+	add_charbuf(&b, ']');
+      } else
+      { add_nchars_charbuf(&b, len, s);
+      }
     } else if ( rc == -1 )
     { free_charbuf(&b);
       return FALSE;
     }
+    /* port */
     if ( (rc=get_text_arg(components, 4, &len, &s,
 			  TXT_EX_TEXT|CVT_INTEGER)) == TRUE )
     { add_charbuf(&b, ':');
