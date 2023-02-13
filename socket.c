@@ -509,10 +509,12 @@ sizeof_sockaddr(struct sockaddr_storage *sockaddr)
       return sizeof(struct sockaddr_in);
     case AF_INET6:
       return sizeof(struct sockaddr_in6);
+#ifdef AF_UNIX
     case AF_UNIX:
     { struct sockaddr_un *a = (struct sockaddr_un*)sockaddr;
       return offsetof(struct sockaddr_un, sun_path) + strlen(a->sun_path) + 1;
     }
+#endif
     default:
       assert(0);
       return 0;
