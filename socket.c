@@ -502,6 +502,23 @@ pl_getopt(term_t Socket, term_t opt)
 
 #include "sockcommon.c"
 
+static socklen_t
+sizeof_sockaddr(struct sockaddr_storage *sockaddr)
+{ switch(sockaddr->ss_family)
+  { case AF_INET:
+      return sizeof(struct sockaddr_in);
+    case AF_INET6:
+      return sizeof(struct sockaddr_in6);
+    case AF_UNIX:
+    { struct sockaddr_un *a = (struct sockaddr_un*)sockaddr;
+      return offsetof(struct sockaddr_un, sun_path) + strlen(a->sun_path) + 1;
+    }
+    default:
+      assert(0);
+      return 0;
+  }
+}
+
 		 /*******************************
 		 *	    UDP SOCKETS		*
 		 *******************************/
@@ -589,7 +606,7 @@ get_as(term_t arg, int *asp)
 static foreign_t
 udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 { struct sockaddr_storage sockaddr;
-  socklen_t alen = sizeof(sockaddr);
+  socklen_t alen;
   nbio_sock_t socket;
   int flags = 0;
   char smallbuf[UDP_DEFAULT_BUFSIZE];
@@ -670,7 +687,6 @@ out:
 static foreign_t
 udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 { struct sockaddr_storage sockaddr;
-  int alen = sizeof(sockaddr);
   nbio_sock_t socket;
   int flags = 0L;
   char *data;
@@ -725,7 +741,8 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
   if ( (n=nbio_sendto(socket, data,
 		      (int)dlen,
 		      flags,
-		      (struct sockaddr*)&sockaddr, alen)) == -1 )
+		      (struct sockaddr*)&sockaddr,
+		      sizeof_sockaddr(&sockaddr))) == -1 )
     return nbio_error(GET_ERRNO, TCP_ERRNO);;
 
   return TRUE;
@@ -890,7 +907,8 @@ pl_connect(term_t Socket, term_t Address)
   if ( !nbio_get_sockaddr(sock, Address, &sockaddr, NULL) )
     return FALSE;
 
-  if ( nbio_connect(sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) == 0 )
+  if ( nbio_connect(sock, (struct sockaddr*)&sockaddr,
+		    sizeof_sockaddr(&sockaddr)) == 0 )
     return TRUE;
 
   return FALSE;
@@ -915,7 +933,8 @@ pl_bind(term_t Socket, term_t Address)
     if ( !nbio_get_sockaddr(socket, Address, &sockaddr, &varport) )
       return FALSE;
 
-    if ( nbio_bind(socket, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0 )
+    if ( nbio_bind(socket, (struct sockaddr*)&sockaddr,
+		   sizeof_sockaddr(&sockaddr)) < 0 )
       return FALSE;
 
     if ( varport )
