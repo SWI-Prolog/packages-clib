@@ -58,6 +58,9 @@ test(string, Got == got(String)) :-
     trip(String, Got, [as(string),encoding(utf8)]).
 test(string, Got == got(hello(world))) :-
     trip(hello(world), Got, [as(term)]).
+test(string, Got == got(Term)) :-
+    Term = 'hel\\o',
+    trip(Term, Got, [as(term)]).
 test(string, Got == got(hello(String))) :-
     numlist(0, 1000, Codes),
     string_codes(String, Codes),
