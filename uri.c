@@ -1355,8 +1355,9 @@ base_ranges(term_t t)
 }
 
 
-static foreign_t
-resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
+static int
+resolve_guarded(term_t Rel, term_t Base, term_t URI,
+		int unesc, int normalize, int iri)
 { pl_wchar_t *s;
   size_t slen;
   uri_component_ranges s_ranges, t_ranges;
@@ -1438,6 +1439,18 @@ resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
 
   return rc;
 }
+
+static int
+resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
+{ int rc;
+
+  PL_STRINGS_MARK();
+  rc = resolve_guarded(Rel, Base, URI, unesc, normalize, iri);
+  PL_STRINGS_RELEASE();
+
+  return rc;
+}
+
 
 /** uri_resolve(+Relative, +Base, -Absolute) is det.
 */
