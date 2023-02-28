@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2018, VU University Amsterdam
+    Copyright (c)  2009-2023, VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -36,6 +37,7 @@
           [ uri_components/2,           % ?URI, ?Components
             uri_data/3,                 % ?Field, +Components, ?Data
             uri_data/4,                 % +Field, +Components, -Data, -New
+	    uri_edit/3,			% +Actions,+URI0,-URI
 
             uri_normalized/2,           % +URI, -NormalizedURI
             iri_normalized/2,           % +IRI, -NormalizedIRI
@@ -48,11 +50,12 @@
             uri_query_components/2,     % ?QueryString, ?NameValueList
             uri_authority_components/2, % ?Authority, ?Components
             uri_authority_data/3,       % ?Field, ?Components, ?Data
-                                        % Encoding
+					% Encoding
             uri_encoded/3,              % +Component, ?Value, ?Encoded
             uri_file_name/2,            % ?URI, ?Path
             uri_iri/2                   % ?URI, ?IRI
-          ]).
+	  ]).
+:- autoload(library(error), [domain_error/2]).
 :- use_foreign_library(foreign(uri)).
 
 /** <module> Process URIs
@@ -321,6 +324,130 @@ delete_leading_slash(Path, WinPath) :-
     !.
 :- endif.
 delete_leading_slash(Path, Path).
+
+
+		 /*******************************
+		 *          MODIFYING           *
+		 *******************************/
+
+%!  uri_edit(+Actions, +URI0, -URI) is det.
+%
+%   Modify a  URI according  to Actions.  Actions  is either  a single
+%   action or a  (nested) list of actions.   Defined primitive actions
+%   are:
+%
+%     - scheme(+Scheme)
+%       Set the Scheme of the URI (typically `http`, `https`, etc.)
+%     - user(+User)
+%       Add/set the user of the authority component.
+%     - password(+Password)
+%       Add/set the password of the authority component.
+%     - host(+Host)
+%       Add/set the host (or ip address) of the authority component.
+%     - port(+Port)
+%       Add/set the port of the authority component.
+%     - path(+Path)
+%       Set/extend the `path` component.  If Path is not absolute it
+%       is taken relative to the path of URI0.
+%     - search(+KeyValues)
+%       Extend the `Key=Value` pairs of the current search (query)
+%       component.   New values replace existing values.  If KeyValues
+%       is written as =(KeyValues) the current search component is
+%       ignored.  KeyValues is a list, whose elements are one of
+%       `Key=Value`, `Key-Value` or `Key(Value)`.
+%     - fragment(+Fragment)
+%       Set the Fragment of the uri.
+%
+%   Components can be  _removed_ by using a variable  as value, except
+%   from `path` which  can be reset using path(/) and  query which can
+%   be dropped using query(=([])).
+%
+%   @arg URI0 is either a valid uri or a variable to start fresh.
+
+uri_edit(Actions, URI0, URI) :-
+    (   var(URI0)
+    ->  URI1 = '/'
+    ;   URI1 = URI0
+    ),
+    uri_components(URI1, Comp0),
+    edit_components(Actions, Comp0, Comp),
+    uri_components(URI, Comp).
+
+edit_components([], Comp0, Comp) =>
+    Comp = Comp0.
+edit_components([H|T], Comp0, Comp) =>
+    edit_components(H, Comp0, Comp1),
+    edit_components(T, Comp1, Comp).
+edit_components(scheme(Scheme), Comp0, Comp) =>
+    uri_data(scheme, Comp0, Scheme, Comp).
+edit_components(path(Path), Comp0, Comp) =>
+    uri_data(path, Comp0, Path0),
+    (   var(Path0)
+    ->  Path1 = '/'
+    ;   Path1 = Path0
+    ),
+    uri_normalized(Path, Path1, Path2),
+    uri_data(path, Comp0, Path2, Comp).
+edit_components(fragment(Fragment), Comp0, Comp) =>
+    uri_data(fragment, Comp0, Fragment, Comp).
+edit_components(Authority, Comp0, Comp),
+  authority_field(Authority) =>
+    uri_data(authority, Comp0, Auth0),
+    (   var(Auth0)
+    ->  true
+    ;   uri_authority_components(Auth0, AComp0)
+    ),
+    edit_auth_components(Authority, AComp0, AComp),
+    uri_authority_components(Auth, AComp),
+    uri_data(authority, Comp0, Auth, Comp).
+edit_components(query(Search), Comp0, Comp) =>
+    edit_components(search(Search), Comp0, Comp).
+edit_components(search(=(Search)), Comp0, Comp) =>
+    uri_query_components(String, Search),
+    uri_data(search, Comp0, String, Comp).
+edit_components(search(Search), Comp0, Comp) =>
+    uri_data(search, Comp0, SS0),
+    (   var(SS0)
+    ->  Search0 = []
+    ;   uri_query_components(SS0, Search0)
+    ),
+    join_search(Search0, Search, Search1),
+    uri_query_components(SS1, Search1),
+    uri_data(search, Comp0, SS1, Comp).
+edit_components(Other, _, _) =>
+    domain_error(uri_edit, Other).
+
+authority_field(user(_)).
+authority_field(password(_)).
+authority_field(host(_)).
+authority_field(port(_)).
+
+edit_auth_components(user(User),
+		     uri_authority(_, Passwd, Host, Port),
+		     uri_authority(User, Passwd, Host, Port)).
+edit_auth_components(password(Passwd),
+		     uri_authority(User, _, Host, Port),
+		     uri_authority(User, Passwd, Host, Port)).
+edit_auth_components(host(Host),
+		     uri_authority(User, Passwd, _, Port),
+		     uri_authority(User, Passwd, Host, Port)).
+edit_auth_components(port(Port),
+		     uri_authority(User, Passwd, Host, _),
+		     uri_authority(User, Passwd, Host, Port)).
+
+join_search([], Search, Search).
+join_search([N=_|ST], New, Search) :-
+    (   memberchk(N=_, New)
+    ->  true
+    ;   functor(T, N, 1),
+	memberchk(T, New)
+    ->  true
+    ;   memberchk(N-_, New)
+    ),
+    !,
+    join_search(ST, New, Search).
+join_search([H|ST], New, [H|Search]) :-
+    join_search(ST, New, Search).
 
 
                  /*******************************
