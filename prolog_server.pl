@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker & Steve Prior
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2022, University of Amsterdam
+    Copyright (c)  2004-2023, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -39,16 +39,17 @@
           [ prolog_server/2             % +Port, +Options
           ]).
 
-:- autoload(library(lists),[member/2]).
+:- autoload(library(lists), [member/2]).
 :- autoload(library(socket),
-	    [ tcp_socket/1,
-	      tcp_setopt/2,
-	      tcp_bind/2,
-	      tcp_listen/2,
-	      tcp_accept/3,
-	      tcp_open_socket/3,
-	      tcp_host_to_address/2
-	    ]).
+            [ tcp_socket/1,
+              tcp_setopt/2,
+              tcp_bind/2,
+              tcp_listen/2,
+              tcp_accept/3,
+              tcp_open_socket/3,
+              tcp_host_to_address/2,
+              ip_name/2
+            ]).
 
 
 %!  prolog_server(?Port, +Options)
@@ -101,7 +102,9 @@ server_loop(ServerSocket, Options) :-
     tcp_open_socket(Slave, InStream, OutStream),
     set_stream(InStream, close_on_abort(false)),
     set_stream(OutStream, close_on_abort(false)),
-    tcp_host_to_address(Host, Peer),
+    catch(tcp_host_to_address(Host, Peer),
+          error(socket_error(_,_),_),
+          ip_name(Peer, Host)),
     (   Postfix = []
     ;   between(2, 1000, Num),
         Postfix = [-, Num]
