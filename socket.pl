@@ -93,7 +93,7 @@ simple as opening a file.  See also http_open/3.
 ==
 dump_swi_homepage :-
     setup_call_cleanup(
-        tcp_connect(www.swi-prolog.org:http, Stream, []),
+        tcp_connect('www.swi-prolog.org':http, Stream, []),
         ( format(Stream,
                  'GET / HTTP/1.1~n\c
                   Host: www.swi-prolog.org~n\c
@@ -101,7 +101,7 @@ dump_swi_homepage :-
           flush_output(Stream),
           copy_stream_data(Stream, current_output)
         ),
-        close(S)).
+        close(Stream)).
 ==
 
 To   deal   with   timeouts   and     multiple   connections,   threads,
