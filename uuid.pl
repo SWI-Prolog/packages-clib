@@ -124,7 +124,7 @@ random_uuid(UUID) :-
     A is random(0xffffffff),
     B is random(0xffff),
     C is random(0x0fff) \/ Version<<12,
-    D is random(0xffff) \/ 0x8000,
+    D is random(0x3fff) \/ 0x8000,
     E is random(0xffffffffffff),
     format(atom(UUID),
            '~`0t~16r~8+-~|\c
@@ -138,7 +138,7 @@ random_int_uuid(UUID) :-
     A is random(0xffffffff),
     B is random(0xffff),
     C is random(0x0fff) \/ Version<<12,
-    D is random(0xffff) \/ 0x8000,
+    D is random(0x3fff) \/ 0x8000,
     E is random(0xffffffffffff),
     UUID is (A<<96)+(B<<80)+(C<<84)+(D<<48)+E.
 
