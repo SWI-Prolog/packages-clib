@@ -377,6 +377,9 @@ filter_dir_member(_, _, _).
 matches_type(directory, Entry) :-
     !,
     exists_directory(Entry).
+matches_type(regular, Entry) :-
+    !,
+    exists_file(Entry).
 matches_type(Type, Entry) :-
     \+ exists_directory(Entry),
     user:prolog_file_type(Ext, Type),
