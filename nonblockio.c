@@ -175,7 +175,7 @@ leave the details to this function.
 #ifndef s6_addr16
 #if defined(s6_words)
 #define s6_addr16 s6_words
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__FreeBSD__)
 #define s6_addr16 __u6_addr.__u6_addr16
 #endif
 #endif
