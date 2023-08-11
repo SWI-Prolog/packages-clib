@@ -64,7 +64,7 @@ typedef enum hash_algorithm
 
 
 		 /*******************************
-		 *	        MD5		*
+		 *		MD5		*
 		 *******************************/
 
 static int
@@ -393,7 +393,7 @@ pl_stream_hash(term_t stream, term_t hash)
 
 #define MKATOM(n) ATOM_ ## n = PL_new_atom(#n);
 
-void
+install_t
 install_hashstream(void)
 { MKATOM(md5);
   MKATOM(sha1);				/* =160 */
