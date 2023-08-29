@@ -145,10 +145,10 @@ extern int	nbio_debug(int level);
 extern nbio_sock_t nbio_socket(int domain, int type, int protocol);
 extern int	nbio_connect(nbio_sock_t socket,
 			     const struct sockaddr *serv_addr,
-			     size_t addrlen);
+			     socklen_t addrlen);
 extern int	nbio_bind(nbio_sock_t socket,
 			  struct sockaddr *my_addr,
-			  size_t addrlen);
+			  socklen_t addrlen);
 extern int	nbio_listen(nbio_sock_t socket, int backlog);
 extern nbio_sock_t
 		nbio_accept(nbio_sock_t master,

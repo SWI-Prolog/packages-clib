@@ -112,6 +112,7 @@ In the Unix version we simply call PL_dispatch() before doing recv() and
 leave the details to this function.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <config.h>
 
 #if defined(__MINGW32__)
@@ -120,7 +121,7 @@ leave the details to this function.
 #define __finally
 #endif
 
-#if defined(__MINGW32__)
+#if defined(__WINDOWS__)
 #define WINVER 0x0501
 #include <ws2tcpip.h>
 #endif
@@ -155,7 +156,11 @@ leave the details to this function.
 #define closesocket(n) close((n))	/* same on Unix */
 #endif
 
-#ifndef __WINDOWS__
+#ifdef __WINDOWS__
+typedef int os_bufsize_t;
+#define strdup(s) _strdup(s)
+#else
+typedef size_t os_bufsize_t;
 #define INVALID_SOCKET -1
 #endif
 
@@ -1335,16 +1340,11 @@ nbio_unify_addr(term_t t, struct sockaddr *addr)
 }
 
 int
-nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, size_t addrlen)
+nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, socklen_t addrlen)
 { VALID_SOCKET(socket);
 
-#ifdef __WINDOWS__
-  if ( bind(socket->socket, my_addr, (int)addrlen) )
-#else
   if ( bind(socket->socket, my_addr, addrlen) )
-#endif
-  {
-    nbio_error(GET_ERRNO, TCP_ERRNO);
+  { nbio_error(GET_ERRNO, TCP_ERRNO);
     return -1;
   }
 
@@ -1353,11 +1353,10 @@ nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, size_t addrlen)
   return 0;
 }
 
-
 int
 nbio_connect(nbio_sock_t socket,
 	     const struct sockaddr *serv_addr,
-	     size_t addrlen)
+	     socklen_t addrlen)
 { VALID_SOCKET(socket);
 
   for(;;)
@@ -1473,7 +1472,7 @@ nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
       return -1;
 #endif
 
-    n = recv(socket->socket, buf, bufSize, 0);
+    n = recv(socket->socket, buf, (os_bufsize_t)bufSize, 0);
 
     if ( n == -1 )
     { if ( need_retry(GET_ERRNO) )
@@ -1508,7 +1507,7 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
   while( len > 0 )
   { int n;
 
-    n = send(socket->socket, str, len, 0);
+    n = send(socket->socket, str, (os_bufsize_t)len, 0);
     if ( n < 0 )
     { if ( need_retry(GET_ERRNO) )
       { if ( PL_handle_signals() < 0 )
@@ -1642,7 +1641,7 @@ nbio_recvfrom(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
       return -1;
 #endif
 
-    n = recvfrom(socket->socket, buf, bufSize, flags, from, fromlen);
+    n = recvfrom(socket->socket, buf, (os_bufsize_t)bufSize, flags, from, fromlen);
 
     if ( n == -1 )
     { if ( need_retry(GET_ERRNO) )
@@ -1678,7 +1677,7 @@ nbio_sendto(nbio_sock_t socket, void *buf, size_t bufSize, int flags,
   VALID_SOCKET(socket);
 
   for(;;)
-  { n = sendto(socket->socket, buf, bufSize, flags, to, tolen);
+  { n = sendto(socket->socket, buf, (os_bufsize_t)bufSize, flags, to, tolen);
 
     if ( n < 0 )
     { if ( need_retry(GET_ERRNO) )
