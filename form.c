@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2014, University of Amsterdam
+    Copyright (c)  2000-2023, University of Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@
 
 #include <config.h>
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <SWI-Prolog.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +49,8 @@
 #include "form.h"
 #ifdef __WINDOWS__
 #include <io.h>
+#define read _read
+#define fileno _fileno
 #endif
 
 #include "error.h"

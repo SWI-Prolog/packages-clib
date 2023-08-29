@@ -50,11 +50,8 @@
 #include <errno.h>
 
 #ifdef __WINDOWS__
-
-#if defined(__MINGW32__)
 #ifndef WINVER
 #define WINVER 0x0501
-#endif
 #endif
 
 #define MAKE_FUNCTORS 1
@@ -62,19 +59,15 @@
 #include "win_error.c"
 #define statstruct struct _stati64
 #define statfunc _wstati64
-/*#define HAVE_UTIME 1:	Broken ...*/
 #ifdef HAVE_UTIME
 #include <sys/utime.h>
-/* FIXME: under __MINGW32__ we could use `utimbuf' (no leading underscore. */
 #define utimestruct struct _utimbuf
 #define utimefunc _wutime
 #endif
 #define FCHAR wchar_t
 #define PL_get_file_name PL_get_file_nameW
-
-#if defined(__MINGW32__)
 #include <winbase.h>
-#endif
+#include <io.h>
 
 #else /*__WINDOWS__*/
 

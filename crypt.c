@@ -34,6 +34,7 @@
 
 #include <config.h>
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #ifdef DEFINE_XOPEN_SOURCE
 #define _XOPEN_SOURCE
 #endif

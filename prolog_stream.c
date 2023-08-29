@@ -134,7 +134,7 @@ stream_write(void *handle, char *buf, size_t size)
 { stream_context *ctx = handle;
   fid_t fid = 0;
   term_t av;
-  int rc;
+  ssize_t rc;
 
   if ( !ctx->pred_write )
     ctx->pred_write = PL_pred(FUNCTOR_stream_write2, ctx->module);
@@ -144,7 +144,7 @@ stream_write(void *handle, char *buf, size_t size)
        PL_unify_stream(av+0, ctx->stream) &&
        PL_unify_wchars(av+1, PL_STRING, size/sizeof(wchar_t), (wchar_t*)buf) &&
        PL_call_predicate(ctx->module, PL_Q_PASS_EXCEPTION, ctx->pred_write, av) )
-  { rc = size;
+  { rc = (ssize_t)size;
   } else
   { term_t ex;
 

@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2022, University of Amsterdam
+    Copyright (c)  2000-2023, University of Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -33,6 +33,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <errno.h>
 #include <stdlib.h>
 #include "clib.h"

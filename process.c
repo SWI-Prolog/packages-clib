@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2022, University of Amsterdam
+    Copyright (c)  2000-2023, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
 			      SWI-Prolog Solutions b.v.
@@ -36,6 +36,7 @@
 */
 
 #include <config.h>
+#define _CRT_SECURE_NO_WARNINGS 1
 
 /*#define O_DEBUG 1*/
 #undef O_DEBUG
@@ -127,10 +128,6 @@ static functor_t FUNCTOR_encoding1;
 #include <fcntl.h>
 #include <io.h>
 
-#if !defined(__MINGW32__)
-typedef DWORD  pid_t;
-#endif
-
 typedef wchar_t echar;			/* environment character */
 #define ecslen(s) wcslen(s)
 
@@ -220,7 +217,7 @@ typedef enum create_method
 static create_method create_process_method = PCREATE_SPAWN;
 
 #ifdef __WINDOWS__
-static int win_command_line(term_t t, int arity,
+static int win_command_line(term_t t, size_t arity,
 			    const wchar_t *exepath, wchar_t **cmdline);
 #endif
 
@@ -899,14 +896,14 @@ set_quote(arg_string *as)
 
 
 static int
-win_command_line(term_t t, int arity, const wchar_t *exe, wchar_t **cline)
+win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
 { if ( arity > 0 )
   { arg_string *av = PL_malloc((arity+1)*sizeof(*av));
     term_t arg = PL_new_term_ref();
     size_t cmdlen;
     wchar_t *cmdline, *o;
     const wchar_t *b;
-    int i;
+    size_t i;
 
     if ( (b=wcsrchr(exe, '\\')) )
       b++;

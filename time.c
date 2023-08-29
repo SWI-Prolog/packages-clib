@@ -38,6 +38,7 @@
 //#define O_SAFE 1			/* extra safety checks */
 #include <config.h>
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "error.h"
@@ -76,7 +77,7 @@ typedef enum
 #include <sys/timeb.h>
 #include <malloc.h>
 
-#ifndef WIN_PTHREADS
+#if 0
 struct timeval
 { long tv_sec;
   long tv_usec;

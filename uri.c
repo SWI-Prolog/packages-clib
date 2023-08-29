@@ -35,6 +35,7 @@
 
 #include <config.h>
 #ifdef __WINDOWS__
+#define _CRT_SECURE_NO_WARNINGS 1
 #define inline __inline
 #endif
 

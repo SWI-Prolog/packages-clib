@@ -10,6 +10,7 @@
  *
  */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #if defined(LIBC_SCCS) && !defined(lint)
 static char rcsid[] = "$Header$";
 #endif /* LIBC_SCCS and not lint */
