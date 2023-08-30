@@ -616,7 +616,6 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   char smallbuf[UDP_DEFAULT_BUFSIZE];
   char *buf = smallbuf;
   int bufsize = UDP_DEFAULT_BUFSIZE;
-  term_t varport = 0;
   ssize_t n;
   int as = PL_STRING;
   int rc;

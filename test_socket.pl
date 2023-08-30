@@ -35,9 +35,7 @@
 */
 
 :- module(test_socket,
-          [ test_socket/0,
-            server/1,                   % +Port
-            client/1                    % +Address
+          [ test_socket/0
           ]).
 :- use_module(library(socket)).
 :- use_module(library(streampool)).
@@ -45,21 +43,27 @@
 :- use_module(library(plunit)).
 
 test_socket :-
-    test_udp,
-    test_tcp,
-    run_tests([ip_name]).
+    run_tests([udp, tcp, ip_name]).
 
-test_tcp :-
+:- begin_tests(tcp).
+
+test(hello) :-
+    tcp_test_run(echo(hello)).
+test(large) :-
+    tcp_test_run(echo(large)).
+test(wait) :-
+    tcp_test_run(slow(wait)).
+test(wait_large) :-
+    tcp_test_run(slow(wait_large)).
+
+tcp_test_run(Test) :-
     make_server(Port, Socket),
     thread_create(run_server(Socket), Server, []),
-    client(localhost:Port),
-    thread_join(Server, Status),
-    (   Status == true
-    ->  true
-    ;   format(user_error, 'Server exit-status: ~w~n', [Status]),
-        fail
-    ).
+    client(Test, localhost:Port),
+    client(quit, localhost:Port),
+    thread_join(Server).
 
+:- end_tests(tcp).
 
                  /*******************************
                  *             SERVER           *
@@ -127,44 +131,44 @@ action(quit, _In, Out) :-
                  *******************************/
 
 :- dynamic
-    client/2.
+    client_streams/2.
 
-client(Address) :-
+client(Action, Address) :-
     tcp_socket(S),
     tcp_connect(S, Address),
     tcp_open_socket(S, In, Out),
     set_stream(In, encoding(utf8)),
     set_stream(Out, encoding(utf8)),
-    asserta(client(In, Out)),
-    test,
-    retract(client(In, Out)),
+    asserta(client_streams(In, Out)),
+    call(Action),
+    retract(client_streams(In, Out)),
     close(Out),
     close(In).
 
-echo(echo-1) :-
+echo(hello) :-
     X = 'Hello World',
-    client(In, Out),
+    client_streams(In, Out),
     tcp_send(Out, echo(X)),
     tcp_reply(In, X).
-echo(echo-2) :-
+echo(large) :-
     findall(A, between(0, 100000, A), X),
-    client(In, Out),
+    client_streams(In, Out),
     tcp_send(Out, echo(X)),
     tcp_reply(In, X).
 
-slow(slow-1) :-
-    client(In, Out),
+slow(wait) :-
+    client_streams(In, Out),
     tcp_send(Out, wait(2)),
     tcp_reply(In, yes).
-slow(slow-1) :-
-    client(In, Out),
+slow(wait_large) :-
+    client_streams(In, Out),
     tcp_send(Out, slow_read),
     findall(A, between(0, 100000, A), X),
     tcp_send(Out, X),
     tcp_reply(In, X).
 
-quit(quit-1) :-
-    client(In, Out),
+quit :-
+    client_streams(In, Out),
     tcp_send(Out, quit),
     tcp_reply(In, quitted).
 
@@ -190,8 +194,10 @@ reply(T, _, T).
                  *******************************/
 
 receive_loop(Socket, Queue) :-
+    thread_send_message(Queue, ready),
     repeat,
         udp_receive(Socket, Data, From, [as(atom)]),
+        debug(udp, 'received ~p from ~p', [Data, From]),
         thread_send_message(Queue, got(Data, From)),
         Data == quit,
         !,
@@ -201,110 +207,37 @@ receiver(Port, ThreadId) :-
     thread_self(Me),
     udp_socket(S),
     tcp_bind(S, Port),
-    thread_create(receive_loop(S, Me), ThreadId, []).
-
-test_udp :-
-    format(user_error, 'Running test set "udp"', []),
-    (   catch(run_udp, E, true)
-    ->  (   var(E)
-        ->  format(user_error, ' . done~n', [])
-        ;   print_message(error, E)
-        )
-    ;   format(user_error, 'FAILED~n', [])
-    ).
+    thread_create(receive_loop(S, Me), ThreadId, []),
+    thread_get_message(ready).
 
 run_udp :-
     receiver(Port, ThreadId),
-    udp_socket(S),
-    udp_send(S, 'hello world', localhost:Port, []),
-    thread_get_message(got(X, _)),
-    udp_send(S, 'quit', localhost:Port, []),
-    thread_get_message(got(Q, _)),
-    thread_join(ThreadId, Exit),
-    tcp_close_socket(S),
-    assertion(X=='hello world'),
-    assertion(Q=='quit'),
-    assertion(Exit==true),
-    !.
+    setup_call_cleanup(
+        udp_socket(S),
+        ( udp_ping(S, Port, 'Hello world'),
+          udp_ping(S, Port, quit)
+        ),
+        ( tcp_close_socket(S),
+          thread_join(ThreadId)
+        )).
 
+udp_ping(S, Port, Msg) :-
+    thread_self(Me),
+    between(0, 2, _),
+      udp_send(S, Msg, '127.0.0.1':Port, []),
+      debug(udp, 'Sent ~p to port ~p', [Msg, Port]),
+      thread_get_message(Me, got(Reply, FromHost:FromPort), [timeout(0.1)]),
+      !,
+      assertion(Reply == Msg),
+      assertion(integer(FromPort)),
+      assertion(FromHost = ip(_,_,_,_)).
 
-                 /*******************************
-                 *        TEST MAIN-LOOP        *
-                 *******************************/
+:- begin_tests(udp).
 
-testset(echo).
-testset(slow).
-testset(quit).
+test(udp) :-
+    run_udp.
 
-:- dynamic
-    failed/1,
-    blocked/2.
-
-test :-
-    retractall(failed(_)),
-    retractall(blocked(_,_)),
-    forall(testset(Set), runtest(Set)),
-    report_blocked,
-    report_failed.
-
-report_blocked :-
-    findall(Head-Reason, blocked(Head, Reason), L),
-    (   L \== []
-    ->  format('~nThe following tests are blocked:~n', []),
-        (   member(Head-Reason, L),
-            format('    ~p~t~40|~w~n', [Head, Reason]),
-            fail
-        ;   true
-        )
-    ;   true
-    ).
-report_failed :-
-    findall(X, failed(X), L),
-    length(L, Len),
-    (   Len > 0
-    ->  format('~n*** ~w tests failed ***~n', [Len]),
-        fail
-    ;   format('~nAll tests passed~n', [])
-    ).
-
-runtest(Name) :-
-    format('Running test set "~w" ', [Name]),
-    flush,
-    functor(Head, Name, 1),
-    nth_clause(Head, _N, R),
-    clause(Head, _, R),
-    (   catch(Head, Except, true)
-    ->  (   var(Except)
-        ->  put(.), flush
-        ;   Except = blocked(Reason)
-        ->  assert(blocked(Head, Reason)),
-            put(!), flush
-        ;   test_failed(R, Except)
-        )
-    ;   test_failed(R, fail)
-    ),
-    fail.
-runtest(_) :-
-    format(' done.~n').
-
-test_failed(R, Except) :-
-    clause(Head, _, R),
-    functor(Head, Name, 1),
-    arg(1, Head, TestName),
-    clause_property(R, line_count(Line)),
-    clause_property(R, file(File)),
-    (   Except == failed
-    ->  format('~N~w:~d: Test ~w(~w) failed~n',
-               [File, Line, Name, TestName])
-    ;   message_to_string(Except, Error),
-        format('~N~w:~d: Test ~w(~w):~n~t~8|ERROR: ~w~n',
-               [File, Line, Name, TestName, Error])
-    ),
-    assert(failed(Head)).
-
-blocked(Reason) :-
-    throw(blocked(Reason)).
-
+:- end_tests(udp).
 
 :- begin_tests(ip_name).
 
