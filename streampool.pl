@@ -40,7 +40,7 @@
             dispatch_stream_pool/1,     % +TimeOut
             stream_pool_main_loop/0
           ]).
-:- autoload(library(debug),[debug/3]).
+:- use_module(library(debug),[debug/3]).
 
 :- meta_predicate
     add_stream_to_pool(+, 0).

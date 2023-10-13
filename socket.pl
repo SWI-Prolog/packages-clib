@@ -64,7 +64,7 @@
 
             negotiate_socks_connection/2% +DesiredEndpoint, +StreamPair
           ]).
-:- autoload(library(debug), [assertion/1, debug/3]).
+:- use_module(library(debug), [assertion/1, debug/3]).
 :- autoload(library(lists), [last/2, member/2, append/3, append/2]).
 :- autoload(library(apply), [maplist/3, maplist/2]).
 :- autoload(library(error),

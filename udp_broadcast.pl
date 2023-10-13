@@ -45,7 +45,7 @@
 :- autoload(library(backcomp),[thread_at_exit/1]).
 :- autoload(library(broadcast),
 	    [broadcast_request/1,broadcast/1,listening/3,listen/3]).
-:- autoload(library(debug),[debug/3]).
+:- use_module(library(debug),[debug/3]).
 :- autoload(library(error),
 	    [must_be/2,syntax_error/1,domain_error/2,existence_error/2]).
 :- autoload(library(option),[option/3]).
