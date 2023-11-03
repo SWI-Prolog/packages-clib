@@ -501,7 +501,7 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 			name == ATOM_stdin ? SIO_INPUT : SIO_OUTPUT) )
       return FALSE;
     stream->type = std_stream;
-    if ( (fd = Sfileno(s)) > 0 )
+    if ( (fd = Sfileno(s)) >= 0 )
     {
 #ifdef __WINDOWS__
       stream->fd[0] = stream->fd[1] = (HANDLE)_get_osfhandle(fd);
