@@ -1136,11 +1136,11 @@ win_wait_success(atom_t exe, HANDLE process)
 
     if ( PL_unify_term(ex,
 		       PL_FUNCTOR, FUNCTOR_error2,
-		         PL_FUNCTOR, FUNCTOR_process_error2,
-		           PL_ATOM, exe,
-		           PL_FUNCTOR, FUNCTOR_exit1,
-		             PL_LONG, rc,
-		         PL_VARIABLE) )
+			 PL_FUNCTOR, FUNCTOR_process_error2,
+			   PL_ATOM, exe,
+			   PL_FUNCTOR, FUNCTOR_exit1,
+			     PL_LONG, rc,
+			 PL_VARIABLE) )
       return PL_raise_exception(ex);
     return FALSE;
   }
@@ -1261,8 +1261,12 @@ do_create_process(p_options *info)
 
 				      /* stdin */
   switch( info->streams[0].type )
-  { case std_pipe:
-    case std_stream:
+  { case std_stream:
+      si.hStdInput = info->streams[0].fd[0];
+      SetHandleInformation(si.hStdInput,
+			   HANDLE_FLAG_INHERIT, TRUE);
+      break;
+    case std_pipe:
       si.hStdInput = info->streams[0].fd[0];
       SetHandleInformation(info->streams[0].fd[1],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1276,8 +1280,12 @@ do_create_process(p_options *info)
   }
 				      /* stdout */
   switch( info->streams[1].type )
-  { case std_pipe:
-    case std_stream:
+  { case std_stream:
+      si.hStdOutput = info->streams[1].fd[1];
+      SetHandleInformation(si.hStdOutput,
+			   HANDLE_FLAG_INHERIT, TRUE);
+      break;
+    case std_pipe:
       si.hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(info->streams[1].fd[0],
 			   HANDLE_FLAG_INHERIT, FALSE);
@@ -1291,8 +1299,12 @@ do_create_process(p_options *info)
   }
 				      /* stderr */
   switch( info->streams[2].type )
-  { case std_pipe:
-    case std_stream:
+  { case std_stream:
+      si.hStdError = info->streams[2].fd[1];
+      SetHandleInformation(si.hStdError,
+			   HANDLE_FLAG_INHERIT, TRUE);
+      break;
+    case std_pipe:
       si.hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
                            HANDLE_FLAG_INHERIT, FALSE);
