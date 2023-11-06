@@ -792,7 +792,7 @@ open_process_pipe(process_context *pc, p_options *info, int which, int fdn)
 
   pc->open_mask |= (1<<which);
 #ifdef __WINDOWS__
-  pc->pipes[which] = _open_osfhandle((intptr_t)fd, _O_BINARY);
+  pc->pipes[which] = Swin_open_osfhandle(fd, _O_BINARY);
 #else
   pc->pipes[which] = fd;
 #endif
