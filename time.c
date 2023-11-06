@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2022, University of Amsterdam
+    Copyright (c)  2002-2023, University of Amsterdam
                               VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
@@ -58,7 +58,10 @@
 #endif
 
 #ifdef __WINDOWS__
+/* see https://stackoverflow.com/a/40844668/717069 */
 #undef ETIMEDOUT
+#define ETIMEDOUT_1 138			/* MSVC100 */
+#define ETIMEDOUT_2 10060		/* MSVC90 */
 #endif
 #include <pthread.h>
 
@@ -543,6 +546,13 @@ alarm_loop(void * closure)
     retry_timed_wait:
       DEBUG(1, Sdprintf("Waiting ...\n"));
       rc = pthread_cond_timedwait(&cond, &mutex, &timeout);
+
+#ifdef __WINDOWS__
+      // I rest my case.  Note that putting this in the switch
+      // is likely to result in a duplicate switch error.
+      if ( rc == ETIMEDOUT_1 || rc == ETIMEDOUT_2 )
+	rc = ETIMEDOUT;
+#endif
 
       switch( rc )
       { case ETIMEDOUT:
