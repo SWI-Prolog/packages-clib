@@ -1077,7 +1077,7 @@ install_socket(void)
 
   PL_register_foreign("tcp_accept",           3, pl_accept,           0);
   PL_register_foreign("tcp_bind",             2, pl_bind,             0);
-  PL_register_foreign("tcp_connect",          2, pl_connect,	      0);
+  PL_register_foreign("tcp_connect_",          2, pl_connect,	      0);
   PL_register_foreign("tcp_listen",           2, pl_listen,           0);
   PL_register_foreign("tcp_open_socket",      3, pl_open_socket,      0);
   PL_register_foreign("tcp_socket",           1, tcp_socket,          0);

@@ -71,6 +71,9 @@
             [instantiation_error/1, syntax_error/1, must_be/2, domain_error/2]).
 :- autoload(library(option), [option/2, option/3]).
 
+:- multifile
+    rewrite_host/3.                     % +HostIn, -Host, +Socket
+
 /** <module> Network socket (TCP and UDP) library
 
 The library(socket) provides  TCP  and   UDP  inet-domain  sockets  from
@@ -226,7 +229,7 @@ representation and the above defined address terms.
 %       One of `stream` (default) to create a TCP connection or
 %       `dgram` to create a UDP socket.
 %
-%   This   predicate   subsumes    tcp_socket/1m,   udp_socket/1   and
+%   This   predicate    subsumes   tcp_socket/1,    udp_socket/1   and
 %   unix_domain_socket/1.
 
 %!  tcp_socket(-SocketId) is det.
@@ -355,6 +358,29 @@ tcp_open_socket(Socket, Stream) :-
 %
 %   If SocketId is an AF_UNIX socket (see unix_domain_socket/1), Address
 %   is an atom or string denoting a file name.
+
+tcp_connect(Socket, Host0:Port) =>
+    (   rewrite_host(Host0, Host, Socket)
+    ->  true
+    ;   Host = Host0
+    ),
+    tcp_connect_(Socket, Host:Port).
+tcp_connect(Socket, Address) =>
+    tcp_connect_(Socket, Address).
+
+%!  rewrite_host(+HostIn, -HostOut, +Socket) is nondet.
+%
+%   Allow rewriting the host for tcp_connect/2   and therefore all other
+%   predicates to connect a socket.
+%
+%   This hook is currently defined  in   Windows  to  map `localhost` to
+%   ip(127,0,0,1) as resolving `localhost`  on   Windows  is  often very
+%   slow. Note that we do not want to do that in general as a system may
+%   prefer to map `localhost` to `::1`, i.e., the IPv6 loopback address.
+
+:- if(current_prolog_flag(windows, true)).
+rewrite_host(localhost, ip(127,0,0,1), _).
+:- endif.
 
 
                  /*******************************
