@@ -493,17 +493,26 @@ tcp_connect_direct(Address, Socket, StreamPair) :-
 %   given,  perform  a  getaddrinfo()  call  to  obtain  the  relevant
 %   addresses.
 
-tcp_connect_direct(Host:Port, Socket, StreamPair, Options) :-
+tcp_connect_direct(Host0:Port, Socket, StreamPair, Options) :-
+    must_be(ground, Host0),
     \+ option(domain(_), Options),
     !,
+    (   rewrite_host(Host0, Host, Socket)
+    ->  true
+    ;   Host = Host0
+    ),
     State = error(_),
-    (   host_address(Host, Address, [type(stream)]),
-	socket_create(Socket, [domain(Address.domain)]),
+    (   (   is_ip(Host, Domain)
+        ->  IP = Host
+        ;   host_address(Host, Address, [type(stream)]),
+            Domain = Address.domain,
+            IP = Address.address
+        ),
+	socket_create(Socket, [domain(Domain)]),
 	E = error(_,_),
-	catch(connect_or_discard_socket(Socket, Address.address:Port,
-					StreamPair),
+	catch(connect_or_discard_socket(Socket, IP:Port, StreamPair),
 	      E, store_error_and_fail(State, E)),
-	debug(socket, '~p: connected to ~p', [Host, Address.address])
+	debug(socket, '~p: connected to ~p', [Host, IP])
     ->  true
     ;   arg(1, State, Error),
 	assertion(nonvar(Error)),
@@ -512,6 +521,9 @@ tcp_connect_direct(Host:Port, Socket, StreamPair, Options) :-
 tcp_connect_direct(Address, Socket, StreamPair, Options) :-
     make_socket(Address, Socket, Options),
     connect_or_discard_socket(Socket, Address, StreamPair).
+
+is_ip(ip(_,_,_,_), inet).
+is_ip(ip(_,_,_,_, _,_,_,_), inet6).
 
 connect_or_discard_socket(Socket, Address, StreamPair) :-
     setup_call_catcher_cleanup(
