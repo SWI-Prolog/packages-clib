@@ -1167,7 +1167,7 @@ nbio_get_sockaddr(nbio_sock_t socket,
 	case AF_INET6:
 	  if ( res->ai_family != AF_INET6 )
 	  { freeaddrinfo(res);
-	    return PL_warning("Expected ip4 address");
+	    return PL_warning("Expected ip6 address");
 	  }
 	  memcpy(&addr6->sin6_addr,
 		 &((struct sockaddr_in6*)res->ai_addr)->sin6_addr,
