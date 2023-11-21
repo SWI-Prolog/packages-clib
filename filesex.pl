@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2022, University of Amsterdam
+    Copyright (c)  2002-2023, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -44,6 +44,7 @@
             directory_member/3,		% +Dir, -Member, +Options
             copy_file/2,                % +From, +To
             make_directory_path/1,      % +Directory
+            ensure_directory/1,         % +Directory
             copy_directory/2,           % +Source, +Destination
             delete_directory_and_contents/1, % +Dir
             delete_directory_contents/1 % +Dir
@@ -434,12 +435,33 @@ make_directory_path_2(Dir) :-
     !,
     file_directory_name(Dir, Parent),
     make_directory_path_2(Parent),
+    ensure_directory_(Dir).
+
+%!  ensure_directory(+Dir) is det.
+%
+%   Ensure the directory Dir exists.   Similar to make_directory_path/1,
+%   but creates at most one new directory,   i.e.,  the directory or its
+%   direct parent must exist.
+
+ensure_directory(Dir) :-
+    exists_directory(Dir),
+    !.
+ensure_directory(Dir) :-
+    atom_concat(RealDir, '/', Dir),
+    RealDir \== '',
+    !,
+    ensure_directory(RealDir).
+ensure_directory(Dir) :-
+    ensure_directory_(Dir).
+
+ensure_directory_(Dir) :-
     E = error(existence_error(directory, _), _),
     catch(make_directory(Dir), E,
           (   exists_directory(Dir)
           ->  true
           ;   throw(E)
           )).
+
 
 %!  copy_directory(+From, +To) is det.
 %
