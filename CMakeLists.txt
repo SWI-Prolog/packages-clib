@@ -61,7 +61,7 @@ clib_plugin(sha4pl
 	     C_SOURCES error.c sha4pl.c sha1/sha1.c sha1/sha2.c
 	               sha1/hmac_sha1.c sha1/hmac_sha256.c
 	     PL_LIBS sha.pl)
-test_libs(crypt memfile readutil stream uri)
+test_libs(crypt memfile readutil stream uri filesex)
 
 if(NOT EMSCRIPTEN)
 clib_plugin(cgi        C_SOURCES error.c form.c cgi.c PL_LIBS cgi.pl)

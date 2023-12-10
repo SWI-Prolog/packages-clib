@@ -54,6 +54,7 @@
 	    [permission_error/3,must_be/2,domain_error/2]).
 :- autoload(library(lists),[member/2]).
 :- autoload(library(nb_set),[empty_nb_set/1,add_nb_set/3]).
+:- autoload(library(option), [dict_options/2]).
 
 
 /** <module> Extended operations on files
@@ -276,7 +277,7 @@ strip_trailing_slash(Dir0, Dir) :-
 %   Nicos Angelopoulos.
 
 directory_member(Directory, Member, Options) :-
-    dict_create(Dict, options, Options),
+    dict_options(Dict, Options),
     (   Dict.get(recursive) == true,
         \+ Dict.get(follow_links) == false
     ->  empty_nb_set(Visited),

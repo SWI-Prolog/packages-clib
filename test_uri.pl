@@ -52,7 +52,8 @@ test_uri :-
                 iri,
                 uri_authority,
                 uri_query,
-                uri_encode
+                uri_encode,
+                uri_edit
               ]).
 
 trip_uri_iri(IRI, X) :-
@@ -204,3 +205,16 @@ test(path, X == '%C3%B6%C3%A4%C3%BC%C3%B5') :-
     uri_encoded(path, Path, X).
 
 :- end_tests(uri_encode).
+
+:- begin_tests(uri_edit).
+
+test(path, URI == 'http://my.com:4242/test') :-
+    uri_edit([path(test)], 'http://my.com:4242', URI).
+test(path, URI == 'http://my.com:4242/test') :-
+    uri_edit([path('/test')], 'http://my.com:4242', URI).
+test(path, URI == 'http://my.com:4242/test') :-
+    uri_edit([path('/test')], 'http://my.com:4242/tmp', URI).
+test(path, URI == 'http://my.com:4242/tmp/test') :-
+    uri_edit([path('test')], 'http://my.com:4242/tmp/', URI).
+
+:- end_tests(uri_edit).
