@@ -382,7 +382,9 @@ edit_components(scheme(Scheme), Comp0, Comp) =>
     uri_data(scheme, Comp0, Scheme, Comp).
 edit_components(path(Path), Comp0, Comp) =>
     uri_data(path, Comp0, Path0),
-    (   var(Path0)
+    (   (   var(Path0)
+        ;   Path0 == ''
+        )
     ->  Path1 = '/'
     ;   Path1 = Path0
     ),
