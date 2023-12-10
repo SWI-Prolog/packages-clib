@@ -203,6 +203,7 @@ directory_file_path(Dir, File, Path) :-
     !,
     (   (   is_absolute_file_name(File)
         ;   Dir == '.'
+        ;   Dir == ''
         )
     ->  Path = File
     ;   sub_atom(Dir, _, _, 0, /)
@@ -213,7 +214,10 @@ directory_file_path(Dir, File, Path) :-
     nonvar(Path),
     !,
     (   nonvar(Dir)
-    ->  (   Dir == '.',
+    ->  (   (   Dir == '.'
+            ->  true
+            ;   Dir == ''
+            ),
             \+ is_absolute_file_name(Path)
         ->  File = Path
         ;   sub_atom(Dir, _, _, 0, /)
