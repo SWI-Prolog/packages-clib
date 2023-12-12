@@ -14,14 +14,14 @@ mark_as_advanced(UUID_CONFIG)
 
 if(UUID_CONFIG)
   message("-- Using ${UUID_CONFIG} to find ossp-uuid")
-  exec_program(${UUID_CONFIG} ARGS --version OUTPUT_VARIABLE UUID_VERSION)
+  execute_process(COMMAND ${UUID_CONFIG} --version OUTPUT_VARIABLE UUID_VERSION)
   if(UUID_VERSION MATCHES "OSSP")
-    exec_program(${UUID_CONFIG} ARGS --includedir
-		 OUTPUT_VARIABLE LIBUUID_INCLUDE_DIR)
-    exec_program(${UUID_CONFIG} ARGS --libdir
-		 OUTPUT_VARIABLE LIBUUID_LIBRARY_DIR)
-    exec_program(${UUID_CONFIG} ARGS --libs
-		 OUTPUT_VARIABLE LIBUUID_LIBFLAG)
+    execute_process(COMMAND ${UUID_CONFIG} --includedir
+		    OUTPUT_VARIABLE LIBUUID_INCLUDE_DIR)
+    execute_process(COMMAND ${UUID_CONFIG} --libdir
+		    OUTPUT_VARIABLE LIBUUID_LIBRARY_DIR)
+    execute_process(COMMAND ${UUID_CONFIG} --libs
+		    OUTPUT_VARIABLE LIBUUID_LIBFLAG)
 
     string(REPLACE "-l" "" LIBUUID_LIB ${LIBUUID_LIBFLAG})
     find_library(UUID_LIBRARY
