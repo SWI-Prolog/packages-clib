@@ -49,11 +49,15 @@
             delete_directory_and_contents/1, % +Dir
             delete_directory_contents/1 % +Dir
           ]).
-:- autoload(library(apply),[maplist/2,maplist/3,foldl/4]).
+:- autoload(library(apply), [maplist/2, maplist/3, foldl/4]).
 :- autoload(library(error),
-	    [permission_error/3,must_be/2,domain_error/2]).
-:- autoload(library(lists),[member/2]).
-:- autoload(library(nb_set),[empty_nb_set/1,add_nb_set/3]).
+            [ permission_error/3,
+              must_be/2,
+              domain_error/2,
+              instantiation_error/1
+            ]).
+:- autoload(library(lists), [member/2]).
+:- autoload(library(nb_set), [empty_nb_set/1, add_nb_set/3]).
 :- autoload(library(option), [dict_options/2]).
 
 
@@ -232,8 +236,8 @@ directory_file_path(Dir, File, Path) :-
     ;   file_directory_name(Path, Dir),
         file_base_name(Path, File)
     ).
-directory_file_path(_, _, _) :-
-    throw(error(instantiation_error(_), _)).
+directory_file_path(Dir, _, _) :-
+    instantiation_error(Dir).
 
 strip_trailing_slash(Dir0, Dir) :-
     (   atom_concat(D, /, Dir0),
