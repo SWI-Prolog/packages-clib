@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2022, University of Amsterdam
+    Copyright (c)  2008-2024, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -47,6 +47,7 @@
             process_group_kill/1,       % +PID
             process_group_kill/2,       % +PID, +Signal
             process_kill/2,             % +PID, +Signal
+            process_which/2,            % +Exe, -AbsoluteFile
 
             process_set_method/1        % +CreateMethod
           ]).
@@ -281,6 +282,17 @@ process_create(Exe, Args, Options) :-
     expand_env_option(env, Options1, Options2),
     expand_env_option(environment, Options2, Options3),
     process_create(Term, Options3).
+
+%!  process_which(+Exe, -Path) is semidet.
+%
+%   True when Path is an absolute file   name for the specification Exe.
+%   This deals with the search path as   well  as extensions used by the
+%   OS.
+
+process_which(Exe, Path) :-
+    exe_options(ExeOptions),
+    absolute_file_name(Exe, Path, [file_errors(fail)|ExeOptions]),
+    !.
 
 %!  exe_options(-Options) is multi.
 %
