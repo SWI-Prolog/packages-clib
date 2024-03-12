@@ -367,6 +367,7 @@ close_underlying_fd(IOSTREAM *s)
       s->functions = &dummy;
       s->flags &= ~SIO_FILE|SIO_ISATTY;	/* no longer a file */
       s->flags |= SIO_LBUF;		/* do line-buffering */
+      s->fileno = -1;
     }
   }
 }
