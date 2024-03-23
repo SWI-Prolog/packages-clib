@@ -49,7 +49,7 @@ typedef __int32 int32_t;
 #if 0
 static char sccsid[] = "@(#)crypt.c	8.1.1.1 (Berkeley) 8/18/93";
 #else
-__RCSID("$NetBSD: crypt.c,v 1.26.20.1 2009/05/13 19:18:28 jym Exp $");
+__RCSID("$NetBSD: crypt.c,v 1.26.20.1 2009/05/13 19:18:28 jym Exp $")
 #endif
 #endif /* not lint */
 
