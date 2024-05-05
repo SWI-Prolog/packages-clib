@@ -446,12 +446,12 @@ nextEvent(schedule *sched)
 
 
 typedef struct
-{ int		*bits;
+{ unsigned int *bits;
   size_t	size;
   size_t	high;
 } bitvector;
 
-#define BITSPERINT (8*sizeof(int))
+#define BITSPERINT (8*sizeof(unsigned int))
 
 static int
 set_bit(bitvector *v, size_t bit)
@@ -459,8 +459,8 @@ set_bit(bitvector *v, size_t bit)
   int bi = bit%BITSPERINT;
 
   while ( offset >= v->size )
-  { size_t osize = v->size * sizeof(int);
-    int *newbits = realloc(v->bits, osize*2);
+  { size_t osize = v->size * sizeof(*v->bits);
+    unsigned int *newbits = realloc(v->bits, osize*2);
 
     if ( !newbits )
       return FALSE;
@@ -473,11 +473,11 @@ set_bit(bitvector *v, size_t bit)
   { size_t ho = v->high/BITSPERINT;
     int    b  = v->high%BITSPERINT;
 
-    v->bits[ho] &= ~(1<<(b-1));
+    v->bits[ho] &= ~(1<<b);
     v->high++;
   }
 
-  v->bits[offset] |= 1<<(bi-1);
+  v->bits[offset] |= 1<<bi;
   return TRUE;
 }
 
@@ -488,7 +488,7 @@ is_set(bitvector *v, size_t bit)
   { size_t offset = bit/BITSPERINT;
     int bi = bit%BITSPERINT;
 
-    return (v->bits[offset] & (1<<(bi-1))) != 0;
+    return (v->bits[offset] & (1<<bi)) != 0;
   }
 
   return FALSE;
