@@ -49,12 +49,12 @@
             tcp_fcntl/3,                % +Socket, +Command, ?Arg
             tcp_setopt/2,               % +Socket, +Option
             tcp_getopt/2,               % +Socket, ?Option
-	    host_address/3,		% ?HostName, ?Address, +Options
+	        host_address/3,		        % ?HostName, ?Address, +Options
             tcp_host_to_address/2,      % ?HostName, ?Ip-nr
             tcp_select/3,               % +Inputs, -Ready, +Timeout
             gethostname/1,              % -HostName
 
-	    ip_name/2,			% ?Ip, ?Name
+	        ip_name/2,			        % ?Ip, ?Name
 
             tcp_open_socket/2,          % +Socket, -StreamPair
 
@@ -121,7 +121,8 @@ To close the server, use close/1 on `AcceptFd`.
         tcp_socket(Socket),
         tcp_bind(Socket, Port),
         tcp_listen(Socket, 5),
-        tcp_open_socket(Socket, AcceptFd, _),
+        tcp_open_socket(Socket, StreamPair),
+        stream_pair(StreamPair, AcceptFd, _),
         <dispatch>
   ==
 
