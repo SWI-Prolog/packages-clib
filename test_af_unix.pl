@@ -45,7 +45,9 @@ test_af_unix :-
     tmp_file(af_unix, File),
     server(File, Tid),
     client(File),
-    (   current_prolog_flag(signals, true)
+    (   current_prolog_flag(signals, true),
+        prolog_alert_signal(Alert, Alert),
+        Alert \= 0
     ->  thread_signal(Tid, throw(stop)),
         thread_join(Tid, Status),
         assertion(Status == exception(stop))
@@ -63,7 +65,9 @@ server(File, Thread) :-
     !,
     tcp_listen(S, 5),
     tcp_open_socket(S, AcceptFd, _),
-    (   current_prolog_flag(signals, true)
+    (   current_prolog_flag(signals, true),
+        prolog_alert_signal(Alert, Alert),
+        Alert \= 0
     ->  Goal = dispatch(AcceptFd)
     ;   Goal = dispatch_one(AcceptFd)
     ),
