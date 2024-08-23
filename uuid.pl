@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2012-2023, VU University Amsterdam
+    Copyright (c)  2012-2024, VU University Amsterdam
                               SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -36,8 +36,10 @@
 :- module(uuid,
           [ uuid/1,                     % -UUID
             uuid/2,                     % -UUID, +Options
+            is_uuid/1,                  % @UUID
             uuid_property/2             % +UUID, ?Property
           ]).
+:- autoload(library(apply), [maplist/2]).
 
 /** <module> Universally Unique Identifier (UUID) Library
 
@@ -177,3 +179,24 @@ property_uuid(time(Time), UUID) :-
 
 has_time('1').
 has_time('2').
+
+%!  is_uuid(@UUID) is semidet.
+%
+%   True when UUID is a UUID represented as an atom. It merely validates
+%   that the length is 36 characters, there   are `-` at the right place
+%   and all other characters are hexadecimal.
+
+is_uuid(UUID) :-
+    atom(UUID),
+    atom_length(UUID, 36),
+    atom_codes(UUID, Codes),
+    Codes = [ _,_,_,_,_,_,_,_, -,
+              _,_,_,_,-,_,_,_,_, -,
+              _,_,_,_, -,_,_,_,_,_,_,_,_,_,_,_,_
+            ],
+    maplist(hex_or_minus, Codes).
+
+hex_or_minus(0'-) :-
+    !.
+hex_or_minus(Code) :-
+    code_type(Code, xdigit(_)).
