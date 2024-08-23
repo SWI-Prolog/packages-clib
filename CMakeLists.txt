@@ -108,6 +108,8 @@ endif()
 endif(HAVE_SOCKET)
 endif(NOT EMSCRIPTEN)
 
+test_libs(uuid)
+
 ################
 # Documentation
 
