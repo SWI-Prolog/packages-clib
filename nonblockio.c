@@ -187,8 +187,8 @@ typedef size_t os_bufsize_t;
 
 #define set(s, f)   ((s)->flags |= (f))
 #define clear(s, f) ((s)->flags &= ~(f))
-#define true(s, f)  ((s)->flags & (f))
-#define false(s, f) (!true(s, f))
+#define ison(s, f)  ((s)->flags & (f))
+#define isoff(s, f) (!ison(s, f))
 
 #define PLSOCK_MAGIC  0x38da3f2c
 #define PLSOCK_CMAGIC 0x38da3f2d
@@ -440,10 +440,10 @@ without dispatching if no input is available.
 
 static int
 wait_socket(plsocket *s)
-{ if ( true(s, PLSOCK_DISPATCH) )
+{ if ( ison(s, PLSOCK_DISPATCH) )
   { int fd = s->socket;
 
-    if ( true(s, PLSOCK_NONBLOCK) && !PL_dispatch(fd, PL_DISPATCH_INSTALLED) )
+    if ( ison(s, PLSOCK_NONBLOCK) && !PL_dispatch(fd, PL_DISPATCH_INSTALLED) )
     {
 #ifdef HAVE_POLL
       struct pollfd fds[1];
@@ -911,7 +911,7 @@ nbio_closesocket(nbio_sock_t socket)
 
   clear(socket, PLSOCK_VIRGIN);
 
-  if ( true(socket, PLSOCK_OUTSTREAM|PLSOCK_INSTREAM) )
+  if ( ison(socket, PLSOCK_OUTSTREAM|PLSOCK_INSTREAM) )
   { int flags = socket->flags;		/* may drop out! */
 
     if ( flags & PLSOCK_INSTREAM )
@@ -1430,7 +1430,7 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
   s = allocSocket(slave);
   s->flags |= PLSOCK_ACCEPT;
 #ifndef __WINDOWS__
-  if ( true(s, PLSOCK_NONBLOCK) )
+  if ( ison(s, PLSOCK_NONBLOCK) )
     nbio_setopt(s, TCP_NONBLOCK);
 #endif
 
@@ -1570,11 +1570,11 @@ nbio_close_input(nbio_sock_t socket)
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_input(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
-  if ( true(socket, PLSOCK_INSTREAM) )
+  if ( ison(socket, PLSOCK_INSTREAM) )
   { clear(socket, PLSOCK_INSTREAM);
 
     socket->input = NULL;
-    if ( false(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+    if ( isoff(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
       rc = closeSocket(socket);
 
     if ( socket->symbol )
@@ -1602,7 +1602,7 @@ nbio_close_output(nbio_sock_t socket)
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
 
-  if ( true(socket, PLSOCK_OUTSTREAM) )
+  if ( ison(socket, PLSOCK_OUTSTREAM) )
   { clear(socket, PLSOCK_OUTSTREAM);
 
     if ( socket->socket != INVALID_SOCKET )
@@ -1612,7 +1612,7 @@ nbio_close_output(nbio_sock_t socket)
     }
 
     socket->output = NULL;
-    if ( false(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+    if ( isoff(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
       rc = (rc + closeSocket(socket)) ? -1 : 0;
 
     if ( socket->symbol )
