@@ -119,7 +119,7 @@ pl_crypt(term_t passwd, term_t encrypted)
     term_t head = PL_new_term_ref();
     int slen = 2;
     int n;
-    int (*unify)(term_t t, const char *s) = PL_unify_list_codes;
+    int flags = PL_CODE_LIST;
     char *s2;
     int rval;
 
@@ -132,7 +132,7 @@ pl_crypt(term_t passwd, term_t encrypted)
 	{ salt[n] = i;
 	} else if ( PL_get_atom_chars(head, &t) && t[1] == '\0' )
 	{ salt[n] = t[0];
-	  unify = PL_unify_list_chars;
+	  flags = PL_CHAR_LIST;
 	} else
 	{ return pl_error("crypt", 2, NULL, ERR_ARGTYPE,
 			  2, head, "character");
@@ -160,7 +160,7 @@ pl_crypt(term_t passwd, term_t encrypted)
     { s2 = crypt(pw, salt);
     }
     if ( s2 )
-      rval = (*unify)(encrypted, s2);
+      rval = PL_unify_chars(encrypted, flags|REP_ISO_LATIN_1, (size_t)-1, s2);
     else
       rval = PL_domain_error("salt", encrypted);
     UNLOCK();
@@ -171,6 +171,6 @@ pl_crypt(term_t passwd, term_t encrypted)
 
 
 install_t
-install_crypt()
+install_crypt(void)
 { PL_register_foreign("crypt", 2, pl_crypt, 0);
 }
