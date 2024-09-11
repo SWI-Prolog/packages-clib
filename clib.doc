@@ -293,8 +293,9 @@ The current library supports all 5 approved algorithms, both computing
 the hash-key from data and the \jargon{hash Message Authentication Code}
 (HMAC).
 
-A general secure hash interface is provided by \pllib{crypto}, part of
-the \href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
+A general comprehensive hash interface is provided by \pllib{crypto},
+part of the
+\href{http://www.swi-prolog.org/pldoc/package/ssl.html}{ssl~package}.
 
 Input is text, represented as an atom, packed string object or
 code-list. Note that these functions operate on byte-sequences and
@@ -347,6 +348,9 @@ character  codes.  \arg{HMAC}  is  unified  with   a  list  of  integers
 representing the authentication code. \arg{Options} is   the same as for
 sha_hash/3, but currently only \const{sha1} and \const{sha256} are
 supported.
+
+See also crypto_data_hash/3 from \pllib{crypto} library provided by
+the SSL package.
 
     \predicate{hash_atom}{2}{+Hash, -HexAtom}
 True when \arg{HexAtom} is the commonly used hexadecimal encoding of
