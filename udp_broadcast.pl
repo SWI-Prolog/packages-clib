@@ -594,11 +594,13 @@ recreate_proxy(exception(Error)) :-
     recreate_on_error(Error),
     reload_inbound_proxy.
 
-recreate_on_error('$aborted').
+recreate_on_error('$aborted').          % old
+recreate_on_error(unwind(abort)).
 recreate_on_error(time_limit_exceeded).
 
 done_status_message_level(true, silent) :- !.
 done_status_message_level(exception('$aborted'), silent) :- !.
+done_status_message_level(exception(unwind(abort)), silent) :- !.
 done_status_message_level(_, informational).
 
 
