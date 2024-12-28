@@ -82,6 +82,12 @@ typedef int SOCKET;
 
 #endif /*__WINDOWS__*/
 
+#ifndef s6_addr16
+#ifdef __NetBSD__
+#define	s6_addr16	__u6_addr.__u6_addr16
+#endif
+#endif
+
 typedef enum
 { TCP_ERRNO,
   TCP_HERRNO,
