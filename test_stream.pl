@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2015-2016, VU University Amsterdam
+    Copyright (c)  2015-2025, VU University Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -35,10 +36,6 @@
 :- module(test_stream,
           [ test_stream/0
           ]).
-
-:- asserta(user:file_search_path(foreign, '.')).
-:- asserta(user:file_search_path(library, '.')).
-:- asserta(user:file_search_path(library, '../plunit')).
 
 :- use_module(library(plunit)).
 :- use_module(library(debug)).
@@ -105,8 +102,10 @@ test(read, Reply == "Hello world") :-
     open_prolog_stream(test_stream, read, In, []),
     set_data(In, "Hello world"),
     read_string(In, _, Reply),
-    close(In).
-test(error, Messages = [close(_)]) :-
+    close(In),
+    messages(Messages),
+    assertion(Messages = [close(In)]).
+test(error_write, Messages = [close(_)]) :-
     open_prolog_stream(test_stream, write, Out, []),
     set_error(Out, error(type_error(atom, 1),_)),
     catch((write(Out, 'Hello world'),
@@ -114,7 +113,7 @@ test(error, Messages = [close(_)]) :-
            Error, true),
     assertion(subsumes_term(error(type_error(atom,1),_), Error)),
     messages(Messages).
-test(error, Messages == []) :-
+test(error_close, Messages == []) :-
     open_prolog_stream(test_stream, write, Out, []),
     set_error(Out, error(type_error(atom, 1),_)),
     catch(close(Out), Error, true),
