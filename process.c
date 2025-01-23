@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2023, University of Amsterdam
+    Copyright (c)  2000-2025, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
 			      SWI-Prolog Solutions b.v.
@@ -37,6 +37,7 @@
 
 #include <config.h>
 #define _CRT_SECURE_NO_WARNINGS 1
+#define SWIPL_WINDOWS_NATIVE_ACCESS 1
 
 /*#define O_DEBUG 1*/
 #undef O_DEBUG
