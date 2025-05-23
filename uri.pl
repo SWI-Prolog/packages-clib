@@ -56,6 +56,10 @@
             uri_iri/2                   % ?URI, ?IRI
 	  ]).
 :- autoload(library(error), [domain_error/2]).
+:- if(exists_source(library(socket))).
+:- autoload(library(socket), [gethostname/1]).
+:- endif.
+
 :- use_foreign_library(foreign(uri)).
 
 /** <module> Process URIs
@@ -286,10 +290,8 @@ uri_file_name(URI, FileName) :-
     !,
     uri_components(URI, Components),
     uri_data(scheme, Components, File), File == file,
-    (   uri_data(authority, Components, '')
-    ->  true
-    ;   uri_data(authority, Components, localhost)
-    ),
+    uri_data(authority, Components, Host),
+    my_host(Host),
     uri_data(path, Components, FileNameEnc),
     uri_encoded(path, FileName0, FileNameEnc),
     delete_leading_slash(FileName0, FileName).
@@ -303,6 +305,13 @@ uri_file_name(URI, FileName) :-
     uri_data(authority, Components, ''),
     uri_data(path, Components, PathEnc),
     uri_components(URI, Components).
+
+my_host('') :- !.
+my_host(localhost) :- !.
+:- if(exists_source(library(socket))).
+my_host(Host) :-
+    gethostname(Host).
+:- endif.
 
 %!  ensure_leading_slash(+WinPath, -Path).
 %!  delete_leading_slash(+Path, -WinPath).
