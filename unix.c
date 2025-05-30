@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -310,6 +311,22 @@ pl_environ(term_t l)
   return PL_unify_nil(t);
 }
 
+static foreign_t
+pl_mkfifo(term_t Path, term_t Mode)
+{ char *pathname;
+  mode_t mode;
+
+  if ( !PL_get_file_name(Path, &pathname, CVT_ALL|BUF_MALLOC|REP_MB) )
+    return FALSE;
+  if ( !PL_get_integer(Mode, (int *)&mode) )
+    return pl_error("mkfifo", 2, NULL, ERR_ARGTYPE, 1, Mode, "mode");
+  if ( !mkfifo(pathname, mode) < 0 )
+    return pl_error("mkfifo", 2, NULL, ERR_ERRNO, errno, "create", "fifo", Path);
+
+  PL_free(pathname);
+  return TRUE;
+}
+
 
 		 /*******************************
 		 *	    DEAMON IO		*
@@ -527,6 +544,7 @@ install_unix()
   PL_register_foreign("dup",       2, pl_dup, 0);
   PL_register_foreign("detach_IO", 1, pl_detach_IO, 0);
   PL_register_foreign("environ",   1, pl_environ, 0);
+  PL_register_foreign("mkfifo",    2, pl_mkfifo, 0);
 #ifdef HAVE_PRCTL
   PL_register_foreign("prctl",     1, pl_prctl, 0);
 #endif
