@@ -443,7 +443,7 @@ wait_socket(plsocket *s)
 { if ( ison(s, PLSOCK_DISPATCH) )
   { int fd = s->socket;
 
-    if ( ison(s, PLSOCK_NONBLOCK) && !PL_dispatch(fd, PL_DISPATCH_INSTALLED) )
+    if ( ison(s, PLSOCK_NONBLOCK) && !PL_dispatch(s->input, PL_DISPATCH_INSTALLED) )
     {
 #ifdef HAVE_POLL
       struct pollfd fds[1];
@@ -470,7 +470,7 @@ wait_socket(plsocket *s)
     } else
     { int rc;
 
-      if ( !(rc = PL_dispatch(fd, PL_DISPATCH_WAIT)) )
+      if ( !(rc = PL_dispatch(s->input, PL_DISPATCH_WAIT)) )
 	errno = EPLEXCEPTION;
       return rc;
     }
