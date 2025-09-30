@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2023, University of Amsterdam
+    Copyright (c)  2000-2025, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
 			      SWI-Prolog Solutions b.v.
@@ -55,6 +55,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <assert.h>
@@ -181,7 +182,7 @@ tcp_unify_socket(term_t handle, nbio_sock_t socket)
 }
 
 
-static int
+static bool
 tcp_get_socket(term_t handle, nbio_sock_t *sp)
 { PL_blob_t *type;
   void *data;
@@ -190,17 +191,17 @@ tcp_get_socket(term_t handle, nbio_sock_t *sp)
   { nbio_sock_t s = *(nbio_sock_t*)data;
 
     if ( !is_nbio_socket(s) )
-      return PL_existence_error("socket", handle);
+      return PL_existence_error("socket", handle),false;
 
     *sp = s;
 
-    return TRUE;
+    return true;
   }
 
   if ( get_socket_from_stream(handle, NULL, sp) )
-    return TRUE;
+    return true;
 
-  return PL_type_error("socket", handle);
+  return PL_type_error("socket", handle),false;
 }
 
 

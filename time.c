@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2002-2023, University of Amsterdam
+    Copyright (c)  2002-2025, University of Amsterdam
                               VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
@@ -43,6 +43,7 @@
 #include <SWI-Prolog.h>
 #include "error.h"
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <signal.h>
 #include <math.h>
@@ -749,7 +750,7 @@ unify_timer(term_t t, Event ev)
 }
 
 
-static int
+static bool
 get_timer(term_t t, Event *ev)
 { if ( TheSchedule()->stop )
     return FALSE;
@@ -767,13 +768,13 @@ get_timer(term_t t, Event *ev)
         return TRUE;
       } else
       { return pl_error("get_timer", 1, NULL,
-			ERR_DOMAIN, t, "alarm");
+			ERR_DOMAIN, t, "alarm"),false;
       }
     }
   }
 
   return pl_error("get_timer", 1, NULL,
-		  ERR_ARGTYPE, 1, t, "alarm");
+		  ERR_ARGTYPE, 1, t, "alarm"),false;
 }
 
 

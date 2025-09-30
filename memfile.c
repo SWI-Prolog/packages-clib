@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2001-2015, University of Amsterdam
+    Copyright (c)  2001-2025, University of Amsterdam
                               VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,6 +39,7 @@
 #include <SWI-Prolog.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
 #ifdef O_PLMT
@@ -172,7 +174,7 @@ unify_memfile(term_t handle, memfile *mf)
 }
 
 
-static int
+static bool
 get_memfile(term_t handle, memfile **mfp)
 { PL_blob_t *type;
   void *data;
@@ -194,7 +196,7 @@ get_memfile(term_t handle, memfile **mfp)
     return FALSE;
   }
 
-  return PL_type_error("memory_file", handle);
+  return PL_type_error("memory_file", handle),false;
 }
 
 
@@ -589,7 +591,7 @@ atom_to_encoding(atom_t a)
 }
 
 
-static int
+static bool
 get_encoding(term_t t, IOENC *enc)
 { atom_t en;
 
@@ -597,13 +599,13 @@ get_encoding(term_t t, IOENC *enc)
   { IOENC encoding;
 
     if ( (encoding = atom_to_encoding(en)) == ENC_UNKNOWN )
-      return pl_error(NULL, 0, NULL, ERR_DOMAIN, t, "encoding");
+      return pl_error(NULL, 0, NULL, ERR_DOMAIN, t, "encoding"),false;
 
     *enc = encoding;
     return TRUE;
   }
 
-  return pl_error(NULL, 0, NULL, ERR_TYPE, t, "encoding");
+  return pl_error(NULL, 0, NULL, ERR_TYPE, t, "encoding"),false;
 }
 
 
