@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2023, VU University Amsterdam
+    Copyright (c)  2009-2025, VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -80,6 +80,8 @@ UTF-8; then ISO-Latin-1 and finally accepts %-characters verbatim.
 Earlier experience has shown that strict   enforcement of the URI syntax
 results in many errors that  are   accepted  by  many other web-document
 processing tools.
+
+This library provides explicit support for URN URIs.
 */
 
 %!  uri_components(+URI, -Components) is det.
@@ -88,41 +90,73 @@ processing tools.
 %   Break a URI  into  its  5   basic  components  according  to the
 %   RFC-3986 regular expression:
 %
-%       ==
+%       ```
 %       ^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?
 %        12            3  4          5       6  7        8 9
-%       ==
+%       ```
 %
-%   @param Components is a   term  uri_components(Scheme, Authority,
-%   Path, Search, Fragment). If a URI  is *parsed*, i.e., using mode
-%   (+,-), components that are not   found are left _uninstantiated_
-%   (variable). See uri_data/3 for accessing this structure.
-
-%!  uri_data(?Field, +Components, ?Data) is semidet.
+%   If  the  schema  is  `urn`,  it  is  broken  into  its  schema,  NSI
+%   (_Namespace Identifier_) and NSS (_Namespace Specific String_).
 %
-%   Provide access the uri_component structure.  Defined field-names
-%   are: =scheme=, =authority=, =path=, =search= and =fragment=
+%   @arg Components is a one of
+%     - uri_components(Scheme, Authority, Path, Search, Fragment)
+%       If a URI is _parsed_, i.e., using mode (+,-), components that
+%       are not found are left _uninstantiated_ (variable). See
+%       uri_data/3 for accessing this structure.
+%     - urn_components(Scheme, NID, NSS)
+%       Here Scheme is always `urn`.  Otherwise the same comments
+%       as for uri_components/4 apply.
 
-uri_data(scheme,    uri_components(S, _, _, _, _), S).
-uri_data(authority, uri_components(_, A, _, _, _), A).
-uri_data(path,      uri_components(_, _, P, _, _), P).
-uri_data(search,    uri_components(_, _, _, S, _), S).
-uri_data(fragment,  uri_components(_, _, _, _, F), F).
+%!  uri_data(+Field, +Components, -Data) is semidet.
+%!  uri_data(-Field, +Components, -Data) is nondet.
+%
+%   Provide access the `uri_components`   or `urn_components` structure.
+%   The Field `scheme` is always  present.   Other  fields depend on the
+%   scheme. The `urn` scheme provides  `nid`   and  `nss`.  Other schems
+%   provide `authority`, `path`, `search` and `fragment`
 
-%!  uri_data(+Field, +Components, +Data, -NewComponents) is semidet.
+uri_data(Field, Components, Data), var(Field) =>
+    uri_data_(Field, Components, Data).
+uri_data(Field, Components, Data), atom(Field) =>
+    uri_data_(Field, Components, Data),
+    !.
+
+uri_data_(scheme,    uri_components(S, _, _, _, _), S).
+uri_data_(authority, uri_components(_, A, _, _, _), A).
+uri_data_(path,      uri_components(_, _, P, _, _), P).
+uri_data_(search,    uri_components(_, _, _, S, _), S).
+uri_data_(fragment,  uri_components(_, _, _, _, F), F).
+uri_data_(scheme,    urn_components(S, _, _), S).
+uri_data_(nid,       urn_components(_, I, _), I).
+uri_data_(nss,       urn_components(_, _, N), N).
+
+%!  uri_data(+Field, +Components, +Data, -NewComponents) is det.
 %
 %   NewComponents is the same as Components with Field set to Data.
+%
+%   @error domain_error(uri_field, Field) if Field is invalid.
+%   @error instantiation_error if Field or Components is unbound.
 
-uri_data(scheme,    uri_components(_, A, P, Q, F), S,
-                    uri_components(S, A, P, Q, F)).
-uri_data(authority, uri_components(S, _, P, Q, F), A,
-                    uri_components(S, A, P, Q, F)).
-uri_data(path,      uri_components(S, A, _, Q, F), P,
-                    uri_components(S, A, P, Q, F)).
-uri_data(search,    uri_components(S, A, P, _, F), Q,
-                    uri_components(S, A, P, Q, F)).
-uri_data(fragment,  uri_components(S, A, P, Q, _), F,
-                    uri_components(S, A, P, Q, F)).
+uri_data(scheme,    uri_components(_, A, P, Q, F), S, New) =>
+    New = uri_components(S, A, P, Q, F).
+uri_data(scheme,    urn_components(_, I, N), S, New) =>
+    New = urn_components(S, I, N).
+uri_data(authority, uri_components(S, _, P, Q, F), A, New) =>
+    New = uri_components(S, A, P, Q, F).
+uri_data(path,      uri_components(S, A, _, Q, F), P, New) =>
+    New = uri_components(S, A, P, Q, F).
+uri_data(search,    uri_components(S, A, P, _, F), Q, New) =>
+    New = uri_components(S, A, P, Q, F).
+uri_data(fragment,  uri_components(S, A, P, Q, _), F, New) =>
+    New = uri_components(S, A, P, Q, F).
+uri_data(nid,       urn_components(S, _, N), I, New) =>
+    New = urn_components(S, I, N).
+uri_data(nss,       urn_components(S, I, _), N, New) =>
+    New = urn_components(S, I, N).
+uri_data(_,         Components, _N, _New), var(Components) =>
+    instantiation_error(Components).
+uri_data(Field,     _, _N, _New) =>
+    domain_error(uri_field, Field).
 
 %!  uri_normalized(+URI, -NormalizedURI) is det.
 %
@@ -163,14 +197,14 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %   condition to demand a scheme of more  than one character is added to
 %   avoid confusion with DOS path names.
 %
-%   ==
+%   ```
 %   uri_is_global(URI) :-
 %           uri_components(URI, Components),
 %           uri_data(scheme, Components, Scheme),
 %           nonvar(Scheme),
 %           atom_length(Scheme, Len),
 %           Len > 1.
-%   ==
+%   ```
 
 %!  uri_resolve(+URI, +Base, -GlobalURI) is det.
 %
@@ -241,7 +275,7 @@ uri_data(fragment,  uri_components(S, A, P, Q, _), F,
 %!  uri_authority_data(+Field, ?Components, ?Data) is semidet.
 %
 %   Provide access the uri_authority  structure. Defined field-names
-%   are: =user=, =password=, =host= and =port=
+%   are: `user`, `password`, `host` and `port`
 
 uri_authority_data(user,     uri_authority(U, _, _, _), U).
 uri_authority_data(password, uri_authority(_, P, _, _), P).
@@ -254,8 +288,8 @@ uri_authority_data(port,     uri_authority(_, _, _, P), P).
 %
 %   Encoded   is   the   URI   encoding   for   Value.   When   encoding
 %   (Value->Encoded), Component specifies the URI   component  where the
-%   value is used. It is  one   of  =query_value=, =fragment=, =path= or
-%   =segment=.  Besides  alphanumerical   characters,    the   following
+%   value is used. It is  one   of  `query_value`, `fragment`, `path` or
+%   `segment`.  Besides  alphanumerical   characters,    the   following
 %   characters are passed verbatim (the set   is split in logical groups
 %   according to RFC3986).
 %
@@ -366,6 +400,10 @@ delete_leading_slash(Path, Path).
 %       `Key=Value`, `Key-Value` or `Key(Value)`.
 %     - fragment(+Fragment)
 %       Set the Fragment of the uri.
+%     - nid(+NID)
+%       Set the _Namespace Identifier_ for a URN URI.
+%     - nss(+NSS)
+%       Set the _Namespace Specific String_ for a URN URI.
 %
 %   Components can be  _removed_ by using a variable  as value, except
 %   from `path` which  can be reset using path(/) and  query which can
@@ -425,6 +463,10 @@ edit_components(search(Search), Comp0, Comp) =>
     join_search(Search0, Search, Search1),
     uri_query_components(SS1, Search1),
     uri_data(search, Comp0, SS1, Comp).
+edit_components(nid(NID), Comp0, Comp) =>
+    uri_data(fragment, Comp0, NID, Comp).
+edit_components(nss(NSS), Comp0, Comp) =>
+    uri_data(fragment, Comp0, NSS, Comp).
 edit_components(Other, _, _) =>
     domain_error(uri_edit, Other).
 

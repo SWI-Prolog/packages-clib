@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2009-2023, VU University Amsterdam
+    Copyright (c)  2009-2025, VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -65,61 +65,8 @@ static atom_t ATOM_segment;
 static functor_t FUNCTOR_equal2;	/* =/2 */
 static functor_t FUNCTOR_pair2;		/* -/2 */
 static functor_t FUNCTOR_uri_components5;
+static functor_t FUNCTOR_urn_components3;
 static functor_t FUNCTOR_uri_authority4;
-static functor_t FUNCTOR_error2;
-static functor_t FUNCTOR_syntax_error1;
-static functor_t FUNCTOR_type_error2;
-static functor_t FUNCTOR_domain_error2;
-
-
-static int
-syntax_error(const char *culprit)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_syntax_error1,
-			 PL_CHARS, culprit,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
-
-static int
-type_error(const char *expected, term_t found)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_type_error2,
-			 PL_CHARS, expected,
-			 PL_TERM, found,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
-
-
-static int
-domain_error(const char *expected, term_t found)
-{ term_t ex;
-
-  if ( (ex=PL_new_term_ref()) &&
-       PL_unify_term(ex,
-		     PL_FUNCTOR, FUNCTOR_error2,
-		       PL_FUNCTOR, FUNCTOR_domain_error2,
-			 PL_CHARS, expected,
-			 PL_TERM, found,
-		       PL_VARIABLE) )
-    return PL_raise_exception(ex);
-
-  return FALSE;
-}
 
 
 		 /*******************************
@@ -158,7 +105,7 @@ domain_error(const char *expected, term_t found)
 #define CH_PCHAR	(CH_UNRESERVED|CH_SUBDELIM|CH_EX_PCHAR)
 
 static int  charflags[128] = {0};
-static int  flags_done = 0;
+static bool flags_done = 0;
 
 static void
 set_flags(const char *from, int flag)
@@ -167,7 +114,7 @@ set_flags(const char *from, int flag)
 }
 
 static void
-fill_flags()
+fill_flags(void)
 { if ( !flags_done )
   { int c;
 
@@ -191,7 +138,7 @@ fill_flags()
 
     set_flags("/:?#&=", CH_URL);
 
-    flags_done = TRUE;
+    flags_done = true;
   }
 }
 
@@ -329,7 +276,7 @@ init_charbuf(charbuf *cb)
 }
 
 
-static int
+static bool
 init_charbuf_at_size(charbuf *cb, size_t size)
 { size++;
 
@@ -338,11 +285,11 @@ init_charbuf_at_size(charbuf *cb, size_t size)
   else
     cb->base = cb->here = PL_malloc(size*sizeof(pl_wchar_t));
 
-  return TRUE;
+  return true;
 }
 
 
-static int
+static bool
 add_charbuf(charbuf *cb, int c)
 { if ( cb->here < cb->end )
   { *cb->here++ = c;
@@ -361,7 +308,7 @@ add_charbuf(charbuf *cb, int c)
     *cb->here++ = c;
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -373,7 +320,7 @@ hexdigit(int val)
 }
 
 
-static int
+static bool
 add_encoded_charbuf(charbuf *cb, int c, int flags)
 { if ( no_escape(c, flags) )
   { add_charbuf(cb, c);
@@ -391,11 +338,11 @@ add_encoded_charbuf(charbuf *cb, int c, int flags)
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
-static int
+static bool
 iri_add_encoded_charbuf(charbuf *cb, int c, int flags)
 { if ( iri_no_escape(c, flags) )
   { add_charbuf(cb, c);
@@ -406,12 +353,12 @@ iri_add_encoded_charbuf(charbuf *cb, int c, int flags)
     add_charbuf(cb, hexdigit(c&0xf));
   }
 
-  return TRUE;
+  return true;
 }
 
 
 
-static int
+static bool
 add_nchars_charbuf(charbuf *cb, size_t len, const pl_wchar_t *s)
 { if ( cb->here+len <= cb->end )
   { wcsncpy(cb->here, s, len);
@@ -423,50 +370,50 @@ add_nchars_charbuf(charbuf *cb, size_t len, const pl_wchar_t *s)
       add_charbuf(cb, s[n]);
   }
 
-  return TRUE;
+  return true;
 }
 
 
-static int
+static bool
 range_has_escape(const range *r, int flags)
 { const pl_wchar_t *s = r->start;
 
   for(; s<r->end; s++)
   { if ( s[0] == '%' || (s[0] == '+' && flags == ESC_QVALUE) )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
-static int
+static bool
 range_is_unreserved(const range *r, int iri, int flags)
 { const pl_wchar_t *s = r->start;
 
   if ( iri )
   { for(; s<r->end; s++)
     { if ( !iri_no_escape(s[0], flags) )
-	return FALSE;
+	return false;
     }
   } else
   { for(; s<r->end; s++)
     { if ( !no_escape(s[0], flags) )
-	return FALSE;
+	return false;
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
-static int
+static bool
 add_verb_range_charbuf(charbuf *cb, const range *r)
 { return add_nchars_charbuf(cb, r->end-r->start, r->start);
 }
 
 
-static int
+static bool
 add_decoded_range_charbuf(charbuf *cb, const range *r, int flags)
 { const pl_wchar_t *s = r->start;
 
@@ -493,12 +440,12 @@ add_decoded_range_charbuf(charbuf *cb, const range *r, int flags)
     add_charbuf(cb, c);
   }
 
-  return TRUE;
+  return true;
 }
 
 
-static int
-add_normalized_range_charbuf(charbuf *cb, const range *r, int iri, int flags)
+static bool
+add_normalized_range_charbuf(charbuf *cb, const range *r, bool iri, int flags)
 { const pl_wchar_t *s = r->start;
 
   while(s<r->end)
@@ -534,7 +481,7 @@ add_normalized_range_charbuf(charbuf *cb, const range *r, int iri, int flags)
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -544,12 +491,12 @@ add_normalized_range_charbuf(charbuf *cb, const range *r, int iri, int flags)
    implies not to use encoding if it is not needed and upcase
    %xx to %XX otherwise.
 
-   If iri == TRUE, values >= 128 are not escaped.  Otherwise they
+   If iri == true, values >= 128 are not escaped.  Otherwise they
    use %-encoded UTF-8
 */
 
-static int
-add_range_charbuf(charbuf *cb, const range *r, int unesc, int iri, int flags)
+static bool
+add_range_charbuf(charbuf *cb, const range *r, bool unesc, bool iri, int flags)
 { if ( unesc && range_has_escape(r, flags) )
   { return add_normalized_range_charbuf(cb, r, iri, flags);
   } else if ( range_is_unreserved(r, iri, flags) )
@@ -566,12 +513,12 @@ add_range_charbuf(charbuf *cb, const range *r, int unesc, int iri, int flags)
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
 /* add_lwr_range_charbuf(charbuf *cb, const range *r,
-			 int unesc, int iri, int flags)
+			 bool unesc, bool iri, int flags)
 
    Add a range of characters while normalizing %-encoding and
    mapping all characters to lowercase.
@@ -580,8 +527,9 @@ add_range_charbuf(charbuf *cb, const range *r, int unesc, int iri, int flags)
 */
 
 
-static int
-add_lwr_range_charbuf(charbuf *cb, const range *r, int unesc, int iri, int flags)
+static bool
+add_lwr_range_charbuf(charbuf *cb, const range *r,
+		      bool unesc, bool iri, int flags)
 { const pl_wchar_t *s = r->start;
 
   while(s<r->end)
@@ -607,7 +555,7 @@ add_lwr_range_charbuf(charbuf *cb, const range *r, int unesc, int iri, int flags
       add_encoded_charbuf(cb, towlower((wint_t)c), flags);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -626,11 +574,11 @@ get_text_arg(term_t term, int pos, size_t *len, pl_wchar_t **s, int flags)
 
   _PL_get_arg(pos, term, tmp);
   if ( PL_is_variable(tmp) )
-    return FALSE;
+    return false;
   if ( !PL_get_wchars(tmp, len, s, flags) )
     return -1;
 
-  return TRUE;
+  return true;
 }
 
 
@@ -645,11 +593,14 @@ Based on RFC-3986 regular expression:
 */
 
 typedef struct uri_component_ranges
-{ range scheme;
+{ bool  is_urn;
+  range scheme;
   range authority;
   range path;
   range query;
   range fragment;
+  range nid;			/* URN Namespace Identifier */
+  range nss;			/* URN Namespace Specific String */
 } uri_component_ranges;
 
 
@@ -670,16 +621,16 @@ skip_not(const pl_wchar_t *in, const pl_wchar_t *end, const pl_wchar_t *chars)
 }
 
 
-static int
+static bool
 unify_range(term_t t, const range *r)
 { if ( r->start )
     return PL_unify_wchars(t, PL_ATOM, r->end - r->start, r->start);
 
-  return TRUE;
+  return true;
 }
 
 
-static int
+static bool
 parse_uri(uri_component_ranges *ranges, size_t len, const pl_wchar_t *s)
 { const pl_wchar_t *end = &s[len];
   const pl_wchar_t *here = s;
@@ -692,36 +643,49 @@ parse_uri(uri_component_ranges *ranges, size_t len, const pl_wchar_t *s)
   { ranges->scheme.start = s;
     ranges->scheme.end = e;
     here = e+1;
+    if ( e-s == 3 && wcsncmp(s, L"urn", 3) == 0 )
+      ranges->is_urn = true;
   }
 
-  if ( here[0] == '/' && here[1] == '/' )	/* 3 */
-  { here += 2;				/* 4 */
-    e = skip_not(here, end, L"/?#");
-    ranges->authority.start = here;
-    ranges->authority.end   = e;
-    here = e;					/* 5 */
+  if ( ranges->is_urn )
+  { e = skip_not(here, end, L":/?#");
+    if ( e > here && e[0] == ':' )			/* NID */
+    { ranges->nid.start = here;
+      ranges->nid.end = e;
+      here = e+1;
+    }
+    ranges->nss.start = here;
+    ranges->nss.end   = end;
+  } else
+  { if ( here[0] == '/' && here[1] == '/' )	/* 3 */
+    { here += 2;				/* 4 */
+      e = skip_not(here, end, L"/?#");
+      ranges->authority.start = here;
+      ranges->authority.end   = e;
+      here = e;					/* 5 */
+    }
+
+    e = skip_not(here, end, L"?#");
+    ranges->path.start = here;
+    ranges->path.end   = e;
+    here = e;					/* 6 */
+
+    if ( here[0] == '?' )
+    { here++;					/* 7 */
+      e = skip_not(here, end, L"#");
+      ranges->query.start = here;
+      ranges->query.end = e;
+      here = e;					/* 8 */
+    }
+
+    if ( here[0] == '#' )
+    { here++;					/* 9 */
+      ranges->fragment.start = here;
+      ranges->fragment.end   = end;
+    }
   }
 
-  e = skip_not(here, end, L"?#");
-  ranges->path.start = here;
-  ranges->path.end   = e;
-  here = e;					/* 6 */
-
-  if ( here[0] == '?' )
-  { here++;					/* 7 */
-    e = skip_not(here, end, L"#");
-    ranges->query.start = here;
-    ranges->query.end = e;
-    here = e;					/* 8 */
-  }
-
-  if ( here[0] == '#' )
-  { here++;					/* 9 */
-    ranges->fragment.start = here;
-    ranges->fragment.end   = end;
-  }
-
-  return TRUE;
+  return true;
 }
 
 
@@ -737,60 +701,101 @@ uri_components(term_t URI, term_t components)
 
     parse_uri(&ranges, len, s);
 
-    unify_range(av+0, &ranges.scheme);
-    unify_range(av+1, &ranges.authority);
-    unify_range(av+2, &ranges.path);
-    unify_range(av+3, &ranges.query);
-    unify_range(av+4, &ranges.fragment);
+    if ( ranges.is_urn )
+    { unify_range(av+0, &ranges.scheme);
+      unify_range(av+1, &ranges.nid);
+      unify_range(av+2, &ranges.nss);
+      return (PL_cons_functor_v(rt, FUNCTOR_urn_components3, av) &&
+	      PL_unify(components, rt));
+    } else
+    { unify_range(av+0, &ranges.scheme);
+      unify_range(av+1, &ranges.authority);
+      unify_range(av+2, &ranges.path);
+      unify_range(av+3, &ranges.query);
+      unify_range(av+4, &ranges.fragment);
 
-    return (PL_cons_functor_v(rt, FUNCTOR_uri_components5, av) &&
-	    PL_unify(components, rt));
+      return (PL_cons_functor_v(rt, FUNCTOR_uri_components5, av) &&
+	      PL_unify(components, rt));
+    }
   } else if ( PL_is_functor(components, FUNCTOR_uri_components5) )
   { charbuf b;
     int rc;
 
     init_charbuf(&b);
 					/* schema */
-    if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == true )
     { add_nchars_charbuf(&b, len, s);
       add_charbuf(&b, ':');
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
 					/* authority */
-    if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == true )
     { add_charbuf(&b, '/');
       add_charbuf(&b, '/');
       add_nchars_charbuf(&b, len, s);
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
 					/* path */
-    if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == true )
     { add_nchars_charbuf(&b, len, s);
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
 					/* query */
-    if ( (rc=get_text_arg(components, 4, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 4, &len, &s, TXT_EX_TEXT)) == true )
     { if ( len > 0 )
       { add_charbuf(&b, '?');
 	add_nchars_charbuf(&b, len, s);
       }
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
 					/* fragment */
-    if ( (rc=get_text_arg(components, 5, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 5, &len, &s, TXT_EX_TEXT)) == true )
     { add_charbuf(&b, '#');
       add_nchars_charbuf(&b, len, s);
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
+    }
+
+    rc = PL_unify_wchars(URI, PL_ATOM, b.here-b.base, b.base);
+    free_charbuf(&b);
+
+    return rc;
+  } else if ( PL_is_functor(components, FUNCTOR_urn_components3) )
+  { charbuf b;
+    int rc;
+
+    init_charbuf(&b);
+
+    if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == true )
+    { add_nchars_charbuf(&b, len, s);
+      add_charbuf(&b, ':');
+    } else if ( rc == -1 )
+    { free_charbuf(&b);
+      return false;
+    }
+					/* NID */
+    if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == true )
+    { add_nchars_charbuf(&b, len, s);
+      add_charbuf(&b, ':');
+    } else if ( rc == -1 )
+    { free_charbuf(&b);
+      return false;
+    }
+
+    if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == true )
+    { add_nchars_charbuf(&b, len, s);
+    } else if ( rc == -1 )
+    { free_charbuf(&b);
+      return false;
     }
 
     rc = PL_unify_wchars(URI, PL_ATOM, b.here-b.base, b.base);
@@ -824,12 +829,12 @@ uri_is_global(term_t URI)
     if ( e > s+1 && e[0] == ':' )
     { r.start = s;
       r.end = e;
-      if ( range_is_unreserved(&r, FALSE, CH_SCHEME) )
-	return TRUE;
+      if ( range_is_unreserved(&r, false, CH_SCHEME) )
+	return true;
     }
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -837,11 +842,11 @@ uri_is_global(term_t URI)
 		 *	   QUERY-STRING		*
 		 *******************************/
 
-static int
+static bool
 unify_decoded_atom(term_t t, range *r, int flags)
 { if ( range_has_escape(r, flags) )
   { charbuf b;
-    int rc;
+    bool rc;
 
     init_charbuf(&b);
     add_decoded_range_charbuf(&b, r, flags);
@@ -854,7 +859,7 @@ unify_decoded_atom(term_t t, range *r, int flags)
 }
 
 
-static int
+static bool
 unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
 { if ( len == 0 )
   { return PL_unify_nil(list);
@@ -876,7 +881,7 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
 
 	qs = value.end+1;
       } else
-      { return syntax_error("illegal_uri_query");
+      { return PL_syntax_error("illegal_uri_query", NULL);
       }
 
       PL_STRINGS_MARK();
@@ -889,7 +894,7 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
       if ( !PL_cons_functor_v(eq, FUNCTOR_equal2, nv) ||
 	   !PL_unify_list(tail, head, tail) ||
 	   !PL_unify(head, eq) )
-	return FALSE;
+	return false;
     }
 
     return PL_unify_nil(tail);
@@ -897,14 +902,14 @@ unify_query_string_components(term_t list, size_t len, const pl_wchar_t *qs)
 }
 
 
-static int
-add_encoded_term_charbuf(charbuf *cb, term_t value, int iri, int flags)
+static bool
+add_encoded_term_charbuf(charbuf *cb, term_t value, bool iri, int flags)
 { pl_wchar_t *s;
   range r;
   size_t len;
 
   if ( !PL_get_wchars(value, &len, &s, CVT_ATOMIC|CVT_EXCEPTION) )
-    return FALSE;
+    return false;
 
   r.start = s;
   r.end = r.start+len;
@@ -917,7 +922,7 @@ add_encoded_term_charbuf(charbuf *cb, term_t value, int iri, int flags)
       add_encoded_charbuf(cb, *s++, flags);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -953,19 +958,19 @@ uri_query_components(term_t string, term_t list)
 	_PL_get_arg(1, head, nv+1);
       } else
       { free_charbuf(&out);
-	return type_error("name_value", head);
+	return PL_type_error("name_value", head);
       }
 
       if ( out.here != out.base )
 	add_charbuf(&out, '&');
-      if ( !add_encoded_term_charbuf(&out, nv+0, FALSE, ESC_QNAME) )
+      if ( !add_encoded_term_charbuf(&out, nv+0, false, ESC_QNAME) )
       { free_charbuf(&out);
-	return FALSE;
+	return false;
       }
       add_charbuf(&out, '=');
-      if ( !add_encoded_term_charbuf(&out, nv+1, FALSE, ESC_QVALUE) )
+      if ( !add_encoded_term_charbuf(&out, nv+1, false, ESC_QVALUE) )
       { free_charbuf(&out);
-	return FALSE;
+	return false;
       }
     }
 
@@ -977,7 +982,7 @@ uri_query_components(term_t string, term_t list)
 			 CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION);
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -992,7 +997,7 @@ uri_encoded(term_t what, term_t qv, term_t enc)
   int flags;
 
   if ( !PL_get_atom(what, &w) )
-    return type_error("atom", what);
+    return PL_type_error("atom", what);
   if ( w == ATOM_query_value )
     flags = ESC_QVALUE;
   else if ( w == ATOM_fragment )
@@ -1002,7 +1007,7 @@ uri_encoded(term_t what, term_t qv, term_t enc)
   else if ( w == ATOM_segment )
     flags = ESC_SEGMENT;
   else
-    return domain_error("uri_component", what);
+    return PL_domain_error("uri_component", what);
 
   fill_flags();
 
@@ -1011,9 +1016,9 @@ uri_encoded(term_t what, term_t qv, term_t enc)
     int rc;
 
     init_charbuf(&out);
-    if ( !add_encoded_term_charbuf(&out, qv, FALSE, flags) )
+    if ( !add_encoded_term_charbuf(&out, qv, false, flags) )
     { free_charbuf(&out);
-      return FALSE;
+      return false;
     }
     rc = PL_unify_wchars(enc, PL_ATOM, out.here-out.base, out.base);
     free_charbuf(&out);
@@ -1026,7 +1031,7 @@ uri_encoded(term_t what, term_t qv, term_t enc)
 
     return unify_decoded_atom(qv, &r, flags);
   } else
-  { return FALSE;
+  { return false;
   }
 }
 
@@ -1035,7 +1040,7 @@ uri_encoded(term_t what, term_t qv, term_t enc)
 		 *	      AUTHORITY		*
 		 *******************************/
 
-static int
+static bool
 unify_uri_authority_components(term_t components,
 			       size_t len, const pl_wchar_t *s)
 { const pl_wchar_t *end = &s[len];
@@ -1094,7 +1099,7 @@ done:
 
     if ( ep == port.end )
     { if ( !PL_put_integer(av+3, pn) )
-	return FALSE;
+	return false;
     } else
     { unify_decoded_atom(av+3, &port, ESC_PORT);
     }
@@ -1122,22 +1127,22 @@ uri_authority_components(term_t Authority, term_t components)
 
     init_charbuf(&b);
     /* user[:password] */
-    if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 1, &len, &s, TXT_EX_TEXT)) == true )
     { add_nchars_charbuf(&b, len, s);
-      if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == TRUE )
+      if ( (rc=get_text_arg(components, 2, &len, &s, TXT_EX_TEXT)) == true )
       { add_charbuf(&b, ':');
 	add_nchars_charbuf(&b, len, s);
       } else if ( rc == -1 )
       { free_charbuf(&b);
-	return FALSE;
+	return false;
       }
       add_charbuf(&b, '@');
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
     /* host */
-    if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == TRUE )
+    if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == true )
     { if ( wcschr(s, ':') )
       { add_charbuf(&b, '[');
 	add_nchars_charbuf(&b, len, s);
@@ -1147,16 +1152,16 @@ uri_authority_components(term_t Authority, term_t components)
       }
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
     /* port */
     if ( (rc=get_text_arg(components, 4, &len, &s,
-			  TXT_EX_TEXT|CVT_INTEGER)) == TRUE )
+			  TXT_EX_TEXT|CVT_INTEGER)) == true )
     { add_charbuf(&b, ':');
       add_nchars_charbuf(&b, len, s);
     } else if ( rc == -1 )
     { free_charbuf(&b);
-      return FALSE;
+      return false;
     }
 
     rc = PL_unify_wchars(Authority, PL_ATOM, b.here-b.base, b.base);
@@ -1175,48 +1180,58 @@ uri_authority_components(term_t Authority, term_t components)
 		 *	  NORMALIZATION		*
 		 *******************************/
 
-static int
+static bool
 normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
-		     int unesc, int iri)
+		     bool unesc, bool iri)
 { fill_flags();
 
   if ( ranges->scheme.start )
   { add_lwr_range_charbuf(cb, &ranges->scheme, unesc, iri, ESC_SCHEME);
     add_charbuf(cb, ':');
   }
-  if ( ranges->authority.start )
-  { add_charbuf(cb, '/');
-    add_charbuf(cb, '/');
-    add_lwr_range_charbuf(cb, &ranges->authority, unesc, iri, ESC_AUTH);
-  }
-  if ( ranges->path.end > ranges->path.start )
-  { charbuf pb;
-    charbuf path;
-    size_t len;
+  if ( ranges->is_urn )
+  { if ( ranges->nid.start )
+    { add_lwr_range_charbuf(cb, &ranges->nid, unesc, iri, ESC_SCHEME);
+      add_charbuf(cb, ':');
+    }
+    if ( ranges->nss.start )
+    { add_lwr_range_charbuf(cb, &ranges->nss, unesc, iri, ESC_SEGMENT);
+    }
+  } else
+  { if ( ranges->authority.start )
+    { add_charbuf(cb, '/');
+      add_charbuf(cb, '/');
+      add_lwr_range_charbuf(cb, &ranges->authority, unesc, iri, ESC_AUTH);
+    }
+    if ( ranges->path.end > ranges->path.start )
+    { charbuf pb;
+      charbuf path;
+      size_t len;
 
-    init_charbuf(&pb);
-    add_range_charbuf(&pb, &ranges->path, unesc, iri, ESC_PATH);
-    init_charbuf_at_size(&path, pb.here-pb.base);
-    len = removed_dot_segments(pb.here-pb.base, pb.base, path.base);
-    add_nchars_charbuf(cb, len, path.base);
-    free_charbuf(&path);
-    free_charbuf(&pb);
-  }
-  if ( ranges->query.start )
-  { add_charbuf(cb, '?');
-    add_range_charbuf(cb, &ranges->query, unesc, iri, ESC_QUERY);
-  }
-  if ( ranges->fragment.start )
-  { add_charbuf(cb, '#');
-    add_range_charbuf(cb, &ranges->fragment, unesc, iri, ESC_QVALUE);
+      init_charbuf(&pb);
+      add_range_charbuf(&pb, &ranges->path, unesc, iri, ESC_PATH);
+      init_charbuf_at_size(&path, pb.here-pb.base);
+      len = removed_dot_segments(pb.here-pb.base, pb.base, path.base);
+      add_nchars_charbuf(cb, len, path.base);
+      free_charbuf(&path);
+      free_charbuf(&pb);
+    }
+    if ( ranges->query.start )
+    { add_charbuf(cb, '?');
+      add_range_charbuf(cb, &ranges->query, unesc, iri, ESC_QUERY);
+    }
+    if ( ranges->fragment.start )
+    { add_charbuf(cb, '#');
+      add_range_charbuf(cb, &ranges->fragment, unesc, iri, ESC_QVALUE);
+    }
   }
 
-  return TRUE;
+  return true;
 }
 
 
 static foreign_t
-normalized(term_t URI, term_t CannonicalURI, int unesc, int iri)
+normalized(term_t URI, term_t CannonicalURI, bool unesc, bool iri)
 { pl_wchar_t *s;
   size_t len;
 
@@ -1224,7 +1239,7 @@ normalized(term_t URI, term_t CannonicalURI, int unesc, int iri)
 		     CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION) )
   { uri_component_ranges ranges;
     charbuf b;
-    int rc;
+    bool rc;
 
     parse_uri(&ranges, len, s);
     init_charbuf(&b);
@@ -1236,7 +1251,7 @@ normalized(term_t URI, term_t CannonicalURI, int unesc, int iri)
     return rc;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1245,7 +1260,7 @@ normalized(term_t URI, term_t CannonicalURI, int unesc, int iri)
 
 static foreign_t
 uri_normalized(term_t URI, term_t CannonicalURI)
-{ return normalized(URI, CannonicalURI, TRUE, FALSE);
+{ return normalized(URI, CannonicalURI, true, false);
 }
 
 
@@ -1254,7 +1269,7 @@ uri_normalized(term_t URI, term_t CannonicalURI)
 
 static foreign_t
 iri_normalized(term_t IRI, term_t CannonicalIRI)
-{ return normalized(IRI, CannonicalIRI, FALSE, TRUE);
+{ return normalized(IRI, CannonicalIRI, false, true);
 }
 
 
@@ -1263,11 +1278,11 @@ iri_normalized(term_t IRI, term_t CannonicalIRI)
 
 static foreign_t
 uri_normalized_iri(term_t URI, term_t CannonicalIRI)
-{ return normalized(URI, CannonicalIRI, TRUE, TRUE);
+{ return normalized(URI, CannonicalIRI, true, true);
 }
 
 
-static int
+static bool
 ranges_in_charbuf(charbuf *cb, uri_component_ranges *ranges)
 { if ( ranges->scheme.start )
   { add_verb_range_charbuf(cb, &ranges->scheme);
@@ -1288,7 +1303,7 @@ ranges_in_charbuf(charbuf *cb, uri_component_ranges *ranges)
     add_verb_range_charbuf(cb, &ranges->fragment);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1315,7 +1330,7 @@ free_base_cache(void *cache)
 }
 
 static base_cache *
-myBase()
+myBase(void)
 { base_cache *base;
 
   if ( (base=pthread_getspecific(base_key)) )
@@ -1352,17 +1367,17 @@ base_ranges(term_t t)
 
     return &base->ranges;
   } else
-    return FALSE;
+    return false;
 }
 
 
-static int
+static bool
 resolve_guarded(term_t Rel, term_t Base, term_t URI,
-		int unesc, int normalize, int iri)
+		bool unesc, bool normalize, bool iri)
 { pl_wchar_t *s;
   size_t slen;
   uri_component_ranges s_ranges, t_ranges;
-  int rc;
+  bool rc;
   size_t len;
   charbuf out, pb, path;
 
@@ -1377,7 +1392,7 @@ resolve_guarded(term_t Rel, term_t Base, term_t URI,
     { const uri_component_ranges *b_ranges;
 
       if ( !(b_ranges = base_ranges(Base)) )
-	return FALSE;
+	return false;
 
       memset(&t_ranges, 0, sizeof(t_ranges));
       if ( s_ranges.authority.start )
@@ -1417,7 +1432,7 @@ resolve_guarded(term_t Rel, term_t Base, term_t URI,
       t_ranges.fragment = s_ranges.fragment;
     }
   } else
-    return FALSE;
+    return false;
 
   init_charbuf(&out);			/* output buffer */
 
@@ -1441,9 +1456,9 @@ resolve_guarded(term_t Rel, term_t Base, term_t URI,
   return rc;
 }
 
-static int
+static bool
 resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
-{ int rc;
+{ bool rc;
 
   PL_STRINGS_MARK();
   rc = resolve_guarded(Rel, Base, URI, unesc, normalize, iri);
@@ -1458,7 +1473,7 @@ resolve(term_t Rel, term_t Base, term_t URI, int unesc, int normalize, int iri)
 
 static foreign_t
 uri_resolve(term_t Rel, term_t Base, term_t URI)
-{ return resolve(Rel, Base, URI, TRUE, FALSE, FALSE);
+{ return resolve(Rel, Base, URI, true, false, false);
 }
 
 
@@ -1467,7 +1482,7 @@ uri_resolve(term_t Rel, term_t Base, term_t URI)
 
 static foreign_t
 uri_normalized3(term_t Rel, term_t Base, term_t URI)
-{ return resolve(Rel, Base, URI, TRUE, TRUE, FALSE);
+{ return resolve(Rel, Base, URI, true, true, false);
 }
 
 /** iri_normalized(+Relative, +Base, -Absolute) is det.
@@ -1475,7 +1490,7 @@ uri_normalized3(term_t Rel, term_t Base, term_t URI)
 
 static foreign_t
 iri_normalized3(term_t Rel, term_t Base, term_t IRI)
-{ return resolve(Rel, Base, IRI, FALSE, TRUE, TRUE);
+{ return resolve(Rel, Base, IRI, false, true, true);
 }
 
 
@@ -1484,7 +1499,7 @@ iri_normalized3(term_t Rel, term_t Base, term_t IRI)
 
 static foreign_t
 uri_normalized_iri3(term_t Rel, term_t Base, term_t IRI)
-{ return resolve(Rel, Base, IRI, TRUE, TRUE, TRUE);
+{ return resolve(Rel, Base, IRI, true, true, true);
 }
 
 
@@ -1607,11 +1622,8 @@ install_uri()
   MKATOM(segment);
 
   MKFUNCTOR(uri_components, 5);
+  MKFUNCTOR(urn_components, 3);
   MKFUNCTOR(uri_authority, 4);
-  MKFUNCTOR(error, 2);
-  MKFUNCTOR(syntax_error, 1);
-  MKFUNCTOR(type_error, 2);
-  MKFUNCTOR(domain_error, 2);
   FUNCTOR_equal2 = PL_new_functor(PL_new_atom("="), 2);
   FUNCTOR_pair2 = PL_new_functor(PL_new_atom("-"), 2);
 
