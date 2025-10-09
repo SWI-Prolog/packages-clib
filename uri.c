@@ -65,7 +65,7 @@ static atom_t ATOM_segment;
 static functor_t FUNCTOR_equal2;	/* =/2 */
 static functor_t FUNCTOR_pair2;		/* -/2 */
 static functor_t FUNCTOR_uri_components5;
-static functor_t FUNCTOR_urn_components3;
+static functor_t FUNCTOR_urn_components5;
 static functor_t FUNCTOR_uri_authority4;
 
 
@@ -654,8 +654,10 @@ parse_uri(uri_component_ranges *ranges, size_t len, const pl_wchar_t *s)
       ranges->nid.end = e;
       here = e+1;
     }
+    e = skip_not(here, end, L"?#");
     ranges->nss.start = here;
-    ranges->nss.end   = end;
+    ranges->nss.end   = e;
+    here = e;					/* 6 */
   } else
   { if ( here[0] == '/' && here[1] == '/' )	/* 3 */
     { here += 2;				/* 4 */
@@ -669,20 +671,45 @@ parse_uri(uri_component_ranges *ranges, size_t len, const pl_wchar_t *s)
     ranges->path.start = here;
     ranges->path.end   = e;
     here = e;					/* 6 */
+  }
 
-    if ( here[0] == '?' )
-    { here++;					/* 7 */
-      e = skip_not(here, end, L"#");
-      ranges->query.start = here;
-      ranges->query.end = e;
-      here = e;					/* 8 */
-    }
+  if ( here[0] == '?' )
+  { here++;					/* 7 */
+    e = skip_not(here, end, L"#");
+    ranges->query.start = here;
+    ranges->query.end = e;
+    here = e;					/* 8 */
+  }
 
-    if ( here[0] == '#' )
-    { here++;					/* 9 */
-      ranges->fragment.start = here;
-      ranges->fragment.end   = end;
+  if ( here[0] == '#' )
+  { here++;					/* 9 */
+    ranges->fragment.start = here;
+    ranges->fragment.end   = end;
+  }
+
+  return true;
+}
+
+static bool
+add_query_and_fragment(term_t components, charbuf *b)
+{ int rc;
+  pl_wchar_t *s;
+  size_t len;
+
+  if ( (rc=get_text_arg(components, 4, &len, &s, TXT_EX_TEXT)) == true )
+  { if ( len > 0 )
+    { add_charbuf(b, '?');
+      add_nchars_charbuf(b, len, s);
     }
+  } else if ( rc == -1 )
+  { return false;
+  }
+					/* fragment */
+  if ( (rc=get_text_arg(components, 5, &len, &s, TXT_EX_TEXT)) == true )
+  { add_charbuf(b, '#');
+    add_nchars_charbuf(b, len, s);
+  } else if ( rc == -1 )
+  { return false;
   }
 
   return true;
@@ -705,7 +732,9 @@ uri_components(term_t URI, term_t components)
     { unify_range(av+0, &ranges.scheme);
       unify_range(av+1, &ranges.nid);
       unify_range(av+2, &ranges.nss);
-      return (PL_cons_functor_v(rt, FUNCTOR_urn_components3, av) &&
+      unify_range(av+3, &ranges.query);
+      unify_range(av+4, &ranges.fragment);
+      return (PL_cons_functor_v(rt, FUNCTOR_urn_components5, av) &&
 	      PL_unify(components, rt));
     } else
     { unify_range(av+0, &ranges.scheme);
@@ -746,21 +775,8 @@ uri_components(term_t URI, term_t components)
     { free_charbuf(&b);
       return false;
     }
-					/* query */
-    if ( (rc=get_text_arg(components, 4, &len, &s, TXT_EX_TEXT)) == true )
-    { if ( len > 0 )
-      { add_charbuf(&b, '?');
-	add_nchars_charbuf(&b, len, s);
-      }
-    } else if ( rc == -1 )
-    { free_charbuf(&b);
-      return false;
-    }
-					/* fragment */
-    if ( (rc=get_text_arg(components, 5, &len, &s, TXT_EX_TEXT)) == true )
-    { add_charbuf(&b, '#');
-      add_nchars_charbuf(&b, len, s);
-    } else if ( rc == -1 )
+
+    if ( !add_query_and_fragment(components, &b) )
     { free_charbuf(&b);
       return false;
     }
@@ -769,7 +785,7 @@ uri_components(term_t URI, term_t components)
     free_charbuf(&b);
 
     return rc;
-  } else if ( PL_is_functor(components, FUNCTOR_urn_components3) )
+  } else if ( PL_is_functor(components, FUNCTOR_urn_components5) )
   { charbuf b;
     int rc;
 
@@ -791,9 +807,15 @@ uri_components(term_t URI, term_t components)
       return false;
     }
 
+					/* NSS  */
     if ( (rc=get_text_arg(components, 3, &len, &s, TXT_EX_TEXT)) == true )
     { add_nchars_charbuf(&b, len, s);
     } else if ( rc == -1 )
+    { free_charbuf(&b);
+      return false;
+    }
+
+    if ( !add_query_and_fragment(components, &b) )
     { free_charbuf(&b);
       return false;
     }
@@ -1180,6 +1202,18 @@ uri_authority_components(term_t Authority, term_t components)
 		 *	  NORMALIZATION		*
 		 *******************************/
 
+static void
+normalize_query_and_fragment(charbuf *cb, uri_component_ranges *ranges, bool unesc, bool iri)
+{ if ( ranges->query.start )
+  { add_charbuf(cb, '?');
+    add_range_charbuf(cb, &ranges->query, unesc, iri, ESC_QUERY);
+  }
+  if ( ranges->fragment.start )
+  { add_charbuf(cb, '#');
+    add_range_charbuf(cb, &ranges->fragment, unesc, iri, ESC_QVALUE);
+  }
+}
+
 static bool
 normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
 		     bool unesc, bool iri)
@@ -1197,6 +1231,7 @@ normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
     if ( ranges->nss.start )
     { add_lwr_range_charbuf(cb, &ranges->nss, unesc, iri, ESC_SEGMENT);
     }
+    normalize_query_and_fragment(cb, ranges, unesc, iri);
   } else
   { if ( ranges->authority.start )
     { add_charbuf(cb, '/');
@@ -1216,14 +1251,8 @@ normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
       free_charbuf(&path);
       free_charbuf(&pb);
     }
-    if ( ranges->query.start )
-    { add_charbuf(cb, '?');
-      add_range_charbuf(cb, &ranges->query, unesc, iri, ESC_QUERY);
-    }
-    if ( ranges->fragment.start )
-    { add_charbuf(cb, '#');
-      add_range_charbuf(cb, &ranges->fragment, unesc, iri, ESC_QVALUE);
-    }
+
+    normalize_query_and_fragment(cb, ranges, unesc, iri);
   }
 
   return true;
@@ -1622,7 +1651,7 @@ install_uri()
   MKATOM(segment);
 
   MKFUNCTOR(uri_components, 5);
-  MKFUNCTOR(urn_components, 3);
+  MKFUNCTOR(urn_components, 5);
   MKFUNCTOR(uri_authority, 4);
   FUNCTOR_equal2 = PL_new_functor(PL_new_atom("="), 2);
   FUNCTOR_pair2 = PL_new_functor(PL_new_atom("-"), 2);

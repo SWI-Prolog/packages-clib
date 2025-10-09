@@ -103,9 +103,9 @@ This library provides explicit support for URN URIs.
 %       If a URI is _parsed_, i.e., using mode (+,-), components that
 %       are not found are left _uninstantiated_ (variable). See
 %       uri_data/3 for accessing this structure.
-%     - urn_components(Scheme, NID, NSS)
+%     - urn_components(Scheme, NID, NSS, Search, Fragment)
 %       Here Scheme is always `urn`.  Otherwise the same comments
-%       as for uri_components/4 apply.
+%       as for uri_components/5 apply.
 
 %!  uri_data(+Field, +Components, -Data) is semidet.
 %!  uri_data(-Field, +Components, -Data) is nondet.
@@ -126,9 +126,11 @@ uri_data_(authority, uri_components(_, A, _, _, _), A).
 uri_data_(path,      uri_components(_, _, P, _, _), P).
 uri_data_(search,    uri_components(_, _, _, S, _), S).
 uri_data_(fragment,  uri_components(_, _, _, _, F), F).
-uri_data_(scheme,    urn_components(S, _, _), S).
-uri_data_(nid,       urn_components(_, I, _), I).
-uri_data_(nss,       urn_components(_, _, N), N).
+uri_data_(scheme,    urn_components(S, _, _, _, _), S).
+uri_data_(nid,       urn_components(_, I, _, _, _), I).
+uri_data_(nss,       urn_components(_, _, N, _, _), N).
+uri_data_(search,    urn_components(_, _, _, S, _), S).
+uri_data_(fragment,  urn_components(_, _, _, _, F), F).
 
 %!  uri_data(+Field, +Components, +Data, -NewComponents) is det.
 %
@@ -147,8 +149,12 @@ uri_data(path,      uri_components(S, A, _, Q, F), P, New) =>
     New = uri_components(S, A, P, Q, F).
 uri_data(search,    uri_components(S, A, P, _, F), Q, New) =>
     New = uri_components(S, A, P, Q, F).
+uri_data(search,    urn_components(S, A, P, _, F), Q, New) =>
+    New = urn_components(S, A, P, Q, F).
 uri_data(fragment,  uri_components(S, A, P, Q, _), F, New) =>
     New = uri_components(S, A, P, Q, F).
+uri_data(fragment,  urn_components(S, A, P, Q, _), F, New) =>
+    New = urn_components(S, A, P, Q, F).
 uri_data(nid,       urn_components(S, _, N), I, New) =>
     New = urn_components(S, I, N).
 uri_data(nss,       urn_components(S, I, _), N, New) =>
