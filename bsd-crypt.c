@@ -856,8 +856,8 @@ init_des(void)
 			k--;
 			k = (k|07) - (k&07);
 			k++;
+			perm[k-1] = i+1;
 		}
-		perm[k-1] = i+1;
 	}
 #ifdef DEBUG
 	prtab("cftab", perm, 8);
