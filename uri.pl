@@ -164,7 +164,7 @@ uri_data(_,         Components, _N, _New), var(Components) =>
 uri_data(Field,     _, _N, _New) =>
     domain_error(uri_field, Field).
 
-%!  uri_normalized(+URI, -NormalizedURI) is det.
+%!  uri_normalized(+URI, -NormalizedURI:atom) is det.
 %
 %   NormalizedURI is the normalized form   of  URI. Normalization is
 %   syntactic and involves the following steps:
@@ -212,40 +212,40 @@ uri_data(Field,     _, _N, _New) =>
 %           Len > 1.
 %   ```
 
-%!  uri_resolve(+URI, +Base, -GlobalURI) is det.
+%!  uri_resolve(+URI, +Base, -GlobalURI:atom) is det.
 %
 %   Resolve a possibly local URI relative   to Base. This implements
 %   http://labs.apache.org/webarch/uri/rfc/rfc3986.html#relative-transform
 
-%!  uri_normalized(+URI, +Base, -NormalizedGlobalURI) is det.
+%!  uri_normalized(+URI, +Base, -NormalizedGlobalURI:atom) is det.
 %
 %   NormalizedGlobalURI is the normalized global version of URI.
 %   Behaves as if defined by:
 %
-%   ==
+%   ```
 %   uri_normalized(URI, Base, NormalizedGlobalURI) :-
 %           uri_resolve(URI, Base, GlobalURI),
 %           uri_normalized(GlobalURI, NormalizedGlobalURI).
-%   ==
+%   ```
 
-%!  iri_normalized(+IRI, +Base, -NormalizedGlobalIRI) is det.
+%!  iri_normalized(+IRI, +Base, -NormalizedGlobalIRI:atom) is det.
 %
 %   NormalizedGlobalIRI is the normalized  global   version  of IRI.
 %   This is similar to uri_normalized/3, but   does  not do %-escape
 %   normalization.
 
-%!  uri_normalized_iri(+URI, +Base, -NormalizedGlobalIRI) is det.
+%!  uri_normalized_iri(+URI, +Base, -NormalizedGlobalIRI:atom) is det.
 %
 %   NormalizedGlobalIRI is the normalized global IRI of URI. Behaves
 %   as if defined by:
 %
-%   ==
+%   ```
 %   uri_normalized(URI, Base, NormalizedGlobalIRI) :-
 %           uri_resolve(URI, Base, GlobalURI),
 %           uri_normalized_iri(GlobalURI, NormalizedGlobalIRI).
-%   ==
+%   ```
 
-%!  uri_query_components(+String, -Query) is det.
+%!  uri_query_components(+String, -Query:atom) is det.
 %!  uri_query_components(-String, +Query) is det.
 %
 %   Perform encoding and decoding of an URI query string. Query is a
@@ -254,17 +254,17 @@ uri_data(Field,     _, _N, _New) =>
 %   accepted to enhance interoperability with   the option and pairs
 %   libraries.  E.g.
 %
-%   ==
+%   ```
 %   ?- uri_query_components(QS, [a=b, c('d+w'), n-'VU Amsterdam']).
 %   QS = 'a=b&c=d%2Bw&n=VU%20Amsterdam'.
 %
 %   ?- uri_query_components('a=b&c=d%2Bw&n=VU%20Amsterdam', Q).
 %   Q = [a=b, c='d+w', n='VU Amsterdam'].
-%   ==
+%   ```
 
 
 %!  uri_authority_components(+Authority, -Components) is det.
-%!  uri_authority_components(-Authority, +Components) is det.
+%!  uri_authority_components(-Authority:atom, +Components) is det.
 %
 %   Break-down the  authority component of  a URI.  The fields  of the
 %   structure Components  can be accessed  using uri_authority_data/3.
@@ -289,8 +289,8 @@ uri_authority_data(host,     uri_authority(_, _, H, _), H).
 uri_authority_data(port,     uri_authority(_, _, _, P), P).
 
 
-%!  uri_encoded(+Component, +Value, -Encoded) is det.
-%!  uri_encoded(+Component, -Value, +Encoded) is det.
+%!  uri_encoded(+Component, +Value, -Encoded:atom) is det.
+%!  uri_encoded(+Component, -Value:atom, +Encoded) is det.
 %
 %   Encoded   is   the   URI   encoding   for   Value.   When   encoding
 %   (Value->Encoded), Component specifies the URI   component  where the
@@ -306,8 +306,8 @@ uri_authority_data(port,     uri_authority(_, _, _, P), P).
 %       $ segment :
 %       "-._~" | "!$&'()*,;=" | "@"
 
-%!  uri_iri(+URI, -IRI) is det.
-%!  uri_iri(-URI, +IRI) is det.
+%!  uri_iri(+URI, -IRI:atom) is det.
+%!  uri_iri(-URI:atom, +IRI) is det.
 %
 %   Convert between a URI, encoded in US-ASCII and an IRI. An IRI is
 %   a fully expanded  Unicode  string.   Unicode  strings  are first
@@ -317,8 +317,8 @@ uri_authority_data(port,     uri_authority(_, _, _, P), P).
 %   legally percent-encoded UTF-8 string.
 
 
-%!  uri_file_name(+URI, -FileName) is semidet.
-%!  uri_file_name(-URI, +FileName) is det.
+%!  uri_file_name(+URI, -FileName:atom) is semidet.
+%!  uri_file_name(-URI:atom, +FileName) is det.
 %
 %   Convert between a URI and a   local  file_name. This protocol is
 %   covered by RFC 1738. Please note   that file-URIs use _absolute_
