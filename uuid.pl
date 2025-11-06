@@ -40,6 +40,9 @@
             uuid_property/2             % +UUID, ?Property
           ]).
 :- autoload(library(apply), [maplist/2]).
+:- if(exists_source(library(shlib))).
+:- autoload(library(shlib), [load_foreign_library/1]).
+:- endif.
 
 /** <module> Universally Unique Identifier (UUID) Library
 
@@ -61,7 +64,7 @@ versions.  Some typical calls are given below:
 */
 
 link_uuid :-
-    catch(load_foreign_library(foreign(uuid)), _, true).
+    catch(load_foreign_library(foreign(uuid)), error(_,_), true).
 
 :- initialization(link_uuid, now).
 
