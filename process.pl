@@ -2,8 +2,8 @@
 
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
-    WWW:           http://www.swi-prolog.org
-    Copyright (c)  2008-2024, University of Amsterdam
+    WWW:           https://www.swi-prolog.org
+    Copyright (c)  2008-2025, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -51,10 +51,12 @@
 
             process_set_method/1        % +CreateMethod
           ]).
+:- multifile prolog:prolog_tool/4.
+:- dynamic   prolog:prolog_tool/4.
+
 :- autoload(library(apply),[maplist/3]).
 :- autoload(library(error),[must_be/2,existence_error/2]).
 :- autoload(library(option),[select_option/3]).
-
 
 :- use_foreign_library(foreign(process)).
 
@@ -82,29 +84,29 @@ requested the process must be waited for using process_wait/2. Otherwise
 the process resources are reclaimed automatically.
 
 In addition to the predicates, this module   defines  a file search path
-(see user:file_search_path/2 and absolute_file_name/3) named =path= that
+(see user:file_search_path/2 and absolute_file_name/3) named `path` that
 locates files on the system's  search   path  for  executables. E.g. the
-following finds the executable for =ls=:
+following finds the executable for `ls`:
 
-    ==
     ?- absolute_file_name(path(ls), Path, [access(execute)]).
-    ==
 
-*|Incompatibilities and current limitations|*
+__Incompatibilities and current limitations__
 
-    * Where SICStus distinguishes between an internal process id and
+  - Where SICStus distinguishes between an internal process id and
     the OS process id, this implementation does not make this
     distinction. This implies that is_process/1 is incomplete and
     unreliable.
 
-    * It is unclear what the detached(true) option is supposed to do. Disable
-    signals in the child? Use setsid() to detach from the session?  The
-    current implementation uses setsid() on Unix systems.
+  - It is unclear what the detached(true) option is supposed to do.
+    Disable signals in the child? Use setsid() to detach from the
+    session? The current implementation uses setsid() on Unix systems.
 
-    * An extra option env([Name=Value, ...]) is added to
+  - An extra option env([Name=Value, ...]) is added to
     process_create/3.  As of version 4.1 SICStus added
     environment(List) which _modifies_ the environment.  A
     compatible option was added to SWI-Prolog 7.7.23.
+
+  - Using prolog(Tool) for `Exe` is a SWI-Prolog extension.
 
 @tbd    Implement detached option in process_create/3
 @compat SICStus 4
@@ -113,136 +115,137 @@ following finds the executable for =ls=:
 
 %!  process_create(+Exe, +Args:list, +Options) is det.
 %
-%   Create a new process running the   file  Exe and using arguments
-%   from the given list. Exe is a   file  specification as handed to
-%   absolute_file_name/3. Typically one use the =path= file alias to
-%   specify an executable file on the current   PATH. Args is a list
-%   of arguments that  are  handed  to   the  new  process.  On Unix
-%   systems, each element in the list becomes a separate argument in
-%   the  new  process.  In  Windows,    the   arguments  are  simply
-%   concatenated to form the commandline.   Each  argument itself is
-%   either a primitive or  a  list   of  primitives.  A primitive is
-%   either atomic or a term file(Spec). Using file(Spec), the system
-%   inserts a filename using the OS   filename  conventions which is
-%   properly quoted if needed.
+%   Create a new process running the file   Exe and using arguments from
+%   the  given  list.  Exe  is  a    file  specification  as  handed  to
+%   absolute_file_name/3. Typically one use  the   `path`  file alias to
+%   specify an executable file on the current PATH. The path `prolog` is
+%   reserved. If Exe is prolog(Tool), a   Prolog utility is invoked that
+%   belongs to the distribution of the calling Prolog process. `Tool` is
+%   one of ``self``,  ``swipl``,  ``swipl-win``   or  ``swipl-ld``.  See
+%   prolog:prolog_tool/4 for details.
+%
+%   Args is a list of arguments that are   handed to the new process. On
+%   Unix systems, each element in the   list becomes a separate argument
+%   in  the  new  process.  In  Windows,    the   arguments  are  simply
+%   concatenated to form the commandline. Each argument itself is either
+%   a primitive or a list of primitives. A primitive is either atomic or
+%   a term file(Spec). Using file(Spec), the   system inserts a filename
+%   using the OS filename  conventions  which   is  properly  quoted  if
+%   needed.
 %
 %   Options:
 %
-%       * stdin(Spec)
-%       * stdout(Spec)
-%       * stderr(Spec)
-%       Bind the standard streams of the new process. Spec is one of
-%       the terms below. If pipe(Pipe) is used, the Prolog stream is
-%       a stream in text-mode using the encoding of the default
-%       locale.  The encoding can be changed using set_stream/2,
-%       or by using the two-argument form of =pipe=, which accepts an
-%       encoding(Encoding) option.
-%       The options =stdout= and =stderr= may use the same stream,
-%       in which case both output streams are connected to the same
-%       Prolog stream.
+%       - stdin(Spec)
+%       - stdout(Spec)
+%       - stderr(Spec)
+%         Bind the standard streams of the new   process. Spec is one of
+%         the terms below. If pipe(Pipe) is used, the Prolog stream is a
+%         stream in text-mode using the encoding  of the default locale.
+%         The encoding can be changed using   set_stream/2,  or by using
+%         the  two-argument  form   of   `pipe`,    which   accepts   an
+%         encoding(Encoding) option. The options   `stdout` and `stderr`
+%         may use the same stream, in which case both output streams are
+%         connected to the same Prolog stream.
 %
-%           * std
-%           Just share with the Prolog I/O streams.  On Unix,
-%           if the `user_input`, etc. are bound to a file handle
-%           but not to 0,1,2 the process I/O is bound to the file
-%           handles of these streams.
-%           * null
-%           Bind to a _null_ stream. Reading from such a stream
-%           returns end-of-file, writing produces no output
-%           * pipe(-Stream)
-%           * pipe(-Stream, +StreamOptions)
-%           Attach input and/or output to a Prolog stream.
-%           The optional StreamOptions argument is a list of options
-%           that affect the stream. Currently only the options
-%           type(+Type) and encoding(+Encoding) are supported,
-%           which have the same meaning as the stream properties
-%           of the same name (see stream_property/2).
-%           StreamOptions is provided mainly for SICStus compatibility -
-%           the SWI-Prolog predicate set_stream/2 can be used
-%           for the same purpose.
-%           * stream(+Stream)
-%           Attach input or output to an existing Prolog stream.
-%           This stream must be associated with an OS file
-%           handle (see stream_property/2, property `file_no`).
-%           This option is __not__ provided by the SICStus
-%           implementation.
+%           - std
+%             Just share with the Prolog I/O   streams.  On Unix, if the
+%             `user_input`, etc. are bound to a   file handle but not to
+%             0,1,2 the process I/O is  bound   to  the  file handles of
+%             these streams.
+%           - null
+%             Bind to a _null_ stream. Reading from such a stream
+%             returns end-of-file, writing produces no output
+%           - pipe(-Stream)
+%           - pipe(-Stream, +StreamOptions)
+%             Attach  input  and/or  output  to  a  Prolog  stream.  The
+%             optional StreamOptions argument is a  list of options that
+%             affect the stream. Currently only  the options type(+Type)
+%             and encoding(+Encoding) are supported, which have the same
+%             meaning as the stream properties  of   the  same name (see
+%             stream_property/2). StreamOptions is provided   mainly for
+%             SICStus   compatibility   -   the   SWI-Prolog   predicate
+%             set_stream/2 can be used for the same purpose.
+%           - stream(+Stream)
+%             Attach input or output to an  existing Prolog stream. This
+%             stream must be associated with  an   OS  file  handle (see
+%             stream_property/2, property `file_no`).  This   option  is
+%             __not__ provided by the SICStus implementation.
 %
-%       * cwd(+Directory)
-%       Run the new process in Directory.  Directory can be a
-%       compound specification, which is converted using
-%       absolute_file_name/3.  See also process_set_method/1.
-%       * env(+List)
-%       As environment(List), but _only_ the specified variables
-%       are passed, i.e., no variables are _inherited_.
-%       * environment(+List)
-%       Specify _additional_ environment variables for the new process.
-%       List is a list of `Name=Value` terms, where `Value` is expanded
-%       the same way as the Args argument. If neither `env` nor
-%       `environment` is passed the environment is inherited from the
-%       Prolog process.  At most one env(List) or environment(List) term
-%       may appear in the options. If multiple appear a
-%       `permission_error` is raised for the second option.
-%       * process(-PID)
-%       Unify PID with the process id of the created process.
-%       * detached(+Bool)
-%       In Unix: If =true=, detach the process from the terminal
-%       Currently mapped to setsid();
-%       Also creates a new process group for the child
-%       In Windows: If =true=, detach the process from the current
-%       job via the CREATE_BREAKAWAY_FROM_JOB flag. In Vista and beyond,
-%       processes launched from the shell directly have the 'compatibility
-%       assistant' attached to them automatically unless they have a UAC
-%       manifest embedded in them. This means that you will get a
-%       permission denied error if you try and assign the newly-created
-%       PID to a job you create yourself.
-%       * window(+Bool)
-%       If =true=, create a window for the process (Windows only)
-%       * priority(+Priority)
-%       In Unix: specifies the process priority for the newly
-%       created process. Priority must be an integer between -20
-%       and 19. Positive values are nicer to others, and negative
-%       values are less so. The default is zero. Users are free to
-%       lower their own priority. Only the super-user may _raise_ it
-%       to less-than zero.
+%       - cwd(+Directory)
+%         Run the new process in Directory.  Directory can be a compound
+%         specification, which is converted  using absolute_file_name/3.
+%         See also process_set_method/1.
+%       - env(+List)
+%         As environment(List), but _only_ the specified variables
+%         are passed, i.e., no variables are _inherited_.
+%       - environment(+List)
+%         Specify  _additional_  environment  variables    for  the  new
+%         process. List is a list of   `Name=Value` terms, where `Value`
+%         is expanded the same way  as   the  Args  argument. If neither
+%         `env` nor `environment` is passed the environment is inherited
+%         from  the  Prolog  process.   At    most   one   env(List)  or
+%         environment(List) term may appear in  the options. If multiple
+%         appear a `permission_error` is raised for the second option.
+%       - process(-PID)
+%         Unify PID with the process id of the created process.
+%       - detached(+Bool)
+%         In Unix: If `true`,  detach  the   process  from  the terminal
+%         Currently mapped to setsid(); Also creates a new process group
+%         for the child In Windows: If   `true`, detach the process from
+%         the current job via  the   CREATE_BREAKAWAY_FROM_JOB  flag. In
+%         Vista and beyond, processes launched   from the shell directly
+%         have  the  'compatibility   assistant'    attached   to   them
+%         automatically unless they have  a   UAC  manifest  embedded in
+%         them. This means that you will   get a permission denied error
+%         if you try and assign  the  newly-created   PID  to  a job you
+%         create yourself.
+%       - window(+Bool)
+%         If `true`, create a window for the process (Windows only)
+%       - priority(+Priority)
+%         In Unix: specifies the process priority  for the newly created
+%         process. Priority must be  an  integer   between  -20  and 19.
+%         Positive values are nicer to others,   and negative values are
+%         less so. The default is zero. Users   are  free to lower their
+%         own priority. Only the super-user may  _raise_ it to less-than
+%         zero.
 %
-%   If the user specifies the process(-PID)   option, he *must* call
-%   process_wait/2 to reclaim the process.  Without this option, the
-%   system will wait for completion of   the  process after the last
-%   pipe stream is closed.
+%   If the user specifies the  process(-PID)   option,  he __must__ call
+%   process_wait/2 to reclaim the  process.   Without  this  option, the
+%   system will wait for completion of the   process after the last pipe
+%   stream is closed.
 %
-%   If the process is not waited for, it must succeed with status 0.
-%   If not, an process_error is raised.
+%   If the process is not waited for, it  must succeed with status 0. If
+%   not, an process_error is raised.
 %
-%   *|Windows notes|*
+%   __Windows notes__
 %
-%   On Windows this call is an interface to the CreateProcess() API.
-%   The  commandline  consists  of  the  basename  of  Exe  and  the
-%   arguments formed from Args. Arguments are  separated by a single
-%   space. If all characters satisfy iswalnum()   it is unquoted. If
-%   the argument contains a double-quote it   is quoted using single
-%   quotes. If both single and double   quotes appear a domain_error
-%   is raised, otherwise double-quote are used.
+%   On Windows this call is an interface to the CreateProcess() API. The
+%   commandline consists of the basename of Exe and the arguments formed
+%   from Args. Arguments  are  separated  by   a  single  space.  If all
+%   characters satisfy iswalnum()  it  is   unquoted.  If  the  argument
+%   contains a double-quote it is quoted   using  single quotes. If both
+%   single and double quotes appear a  domain_error is raised, otherwise
+%   double-quote are used.
 %
-%   The CreateProcess() API has  many   options.  Currently only the
-%   =CREATE_NO_WINDOW=   options   is   supported     through    the
-%   window(+Bool) option. If omitted, the  default   is  to use this
-%   option if the application has no   console.  Future versions are
-%   likely to support  more  window   specific  options  and replace
-%   win_exec/2.
+%   The  CreateProcess()  API  has  many  options.  Currently  only  the
+%   ``CREATE_NO_WINDOW`` options is supported  through the window(+Bool)
+%   option. If omitted, the  default  is  to   use  this  option  if the
+%   application has no console. Future versions   are  likely to support
+%   more window specific options and replace win_exec/2.
 %
-%   *Examples*
+%   __Examples__
 %
-%   First,  a  very  simple  example  that    behaves  the  same  as
-%   =|shell('ls -l')|=, except for error handling:
+%   First, a very simple example that   behaves  the same as ``shell('ls
+%   -l')``, except for error handling:
 %
-%   ==
+%   ```
 %   ?- process_create(path(ls), ['-l'], []).
-%   ==
+%   ```
 %
-%   The following example uses grep to find  all matching lines in a
+%   The following example uses grep to  find   all  matching  lines in a
 %   file.
 %
-%   ==
+%   ```
 %   grep(File, Pattern, Lines) :-
 %           setup_call_cleanup(
 %               process_create(path(grep), [ Pattern, file(File) ],
@@ -260,7 +263,7 @@ following finds the executable for =ls=:
 %           atom_codes(Line, Codes),
 %           read_line_to_codes(Out, Line2),
 %           read_lines(Line2, Out, Lines).
-%   ==
+%   ```
 %
 %   @error  process_error(Exe, Status) where Status is one of
 %           exit(Code) or killed(Signal).  Raised if the process
@@ -269,7 +272,10 @@ following finds the executable for =ls=:
 %   @bug    On Windows, environment(List) is handled as env(List),
 %           i.e., the environment is not inherited.
 
-process_create(Exe, Args, Options) :-
+process_create(prolog(Prolog), Args, Options) =>
+    prolog_executable(Prolog, Exe, Args, Args1),
+    process_create(Exe, Args1, Options).
+process_create(Exe, Args, Options) =>
     (   exe_options(ExeOptions),
         absolute_file_name(Exe, PlProg, ExeOptions)
     ->  true
@@ -282,6 +288,71 @@ process_create(Exe, Args, Options) :-
     expand_env_option(env, Options1, Options2),
     expand_env_option(environment, Options2, Options3),
     process_create(Term, Options3).
+
+%!  prolog_executable(+Tool, -Exe, +ArgvIn, -Argv) is det.
+%!  prolog:prolog_tool(+Tool, -Exe, +ArgvIn, -Argv) is semidet.
+%
+%   Find the executable and commandline arguments for running Tool. This
+%   provides    a    hook     for      process_create/3     called    as
+%   process_create(prolog(Tool), ...). Tool is currently one of:
+%
+%     - `self`
+%       Run Prolog itself.
+%     - `swipl`
+%       Run the commandline version, also when called from the
+%       ``swipl-win`` _app_.
+%     - `swipl-win`
+%       Run the ``swipl-win`` _app_, also when called from the
+%       commandline version.
+%     - `swipl-ld`
+%       Run the C/C++ compiler frontend to embed Prolog or build
+%       foreign extensions.
+%
+%    prolog:prolog_tool/4 is defined as multifile and dynamic and can be
+%    used for special cases. This hook is  notably intended to provide a
+%    portable way of calling Prolog when Prolog is embedded.
+%
+%    For               example,               when                 using
+%    [rolog](https://cran.r-project.org/web/packages/rolog/vignettes/rolog.html),
+%    we can run Prolog using
+%
+%        R -s -e 'rswipl::swipl()', '—args' <Prolog Argv>
+%
+%    We can make process_create(prolog(swipl), ...) work using
+%
+%    ```
+%    :- multifile prolog:prolog_tool/4.
+%    prolog:prolog_tool(swipl, path('R'), Argv,
+%                       [ '-s', '-e', 'rswipl::swipl()', '--args'
+%                       | Argv
+%                       ]).
+%    ```
+
+prolog_executable(Prolog, Exe, Args0, Args),
+    prolog:prolog_tool(Prolog, Exe, Args0, Args) =>
+    true.
+prolog_executable(self, Exe, Args0, Args) =>
+    current_prolog_flag(executable, Exe),
+    add_home_option(Args0, Args).
+prolog_executable(Tool, Exe, Args0, Args),
+    swipl_tool(Tool) =>
+    current_prolog_flag(executable, Me),
+    neighbour_exe(Tool, Me, Exe),
+    add_home_option(Args0, Args).
+
+swipl_tool(swipl).
+swipl_tool('swipl-win').
+swipl_tool('swipl-ld').
+
+neighbour_exe(Target, Me, Exe) :-
+    file_directory_name(Me, Dir),
+    file_name_extension(_, Ext, Me),
+    atomic_list_concat([Dir, Target], '/', Base),
+    file_name_extension(Base, Ext, Exe).
+
+add_home_option(Args0, [HomeOption|Args0]) :-
+    current_prolog_flag(home, Home),
+    format(atom(HomeOption), '--home=~w', [Home]).
 
 %!  process_which(+Exe, -Path) is semidet.
 %
@@ -402,11 +473,11 @@ process_release(PID) :-
 %   until the process is finished.  Options:
 %
 %       * timeout(+Timeout)
-%       Default: =infinite=.  If this option is a number, the
+%       Default: `infinite`.  If this option is a number, the
 %       waits for a maximum of Timeout seconds and unifies Status
-%       with =timeout= if the process does not terminate within
+%       with `timeout` if the process does not terminate within
 %       Timeout.  In this case PID is _not_ invalidated.  On Unix
-%       systems only timeout 0 and =infinite= are supported.  A
+%       systems only timeout 0 and `infinite` are supported.  A
 %       0-value can be used to poll the status of the process.
 %
 %       * release(+Bool)
@@ -424,10 +495,10 @@ process_wait(PID, Status) :-
 %!  process_kill(+PID) is det.
 %!  process_kill(+PID, +Signal) is det.
 %
-%   Send signal to process PID.  Default   is  =term=.  Signal is an
-%   integer, Unix signal name (e.g. =SIGSTOP=)   or  the more Prolog
-%   friendly variation one gets after   removing  =SIG= and downcase
-%   the result: =stop=. On Windows systems,   Signal  is ignored and
+%   Send signal to process PID.  Default   is  `term`.  Signal is an
+%   integer, Unix signal name (e.g. `SIGSTOP`)   or  the more Prolog
+%   friendly variation one gets after   removing  `SIG` and downcase
+%   the result: `stop`. On Windows systems,   Signal  is ignored and
 %   the process is terminated using   the TerminateProcess() API. On
 %   Windows systems PID must  be   obtained  from  process_create/3,
 %   while any PID is allowed on Unix systems.
@@ -443,7 +514,7 @@ process_kill(PID) :-
 %!  process_group_kill(+PID, +Signal) is det.
 %
 %   Send signal to the group containing process PID.  Default   is
-%   =term=.   See process_wait/1  for  a  description  of  signal
+%   `term`.   See process_wait/1  for  a  description  of  signal
 %   handling. In Windows, the same restriction on PID applies: it
 %   must have been created from process_create/3, and the the group
 %   is terminated via the TerminateJobObject API.
