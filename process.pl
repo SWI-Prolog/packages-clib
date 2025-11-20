@@ -313,10 +313,10 @@ process_create(Exe, Args, Options) =>
 %    portable way of calling Prolog when Prolog is embedded.
 %
 %    For               example,               when                 using
-%    [rolog](https://cran.r-project.org/web/packages/rolog/vignettes/rolog.html),
+%    [rswipl](https://cran.r-project.org/web/packages/rolog/vignettes/rswipl.html),
 %    we can run Prolog using
 %
-%        R -s -e 'rswipl::swipl()', '—args' <Prolog Argv>
+%        R -s -e 'rswipl::swipl()' --args <Prolog Argv>
 %
 %    We can make process_create(prolog(swipl), ...) work using
 %
