@@ -354,7 +354,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
 
 	if ( !PL_put_integer(t, len) )
 	  return FALSE;
-	sprintf(msg, "> %ld", (long)*lenp);
+	snprintf(msg, sizeof msg, "> %ld", (long)*lenp);
 
 	return pl_error(NULL, 0, msg, ERR_DOMAIN, t, "content_length");
       }
