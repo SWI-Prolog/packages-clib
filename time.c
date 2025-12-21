@@ -403,11 +403,12 @@ cleanup(int rc, void *arg)
 }
 
 
-static void
-cleanup_thread(void *data)
+static int
+cleanup_thread(void *unused1, unsigned long unused2)
 { schedule *sched = TheSchedule();
 
-  (void)data;
+  (void)unused1;
+  (void)unused2;
 
   if ( sched->first )
   { Event ev, next;
@@ -428,6 +429,7 @@ cleanup_thread(void *data)
     pthread_cond_signal(&cond);
     UNLOCK();
   }
+  return true;
 }
 
 
