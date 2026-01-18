@@ -187,7 +187,7 @@ VOID_RETURN sha1_hash(const unsigned char data[], unsigned long len, sha1_ctx ct
             space = SHA1_BLOCK_SIZE - pos;
     const unsigned char *sp = data;
 
-    if((ctx->count[0] += len) < len)
+    if((ctx->count[0] += (uint_32t) len) < len) /* safe cast, see sha2.c */
         ++(ctx->count[1]);
 
     while(len >= space)     /* tranfer whole blocks if possible  */

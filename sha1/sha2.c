@@ -301,12 +301,18 @@ VOID_RETURN sha256_compile(sha256_ctx ctx[1])
 /* SHA256 hash data in an array of bytes into hash buffer   */
 /* and call the hash_compile function as required.          */
 
+/* From https://github.com/BrianGladman/sha/blob/master/sha2.c
+ * The data block length in any one call to any of these
+ * hash functions must be no more than 2^32 - 1 bits
+ * or 2^29 - 1 bytes.
+ */
+
 VOID_RETURN sha256_hash(const unsigned char data[], unsigned long len, sha256_ctx ctx[1])
 {   uint_32t pos = (uint_32t)(ctx->count[0] & SHA256_MASK),
              space = SHA256_BLOCK_SIZE - pos;
     const unsigned char *sp = data;
 
-    if((ctx->count[0] += len) < len)
+    if((ctx->count[0] += (uint_32t) len) < len) /* safe cast, see comment */
         ++(ctx->count[1]);
 
     while(len >= space)     /* tranfer whole blocks while possible  */

@@ -129,7 +129,7 @@ pl_crypt(term_t passwd, term_t encrypted)
 	char *t;
 
 	if ( PL_get_integer(head, &i) && i>=0 && i<=255 )
-	{ salt[n] = i;
+	{ salt[n] = (char) i; /* safe cast */
 	} else if ( PL_get_atom_chars(head, &t) && t[1] == '\0' )
 	{ salt[n] = t[0];
 	  flags = PL_CHAR_LIST;
@@ -150,7 +150,7 @@ pl_crypt(term_t passwd, term_t encrypted)
       if ( rand() & 0x1 )
 	c += 'A' - 'a';
 
-      salt[n] = c;
+      salt[n] = (char) c; /* safe cast */
     }
     salt[n] = 0;
     LOCK();

@@ -60,11 +60,9 @@ Breaks a string holding data from a WWW form into its values.  Outputs a
 sequence of NAME=VALUE commands for a shell.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static int
-dehex(int chr)
-{ chr &= 0xff;
-
-  if ( chr >= '0' && chr <= '9' )
+static char /* simplified */
+dehex(char chr)
+{ if ( chr >= '0' && chr <= '9' )
     return chr - '0';
   if ( chr >= 'A' && chr <= 'F' )
     return chr - 'A' + 10;
@@ -88,8 +86,8 @@ form_argument_decode(const char *in, size_t inlen, char *out, size_t outlen)
         break;
       case '%':
 	if ( in+2 < ein )
-	{ int h1 = dehex(*(++in));
-	  int h2 = dehex(*(++in));
+	{ char h1 = dehex(*(++in));
+	  char h2 = dehex(*(++in));
 
 	  if ( h1 < 0 || h2 < 0 )
 	    return (size_t)-1;
@@ -365,7 +363,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
     if ( !q )
       return pl_error(NULL, 0, NULL, ERR_RESOURCE, "memory");
     while(len > 0)
-    { int done;
+    { ssize_t done;
 
       while( (done=read(fileno(stdin), q, len)) > 0 )
       { q+=done;

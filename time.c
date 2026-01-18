@@ -137,11 +137,11 @@ generating an exception.
 static void
 print_trace (void)
 { void *array[100];
-  size_t size;
+  int size;
   char **strings;
-  size_t i;
+  int i;
 
-  size = backtrace(array, sizeof(array)/sizeof(void *));
+  size = backtrace(array, (int) (sizeof(array)/sizeof(void *))); /* safe cast */
   strings = backtrace_symbols(array, size);
 
 #ifdef _REENTRANT
