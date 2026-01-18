@@ -41,8 +41,6 @@
 	((chr) < 0x80 ? out[0]=(char)(chr), out+1 \
 		      : _utf8_put_char(out, (chr)))
 
-#include <assert.h>
-
 static char *
 _utf8_put_char(char *out, int chr)
 { if ( chr < 0x80 )
