@@ -293,7 +293,7 @@ pl_environ(term_t l)
     if ( !s )
       s = *e + strlen(*e);
 
-    { int len = s-*e;
+    { size_t len = s-*e;
       char *name = alloca(len+1);
 
       strncpy(name, *e, len);

@@ -515,7 +515,7 @@ sizeof_sockaddr(struct sockaddr_storage *sockaddr)
 #ifdef AF_UNIX
     case AF_UNIX:
     { struct sockaddr_un *a = (struct sockaddr_un*)sockaddr;
-      return offsetof(struct sockaddr_un, sun_path) + strlen(a->sun_path) + 1;
+      return offsetof(struct sockaddr_un, sun_path) + (socklen_t) strlen(a->sun_path) + 1;
     }
 #endif
     default:
@@ -837,28 +837,28 @@ unix_domain_socket(term_t socket)
 { return create_socket(AF_UNIX, SOCK_STREAM, socket);
 }
 
-static int
+static bool
 af_unix_address(term_t Address,
-		struct sockaddr_un *sockaddr, int *addrlen,
+		struct sockaddr_un *sockaddr, socklen_t *addrlen,
 		int flags)
 { char *file_name_chars;
-  int nmlen;
+  size_t nmlen;
 
   if ( !PL_get_file_name(Address, &file_name_chars,
 			 PL_FILE_OSPATH|flags) )
-    return FALSE;
+    return false;
   nmlen = strlen(file_name_chars);
   if ( nmlen >= sizeof(sockaddr->sun_path) )
   { PL_representation_error("af_unix_name");
-    return FALSE;
+    return false;
   }
 
   memset(sockaddr, 0, sizeof(*sockaddr));
   sockaddr->sun_family = AF_UNIX;
   memcpy(sockaddr->sun_path, file_name_chars, nmlen);
-  *addrlen = offsetof(struct sockaddr_un, sun_path) + nmlen + 1;
+  *addrlen = (socklen_t) (offsetof(struct sockaddr_un, sun_path) + nmlen + 1); /* safe cast */
 
-  return TRUE;
+  return true;
 }
 
 #endif /*AF_UNIX*/
@@ -869,7 +869,7 @@ af_unix_connect(nbio_sock_t sock, term_t Address)
 #ifdef AF_UNIX
   if ( nbio_domain(sock) == AF_UNIX )
   { struct sockaddr_un sockaddr;
-    int addrlen;
+    socklen_t addrlen;
 
     return ( af_unix_address(Address, &sockaddr, &addrlen, PL_FILE_READ) &&
 	     nbio_connect(sock, (struct sockaddr *)&sockaddr, addrlen) == 0 );
@@ -885,7 +885,7 @@ af_unix_bind(nbio_sock_t sock, term_t Address)
 #ifdef AF_UNIX
   if ( nbio_domain(sock) == AF_UNIX )
   { struct sockaddr_un sockaddr;
-    int addrlen;
+    socklen_t addrlen;
 
     return ( af_unix_address(Address, &sockaddr, &addrlen, 0) &&
 	     nbio_bind(sock, (struct sockaddr *)&sockaddr, addrlen) == 0 );
