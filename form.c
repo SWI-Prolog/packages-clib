@@ -366,7 +366,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
     if ( !q )
       return pl_error(NULL, 0, NULL, ERR_RESOURCE, "memory");
     while(len > 0)
-    { ssize_t done;
+    { size_t done;
 
       while( (done=read(fileno(stdin), q, len)) > 0 )
       { q+=done;
