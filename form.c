@@ -49,6 +49,8 @@
 #include "form.h"
 #ifdef __WINDOWS__
 #include <io.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
 #define read _read
 #define fileno _fileno
 #endif
