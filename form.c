@@ -49,11 +49,11 @@
 #include "form.h"
 #ifdef __WINDOWS__
 #include <io.h>
+#ifdef _MSC_VER
+typedef intptr_t ssize_t;
+#endif
 #define read _read
 #define fileno _fileno
-#ifdef _MSC_VER
-typedef intptr_t ssize_t
-#endif
 #endif
 
 #include "error.h"
