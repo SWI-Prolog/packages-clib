@@ -51,6 +51,9 @@
 #include <io.h>
 #define read _read
 #define fileno _fileno
+#ifdef _MSC_VER
+typedef intptr_t ssize_t
+#endif
 #endif
 
 #include "error.h"
