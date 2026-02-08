@@ -1,9 +1,9 @@
 /*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@vu.nl
-    WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2023, University of Amsterdam
+    E-mail:        jan@swi-prolog.org
+    WWW:           https://www.swi-prolog.org
+    Copyright (c)  2000-2026, University of Amsterdam
                               VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
@@ -123,7 +123,7 @@ add_to_form(const char *name, size_t nlen,
 }
 
 
-static int
+static bool
 mp_add_to_form(const char *name, size_t nlen,
 	       const char *value, size_t len,
 	       const char *file, void *closure)
@@ -156,32 +156,25 @@ static foreign_t
 pl_cgi_get_form(term_t form)
 { size_t len = 0;
   char *data;
-  int must_free = FALSE;
+  bool must_free = false;
   term_t list = PL_copy_term_ref(form);
   char *ct, *boundary;
 
   if ( !get_raw_form_data(&data, &len, &must_free) )
-    return FALSE;
+    return false;
 
   if ( (ct = getenv("CONTENT_TYPE")) &&
        (boundary = strstr(ct, "boundary=")) )
   { boundary = strchr(boundary, '=')+1;
 
-    switch( break_multipart(data, len, boundary,
-			    mp_add_to_form, (void *)list) )
-    { case FALSE:
-	return FALSE;
-      case TRUE:
-	break;
-      default:
-	assert(0);
-        return FALSE;
-    }
+    if ( !break_multipart(data, len, boundary,
+			  mp_add_to_form, (void *)list) )
+      return false;
   } else
   { switch( break_form_argument(data, add_to_form, (void *)list) )
-    { case FALSE:
-	return FALSE;
-      case TRUE:
+    { case false:
+	return false;
+      case true:
 	break;
       case ERROR_NOMEM:
 	return pl_error("cgi_get_form", 1, NULL,
@@ -191,7 +184,7 @@ pl_cgi_get_form(term_t form)
 			ERR_SYNTAX, "cgi_value");
       default:
 	assert(0);
-        return FALSE;
+        return false;
     }
   }
 
