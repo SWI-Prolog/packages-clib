@@ -332,7 +332,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
        strcmp(method, "POST") == 0 )
   { char *lenvar = getenv("CONTENT_LENGTH");
     char *q;
-    long len;
+    ssize_t len;
 
     if ( !lenvar )
     { term_t env = PL_new_term_ref();
@@ -344,7 +344,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
     if ( len < 0 )
     { term_t t = PL_new_term_ref();
 
-      if ( !PL_put_integer(t, len) )
+      if ( !PL_put_integer(t, (long)len) )
 	return FALSE;
       return pl_error(NULL, 0, "< 0", ERR_DOMAIN, t, "content_length");
     }
@@ -353,7 +353,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
       { term_t t = PL_new_term_ref();
 	char msg[100];
 
-	if ( !PL_put_integer(t, len) )
+	if ( !PL_put_integer(t, (long)len) )
 	  return FALSE;
 	snprintf(msg, sizeof msg, "> %ld", (long)*lenp);
 
@@ -368,7 +368,7 @@ get_raw_form_data(char **data, size_t *lenp, int *must_free)
     while(len > 0)
     { size_t done;
 
-      while( (done=read(fileno(stdin), q, len)) > 0 )
+      while( (done=read(fileno(stdin), q, (unsigned int)len)) > 0 )
       { q+=done;
 	len-=done;
       }
