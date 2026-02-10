@@ -1524,7 +1524,7 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
       nbio_error(GET_ERRNO, TCP_ERRNO);
       return -1;
     }
-    if ( n < len )
+    if ( (size_t)n < len )
     { if ( PL_handle_signals() < 0 )
       { errno = EPLEXCEPTION;
         return -1;
