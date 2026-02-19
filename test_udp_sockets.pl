@@ -78,7 +78,7 @@ send_rec(Port, Message, Reply, Options) :-
     udp_send(S, Message, localhost:Port, Options),
     tcp_close_socket(S),
     thread_self(Me),
-    thread_get_message(Me, Reply, [timeout(1)]).
+    thread_get_message(Me, Reply, [timeout(60)]).
 
 :- dynamic
     receiver/3.
