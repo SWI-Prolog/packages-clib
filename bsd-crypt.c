@@ -33,6 +33,7 @@
  */
 
 /* JW: Added to make this file compile as-is for SWI-Prolog */
+#include <config.h>
 #define __RCSID(s) /*static char sccsid[] = s*/
 #define DES_ONLY
 #define CRYPT_ONLY
@@ -63,8 +64,8 @@ __RCSID("$NetBSD: crypt.c,v 1.26.20.1 2009/05/13 19:18:28 jym Exp $")
 #include <stdio.h>
 #endif
 
-#ifndef __WINDOWS__
-#include "crypt.h"
+#if !defined(__WINDOWS__) && defined(HAVE_CRYPT_H)
+#include <crypt.h>
 #endif
 
 /*
