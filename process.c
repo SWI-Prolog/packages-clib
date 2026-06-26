@@ -1822,6 +1822,7 @@ do_create_process_fork(p_options *info, create_method method)
   if ( pid == 0 )				/* child */
   { int fd;
 
+    restoreSignals(&set);
     PL_cleanup_fork();
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(PRIO_PROCESS)
