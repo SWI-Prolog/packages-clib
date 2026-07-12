@@ -1,9 +1,10 @@
 /*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@vu.nl
+    E-mail:        jan@swi-prolog.org
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2011, University of Amsterdam
+    Copyright (c)  2000-2026, University of Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -36,13 +37,6 @@
 #define UTIL_H_INCLUDED
 
 #define HAVE_STRERROR 1
-#define HAVE_TZNAME
-
-#if defined(sun) && !defined(__svr4__)	/* Old SunOS 4.x */
-#undef HAVE_STRERROR
-#undef HAVE_TZNAME
-#endif
-
 #include <stdarg.h>
 #include <time.h>
 
