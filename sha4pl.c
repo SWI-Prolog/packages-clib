@@ -123,7 +123,7 @@ sha_options(term_t options, optval *result)
     { result->algorithm = ALGORITHM_SHA512;
       result->digest_size = SHA512_DIGEST_SIZE;
     } else
-      return pl_error(NULL, 0, NULL, ERR_DOMAIN, algorithm, "algorithm");
+      return PL_domain_error("algorithm", algorithm);
   }
 
   if ( encoding )
@@ -134,7 +134,7 @@ sha_options(term_t options, optval *result)
     else if ( a == ATOM_octet )
       result->encoding = REP_ISO_LATIN_1;
     else
-      return pl_error(NULL, 0, NULL, ERR_DOMAIN, encoding, "encoding");
+      return PL_domain_error("encoding", encoding);
   }
 
   return TRUE;

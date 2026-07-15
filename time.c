@@ -728,7 +728,7 @@ int
 alarm_error(term_t alarm, int err)
 { switch(err)
   { case ERR_RESOURCE:
-      return pl_error(NULL, 0, NULL, ERR_RESOURCE, "timers");
+      return PL_resource_error("timers");
     case ERR_PERMISSION:
       return pl_error(NULL, 0, "already installed", ERR_PERMISSION,
 		      alarm, "install", "alarm");
@@ -742,7 +742,7 @@ alarm_error(term_t alarm, int err)
 static int
 unify_timer(term_t t, Event ev)
 { if ( !PL_is_variable(t) )
-    return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 0, t, "unbound");
+    return PL_type_error("unbound", t);
 
   return PL_unify_term(t,
 		       PL_FUNCTOR, FUNCTOR_alarm1,
@@ -783,7 +783,7 @@ pl_get_bool_ex(term_t arg, int *val)
 { if ( PL_get_bool(arg, val) )
     return TRUE;
 
-  return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 0, arg, "bool");
+  return PL_type_error("bool", arg);
 }
 
 
@@ -828,12 +828,11 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
       }
     }
     if ( !PL_get_nil(tail) )
-      return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 4, options, "list");
+      return PL_type_error("list", options);
   }
 
   if ( !PL_get_float(time, &t) )
-    return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 1,
-		    time, "number");
+    return PL_type_error("number", time);
   if ( !PL_strip_module(callable, &m, callable) )
     return FALSE;
 
@@ -912,8 +911,7 @@ install_alarm2(term_t alarm, term_t time)
     return FALSE;
 
   if ( !PL_get_float(time, &t) )
-    return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 1,
-		    time, "number");
+    return PL_type_error("number", time);
 
   setTimeEvent(ev, t);
   if ( (rc=installEvent(ev)) != TRUE )

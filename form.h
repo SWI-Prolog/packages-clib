@@ -35,10 +35,6 @@
 
 #define MAXNAME 256
 
-#define ERROR_NAME_TOO_LONG  -1
-#define ERROR_SYNTAX_ERROR   -2
-#define ERROR_NOMEM	     -3
-
 #include <stdbool.h>
 
 typedef struct
@@ -47,8 +43,8 @@ typedef struct
 } form_arg;
 
 /* form.c */
-int		break_form_argument(const char *formdata,
-				    int (*func)(const char *name,
+bool		break_form_argument(const char *formdata,
+				    bool (*func)(const char *name,
 						size_t namelen,
 						const char *value,
 						size_t valuelen,

@@ -67,40 +67,20 @@ isnumber(const char *s, size_t len)
 }
 
 
-static int
+static bool
 unify_number(term_t t, const char *s, size_t len)
-{ char buf[100];
-  char *a, *o;
-  const char *i;
-  int rc;
-
-  if ( len+1 > sizeof(buf) )
-  { if ( !(a = malloc(len+1)) )
-      return PL_resource_error("memory");
-  } else
-  { a = buf;
-  }
-
-  for(i=s,o=a; len-- > 0; )
-    *o++ = (char)*i++;
-  *o = '\0';
-
-  rc = PL_chars_to_term(a, t);
-  if ( a != buf )
-    free(a);
-
-  return rc;
+{ return PL_put_term_from_chars(t, REP_UTF8|CVT_EXCEPTION, len, s);
 }
 
 
-static int
+static bool
 add_to_form(const char *name, size_t nlen,
 	    const char *value, size_t len,
 	    void *closure)
 { term_t head = PL_new_term_ref();
   term_t tail = (term_t) closure;
   term_t val  = PL_new_term_ref();
-  int rc;
+  bool rc;
   atom_t aname = 0;
 
   if ( isnumber(value, len) )
@@ -171,21 +151,8 @@ pl_cgi_get_form(term_t form)
 			  mp_add_to_form, (void *)list) )
       return false;
   } else
-  { switch( break_form_argument(data, add_to_form, (void *)list) )
-    { case false:
-	return false;
-      case true:
-	break;
-      case ERROR_NOMEM:
-	return pl_error("cgi_get_form", 1, NULL,
-			ERR_RESOURCE, "memory");
-      case ERROR_SYNTAX_ERROR:
-	return pl_error("cgi_get_form", 1, NULL,
-			ERR_SYNTAX, "cgi_value");
-      default:
-	assert(0);
-        return false;
-    }
+  { if ( !break_form_argument(data, add_to_form, (void *)list) )
+      return false;
   }
 
   if ( must_free )

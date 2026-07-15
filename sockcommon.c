@@ -195,7 +195,7 @@ pl_listen(term_t Sock, term_t BackLog)
     return FALSE;
 
   if ( !PL_get_integer(BackLog, &backlog) )
-    return pl_error(NULL, 0, NULL, ERR_ARGTYPE, -1, BackLog, "integer");
+    return PL_type_error("integer", BackLog);
 
   if ( nbio_listen(socket, backlog) < 0 )
     return FALSE;

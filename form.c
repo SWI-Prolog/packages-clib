@@ -117,9 +117,9 @@ form_argument_decode(const char *in, size_t inlen, char *out, size_t outlen)
 
 #define SHORTVALUE 512
 
-int // bool or ERROR_*
+bool
 break_form_argument(const char *formdata,
-		    int (*func)(const char* name,
+		    bool (*func)(const char* name,
 				size_t namelen,
 				const char *value,
 				size_t valuelen,
@@ -144,23 +144,21 @@ break_form_argument(const char *formdata,
 
 	if ( (buf=malloc(vlen+1)) )
 	{ size_t vlen2 = form_argument_decode(eq, end-eq, buf, vlen+1);
-	  int rc;
+	  bool rc;
 
 	  assert(vlen2 == vlen);
 	  rc = (func)(formdata, nlen, buf, vlen2, closure);
 	  free(buf);
 
 	  if ( !rc )
-	    return rc;
+	    return false;
 	} else
-	  return ERROR_NOMEM;
+	  return PL_resource_error("memory");
       } else if ( vlen == (size_t)-1 )
-      { return ERROR_SYNTAX_ERROR;
+      { return PL_syntax_error("cgi_value", NULL);
       } else
-      { int rc = (func)(formdata, nlen, value, vlen, closure);
-
-	if ( !rc )
-	  return rc;
+      { if ( !(func)(formdata, nlen, value, vlen, closure) )
+	  return false;
       }
 
       if ( *end )
@@ -299,7 +297,7 @@ break_multipart(char *formdata, size_t len,
     { term_t t = PL_new_term_ref();
       PL_put_atom_chars(t, "name");
 
-      return pl_error(NULL, 0, NULL, ERR_EXISTENCE, "field", t);
+      return PL_existence_error("field", t);
     }
     filename = attribute_of_multipart_header("filename", header, data);
 
@@ -339,7 +337,7 @@ get_raw_form_data(char **data, size_t *lenp, bool *must_free)
     { term_t env = PL_new_term_ref();
       PL_put_atom_chars(env, "CONTENT_LENGTH");
 
-      return pl_error(NULL, 0, NULL, ERR_EXISTENCE, "environment", env);
+      return PL_existence_error("environment", env);
     }
     len = atol(lenvar);
     if ( len < 0 )
@@ -365,7 +363,7 @@ get_raw_form_data(char **data, size_t *lenp, bool *must_free)
 
     q = s = malloc(len+1);
     if ( !q )
-      return pl_error(NULL, 0, NULL, ERR_RESOURCE, "memory");
+      return PL_resource_error("memory");
     while(len > 0)
     { size_t done;
 
@@ -409,7 +407,7 @@ get_raw_form_data(char **data, size_t *lenp, bool *must_free)
   { term_t env = PL_new_term_ref();
     PL_put_atom_chars(env, "QUERY_STRING");
 
-    return pl_error(NULL, 0, NULL, ERR_EXISTENCE, "environment", env);
+    return PL_existence_error("environment", env);
   }
 }
 

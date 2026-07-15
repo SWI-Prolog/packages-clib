@@ -597,13 +597,13 @@ get_encoding(term_t t, IOENC *enc)
   { IOENC encoding;
 
     if ( (encoding = atom_to_encoding(en)) == ENC_UNKNOWN )
-      return pl_error(NULL, 0, NULL, ERR_DOMAIN, t, "encoding"),false;
+      return PL_domain_error("encoding", t),false;
 
     *enc = encoding;
     return TRUE;
   }
 
-  return pl_error(NULL, 0, NULL, ERR_TYPE, t, "encoding"),false;
+  return PL_type_error("encoding", t),false;
 }
 
 
@@ -899,8 +899,7 @@ atom_to_memory_file(term_t atom, term_t handle)
       return FALSE;
     }
   } else
-  { return pl_error(NULL, 0, NULL, ERR_ARGTYPE, 1,
-		    atom, "atom");
+  { return PL_type_error("atom", atom);
   }
 }
 

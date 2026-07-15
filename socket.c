@@ -387,7 +387,7 @@ pl_setopt(term_t Socket, term_t opt)
 
 	_PL_get_arg(1, opt, a);
 	if ( !PL_get_bool(a, &enable) )
-	  return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "boolean");
+	  return PL_domain_error("boolean", a);
       }
 
       if ( (rc=nbio_setopt(socket, TCP_NO_DELAY, enable) == 0) )
@@ -460,7 +460,7 @@ pl_setopt(term_t Socket, term_t opt)
       term_t a = PL_new_term_ref();
       _PL_get_arg(1, opt, a);
       if ( !PL_get_integer(a, &bufsize) )
-	return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "integer");
+	return PL_domain_error("integer", a);
       if ( (rc=nbio_setopt(socket, TCP_SNDBUF, bufsize) == 0) )
 	return TRUE;
       if ( rc == -2 )
@@ -471,7 +471,7 @@ pl_setopt(term_t Socket, term_t opt)
   }
 
 not_implemented:
-  return pl_error(NULL, 0, NULL, ERR_DOMAIN, opt, "socket_option");
+  return PL_domain_error("socket_option", opt);
 }
 
 
@@ -497,7 +497,7 @@ pl_getopt(term_t Socket, term_t opt)
     }
   }
 
-  return pl_error(NULL, 0, NULL, ERR_DOMAIN, opt, "socket_option");
+  return PL_domain_error("socket_option", opt);
 }
 
 #include "sockcommon.c"
@@ -645,7 +645,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
     { if ( !PL_get_integer_ex(mms_opt, &bufsize) )
 	return FALSE;
       if ( bufsize < 0 || bufsize > UDP_MAXDATA )
-	return pl_error(NULL, 0, NULL, ERR_DOMAIN, mms_opt, "0 - 65535");
+	return PL_domain_error("0 - 65535", mms_opt);
     }
   }
 
@@ -654,7 +654,7 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 
   if ( bufsize > UDP_DEFAULT_BUFSIZE )
   { if ( !(buf = malloc(bufsize)) )
-      return pl_error(NULL, 0, NULL, ERR_RESOURCE, "memory");
+      return PL_resource_error("memory");
   }
 
   if ( (n=nbio_recvfrom(socket, buf, bufsize, flags,

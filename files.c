@@ -142,7 +142,7 @@ get_time_option(term_t list, functor_t f, time_t def, time_t *tme)
 	{ time(tme);
 	  return TRUE;
 	} else
-	  return pl_error(NULL, 0, NULL, ERR_TYPE, a, "time");
+	  return PL_type_error("time", a);
       }
       *tme = (long)f;
       return TRUE;
@@ -286,7 +286,7 @@ pl_link_file(term_t from, term_t to, term_t how)
     return FALSE;
 
   if ( !PL_get_atom(how, &hname) )
-    return pl_error(NULL, 0, NULL, ERR_TYPE, how, "atom");
+    return PL_type_error("atom", how);
 
 #ifdef __WINDOWS__
 
@@ -306,12 +306,12 @@ pl_link_file(term_t from, term_t to, term_t how)
     }
 
     if ( !symlink )
-      return pl_error(NULL, 0, NULL, ERR_DOMAIN, how, "link_type");
+      return PL_domain_error("link_type", how);
 
     if ( !(*symlink)(tname, fname, 0) )
       return win_error("CreateSymbolicLink");
   } else
-    return pl_error(NULL, 0, NULL, ERR_DOMAIN, how, "link_type");
+    return PL_domain_error("link_type", how);
 
 #else /*__WINDOWS__*/
 
@@ -322,7 +322,7 @@ pl_link_file(term_t from, term_t to, term_t how)
   { if ( symlink(fname, tname) != 0 )
       return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "link", "file", to);
   } else
-    return pl_error(NULL, 0, NULL, ERR_DOMAIN, how, "link_type");
+    return PL_domain_error("link_type", how);
 
 #endif /*__WINDOWS__*/
 

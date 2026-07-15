@@ -1098,7 +1098,7 @@ nbio_get_port(term_t Port, int *port)
   { struct servent *service;
 
     if ( !(service = getservbyname(name, "tcp")) )
-      return pl_error(NULL, 0, NULL, ERR_EXISTENCE, "service", Port);
+      return PL_existence_error("service", Port);
 
     *port = ntohs((uint16_t) service->s_port); /* safe cast */
     DEBUG(1, Sdprintf("Service %s at port %d\n", name, *port));
@@ -1108,7 +1108,7 @@ nbio_get_port(term_t Port, int *port)
   if ( PL_get_integer(Port, port) )
     return true;
 
-  return pl_error(NULL, 0, NULL, ERR_ARGTYPE, -1, Port, "port");
+  return PL_type_error("port", Port);
 }
 
 
