@@ -50,10 +50,8 @@ static atom_t ATOM_sha224;
 static atom_t ATOM_sha256;
 static atom_t ATOM_sha384;
 static atom_t ATOM_sha512;
-static atom_t ATOM_algorithm;
 static atom_t ATOM_utf8;
 static atom_t ATOM_octet;
-static atom_t ATOM_encoding;
 
 typedef enum
 { ALGORITHM_SHA1,
@@ -82,10 +80,17 @@ struct context
   } context;
 };
 
+static PL_option_t sha_option_specs[] =
+{ PL_OPTION("algorithm", OPT_TERM),
+  PL_OPTION("encoding",  OPT_TERM),
+  PL_OPTIONS_END
+};
+
 static int
 sha_options(term_t options, optval *result)
-{ term_t opts = PL_copy_term_ref(options);
-  term_t opt = PL_new_term_ref();
+{ term_t algorithm = 0;
+  term_t encoding  = 0;
+  atom_t a;
 
 					/* defaults */
   memset(result, 0, sizeof(*result));
@@ -93,57 +98,44 @@ sha_options(term_t options, optval *result)
   result->digest_size = SHA1_DIGEST_SIZE;
   result->encoding    = REP_UTF8;
 
-  while(PL_get_list(opts, opt, opts))
-  { atom_t aname;
-    size_t arity;
+  if ( !PL_scan_options(options, 0, "sha_option", sha_option_specs,
+			&algorithm, &encoding) )
+    return FALSE;
 
-    if ( PL_get_name_arity(opt, &aname, &arity) && arity == 1 )
-    { term_t a = PL_new_term_ref();
+  if ( algorithm )
+  { result->algorithm_term = algorithm;
 
-      _PL_get_arg(1, opt, a);
-
-      if ( aname == ATOM_algorithm )
-      { atom_t a_algorithm;
-
-	result->algorithm_term = a;
-	if ( !PL_get_atom_ex(a, &a_algorithm) )
-	  return FALSE;
-	if ( a_algorithm == ATOM_sha1 )
-	{ result->algorithm   = ALGORITHM_SHA1;
-	  result->digest_size = SHA1_DIGEST_SIZE;
-	} else if ( a_algorithm == ATOM_sha224 )
-	{ result->algorithm = ALGORITHM_SHA224;
-	  result->digest_size = SHA224_DIGEST_SIZE;
-	} else if ( a_algorithm == ATOM_sha256 )
-	{ result->algorithm = ALGORITHM_SHA256;
-	  result->digest_size = SHA256_DIGEST_SIZE;
-	} else if ( a_algorithm == ATOM_sha384 )
-	{ result->algorithm = ALGORITHM_SHA384;
-	  result->digest_size = SHA384_DIGEST_SIZE;
-	} else if ( a_algorithm == ATOM_sha512 )
-	{ result->algorithm = ALGORITHM_SHA512;
-	  result->digest_size = SHA512_DIGEST_SIZE;
-	} else
-	  return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "algorithm");
-      } else if ( aname == ATOM_encoding )
-      { atom_t a_enc;
-
-	if ( !PL_get_atom_ex(a, &a_enc) )
-	  return FALSE;
-	if ( a_enc == ATOM_utf8 )
-	  result->encoding = REP_UTF8;
-	else if ( a_enc == ATOM_octet )
-	  result->encoding = REP_ISO_LATIN_1;
-	else
-	  return pl_error(NULL, 0, NULL, ERR_DOMAIN, a, "encoding");
-      }
+    if ( !PL_get_atom_ex(algorithm, &a) )
+      return FALSE;
+    if ( a == ATOM_sha1 )
+    { result->algorithm   = ALGORITHM_SHA1;
+      result->digest_size = SHA1_DIGEST_SIZE;
+    } else if ( a == ATOM_sha224 )
+    { result->algorithm = ALGORITHM_SHA224;
+      result->digest_size = SHA224_DIGEST_SIZE;
+    } else if ( a == ATOM_sha256 )
+    { result->algorithm = ALGORITHM_SHA256;
+      result->digest_size = SHA256_DIGEST_SIZE;
+    } else if ( a == ATOM_sha384 )
+    { result->algorithm = ALGORITHM_SHA384;
+      result->digest_size = SHA384_DIGEST_SIZE;
+    } else if ( a == ATOM_sha512 )
+    { result->algorithm = ALGORITHM_SHA512;
+      result->digest_size = SHA512_DIGEST_SIZE;
     } else
-    { return pl_error(NULL, 0, NULL, ERR_TYPE, opt, "option");
-    }
+      return pl_error(NULL, 0, NULL, ERR_DOMAIN, algorithm, "algorithm");
   }
 
-  if ( !PL_get_nil(opts) )
-    return pl_error("sha_hash", 1, NULL, ERR_TYPE, opts, "list");
+  if ( encoding )
+  { if ( !PL_get_atom_ex(encoding, &a) )
+      return FALSE;
+    if ( a == ATOM_utf8 )
+      result->encoding = REP_UTF8;
+    else if ( a == ATOM_octet )
+      result->encoding = REP_ISO_LATIN_1;
+    else
+      return pl_error(NULL, 0, NULL, ERR_DOMAIN, encoding, "encoding");
+  }
 
   return TRUE;
 }
@@ -296,10 +288,8 @@ install_sha4pl()
   MKATOM(sha256);
   MKATOM(sha384);
   MKATOM(sha512);
-  MKATOM(algorithm);
   MKATOM(utf8);
   MKATOM(octet);
-  MKATOM(encoding);
 
   PL_register_foreign("sha_hash", 3, pl_sha_hash, 0);
   PL_register_foreign("sha_new_ctx", 2, pl_sha_new_ctx, 0);
