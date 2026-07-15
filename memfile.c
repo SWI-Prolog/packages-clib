@@ -55,7 +55,6 @@
 #define UNLOCK(mf)
 #endif
 
-static atom_t ATOM_encoding;
 static atom_t ATOM_unknown;
 static atom_t ATOM_octet;
 static atom_t ATOM_ascii;
@@ -70,7 +69,6 @@ static atom_t ATOM_write;
 static atom_t ATOM_append;
 static atom_t ATOM_update;
 static atom_t ATOM_insert;
-static atom_t ATOM_free_on_close;
 
 #define MEMFILE_MAGIC	0x5624a6b3L
 #define MEMFILE_CMAGIC	0x5624a6b7L
@@ -609,6 +607,12 @@ get_encoding(term_t t, IOENC *enc)
 }
 
 
+static PL_option_t mf_option_specs[] =
+{ PL_OPTION("encoding",      OPT_TERM),
+  PL_OPTION("free_on_close", OPT_BOOL),
+  PL_OPTIONS_END
+};
+
 static foreign_t
 open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
 { memfile *m;
@@ -634,36 +638,15 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
     encoding = m->encoding;
 
     if ( options )
-    { term_t tail = PL_copy_term_ref(options);
-      term_t head = PL_new_term_ref();
+    { term_t enc = 0;
 
-      while(PL_get_list(tail, head, tail))
-      { size_t arity;
-	atom_t name;
-
-	if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
-	{ term_t arg = PL_new_term_ref();
-
-	  _PL_get_arg(1, head, arg);
-	  if ( name == ATOM_encoding )
-	  { if ( !get_encoding(arg, &encoding) )
-	    { rc = FALSE;
-	      goto out;
-	    }
-	  } else if ( name == ATOM_free_on_close )
-	  { if ( !PL_get_bool(arg, &free_on_close) )
-	    { rc = pl_error("open_memory_file", 4, NULL, ERR_TYPE,
-			    arg, "boolean");
-	      goto out;
-	    }
-	  }
-	} else
-	{ rc = pl_error("open_memory_file", 4, NULL, ERR_TYPE, head, "option");
-	  goto out;
-	}
+      if ( !PL_scan_options(options, 0, "memory_file_option", mf_option_specs,
+			    &enc, &free_on_close) )
+      { rc = FALSE;
+	goto out;
       }
-      if ( !PL_get_nil(tail) )
-      { rc = pl_error("open_memory_file", 4, NULL, ERR_TYPE, tail, "list");
+      if ( enc && !get_encoding(enc, &encoding) )
+      { rc = FALSE;
 	goto out;
       }
     }
@@ -1468,8 +1451,7 @@ memory_file_line_position(term_t handle,
 
 install_t
 install_memfile()
-{ MKATOM(encoding);
-  MKATOM(unknown);
+{ MKATOM(unknown);
   MKATOM(octet);
   MKATOM(ascii);
   MKATOM(iso_latin_1);
@@ -1483,7 +1465,6 @@ install_memfile()
   MKATOM(append);
   MKATOM(update);
   MKATOM(insert);
-  MKATOM(free_on_close);
 
   PL_register_foreign("new_memory_file",	   1, new_memory_file,	      0);
   PL_register_foreign("free_memory_file",	   1, free_memory_file,	      0);
