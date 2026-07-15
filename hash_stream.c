@@ -44,8 +44,6 @@
 #include "sha1/sha1.h"
 #include "sha1/sha2.h"
 
-static atom_t ATOM_algorithm;
-static atom_t ATOM_close_parent;
 static atom_t ATOM_md5;
 static atom_t ATOM_sha1;
 static atom_t ATOM_sha224;
@@ -279,33 +277,24 @@ digest_size(hash_algorithm algorithm)
 		    SIO_REPXML|SIO_REPPL|\
 		    SIO_RECORDPOS)
 
+static PL_option_t hash_stream_options[] =
+{ PL_OPTION("algorithm",    OPT_TERM),
+  PL_OPTION("close_parent", OPT_BOOL),
+  PL_OPTIONS_END
+};
+
 static foreign_t
 pl_stream_hash_open(term_t org, term_t new, term_t options)
-{ term_t tail = PL_copy_term_ref(options);
-  term_t head = PL_new_term_ref();
-  hash_context *ctx;
+{ hash_context *ctx;
   IOSTREAM *s, *s2;
   hash_algorithm algorithm = ALGORITHM_SHA1;
   int close_parent = TRUE;
+  term_t alg = 0;
 
-  while(PL_get_list_ex(tail, head, tail))
-  { atom_t name;
-    size_t arity;
-    term_t arg = PL_new_term_ref();
-
-    if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-      return PL_type_error("option", head);
-    _PL_get_arg(1, head, arg);
-
-    if ( name == ATOM_algorithm )
-    { if ( !get_hash_algorithm(arg, &algorithm) )
-	return FALSE;
-    } else if ( name == ATOM_close_parent )
-    { if ( !PL_get_bool_ex(arg, &close_parent) )
-	return FALSE;
-    }
-  }
-  if ( !PL_get_nil_ex(tail) )
+  if ( !PL_scan_options(options, 0, "hash_option", hash_stream_options,
+			&alg, &close_parent) )
+    return FALSE;
+  if ( alg && !get_hash_algorithm(alg, &algorithm) )
     return FALSE;
 
   if ( !PL_get_stream_handle(org, &s) )
@@ -405,8 +394,6 @@ install_hashstream(void)
   MKATOM(sha256);
   MKATOM(sha384);
   MKATOM(sha512);
-  MKATOM(algorithm);
-  MKATOM(close_parent);
 
   PL_register_foreign("open_hash_stream", 3, pl_stream_hash_open, 0);
   PL_register_foreign("stream_hash",	  2, pl_stream_hash,	  0);
