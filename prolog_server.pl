@@ -1,9 +1,9 @@
 /*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker & Steve Prior
-    E-mail:        J.Wielemaker@vu.nl
-    WWW:           http://www.swi-prolog.org
-    Copyright (c)  2004-2023, University of Amsterdam
+    E-mail:        jan@swi-prolog.org
+    WWW:           https://www.swi-prolog.org
+    Copyright (c)  2004-2026, University of Amsterdam
                               VU University Amsterdam
                               CWI, Amsterdam
                               SWI-Prolog Solutions b.v.
@@ -39,7 +39,7 @@
           [ prolog_server/2             % +Port, +Options
           ]).
 
-:- autoload(library(lists), [member/2]).
+:- autoload(library(option), [option/2]).
 :- autoload(library(socket),
             [ tcp_socket/1,
               tcp_setopt/2,
@@ -61,23 +61,26 @@
 %
 %   Currently defined options are:
 %
-%           * allow(IP)
-%           Allow access from IP, a term of the format ip(A,B,C,D).
-%           Multiple of such terms can exist and access is granted
-%           if the peer IP address unifies to one of them.  If no
-%           allow option is provided access is only granted from
-%           ip(127,0,0,1) (localhost).
+%     - allow(IPOrList)
+%       Allow access from IP, a term of the format ip(A,B,C,D), (IPv4)
+%       or ip(A, B, C, D, E, F, G, H) (IPv6). Access is granted if the
+%       `Peer` address as returned by tcp_accept/3 _unifies_ with
+%       IPOrList or, if IPOrList is a list, with a member of this list.
+%       If no allow option is provided access is only granted from
+%       ip(127,0,0,1) (localhost). <br>
+%       __note__ Older versions allowed for repeating this option rather
+%       than providing a list.
 %
 %   For example:
 %
-%           ==
-%           ?- prolog_server(4000, []).
+%   ```
+%   ?- prolog_server(4000, []).
 %
-%           % netcat -N localhost 4000
-%           Welcome to the SWI-Prolog server on thread 3
+%   % ncat localhost 4000
+%   Welcome to the SWI-Prolog server on thread client@127.0.0.1
 %
-%           1 ?-
-%           ==
+%   1 ?-
+%   ```
 %
 %   @bug  As  the connection  does  not  involve a  terminal,  command
 %   history and  completion are  not provided. Neither  are interrupts
@@ -85,8 +88,8 @@
 %   down the socket on ^D (using the `-N` option).  Otherwise one must
 %   enter the command "end_of_file."
 %   @see The  add-on `libssh` provides  an embedded SSH  server.  This
-%   provides encryption  as well as  a _pseudo terminal_ for  a better
-%   user experience.
+%   provides encryption  as well as  a _pseudo terminal_, providing
+%   full commandline editing, history and interrupt processing.
 
 prolog_server(Port, Options) :-
     tcp_socket(ServerSocket),
@@ -150,8 +153,10 @@ service_client(InStream, OutStream, _, _):-
 
 
 allow(Peer, Options) :-
-    (   member(allow(Allow), Options)
-    *-> Peer = Allow,
-        !
+    (   option(allow(Allow), Options)
+    ->  (   is_list(Allow)
+        ->  memberchk(Peer, Allow)
+        ;   Peer = Allow
+        )
     ;   Peer = ip(127,0,0,1)
     ).

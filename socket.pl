@@ -459,7 +459,7 @@ tcp_connect(Socket, Address, Read, Write) :-
 tcp_connect(Address, StreamPair, Options) :-
     var(StreamPair),
     !,
-    (   memberchk(bypass_proxy(true), Options)
+    (   option(bypass_proxy(true), Options)
     ->  tcp_connect_direct(Address, Socket, StreamPair, Options)
     ;   findall(Result,
                 try_a_proxy(Address, Result),
@@ -471,7 +471,7 @@ tcp_connect(Address, StreamPair, Options) :-
         )
     ;   tcp_connect_direct(Address, Socket, StreamPair, Options)
     ),
-    (   memberchk(nodelay(true), Options)
+    (   option(nodelay(true), Options)
     ->  tcp_setopt(Socket, nodelay)
     ;   true
     ).
