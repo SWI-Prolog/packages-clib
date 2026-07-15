@@ -39,7 +39,6 @@
 #include "md5.h"
 #include <string.h>
 
-static atom_t ATOM_encoding;
 static atom_t ATOM_utf8;
 static atom_t ATOM_octet;
 
@@ -48,43 +47,34 @@ typedef struct
 } optval;
 
 
+static PL_option_t md5_option_specs[] =
+{ PL_OPTION("encoding", OPT_TERM),
+  PL_OPTIONS_END
+};
+
 static int
 md5_options(term_t options, optval *result)
-{ term_t opts = PL_copy_term_ref(options);
-  term_t opt = PL_new_term_ref();
+{ term_t encoding = 0;
 
-					/* defaults */
   memset(result, 0, sizeof(*result));
   result->encoding = REP_UTF8;
 
-  while(PL_get_list(opts, opt, opts))
-  { atom_t aname;
-    size_t arity;
+  if ( !PL_scan_options(options, 0, "md5_option", md5_option_specs,
+			&encoding) )
+    return FALSE;
 
-    if ( PL_get_name_arity(opt, &aname, &arity) && arity == 1 )
-    { term_t a = PL_new_term_ref();
+  if ( encoding )
+  { atom_t a;
 
-      _PL_get_arg(1, opt, a);
-
-      if ( aname == ATOM_encoding )
-      { atom_t a_enc;
-
-	if ( !PL_get_atom_ex(a, &a_enc) )
-	  return FALSE;
-	if ( a_enc == ATOM_utf8 )
-	  result->encoding = REP_UTF8;
-	else if ( a_enc == ATOM_octet )
-	  result->encoding = REP_ISO_LATIN_1;
-	else
-	  return PL_domain_error("encoding", a);
-      }
-    } else
-    { return PL_type_error("option", opt);
-    }
+    if ( !PL_get_atom_ex(encoding, &a) )
+      return FALSE;
+    if ( a == ATOM_utf8 )
+      result->encoding = REP_UTF8;
+    else if ( a == ATOM_octet )
+      result->encoding = REP_ISO_LATIN_1;
+    else
+      return PL_domain_error("encoding", encoding);
   }
-
-  if ( !PL_get_nil(opts) )
-    return PL_type_error("list", opts);
 
   return TRUE;
 }
@@ -135,7 +125,6 @@ install_t
 install_md54pl(void)
 { MKATOM(utf8);
   MKATOM(octet);
-  MKATOM(encoding);
 
   PL_register_foreign("md5_hash", 3, md5_hash, 0);
 }
