@@ -86,7 +86,6 @@
 
 static atom_t ATOM_address;
 static atom_t ATOM_af_unix;
-static atom_t ATOM_as;
 static atom_t ATOM_atom;
 static atom_t ATOM_bindtodevice;
 static atom_t ATOM_broadcast;
@@ -94,7 +93,6 @@ static atom_t ATOM_codes;
 static atom_t ATOM_dgram;
 static atom_t ATOM_dispatch;
 static atom_t ATOM_domain;
-static atom_t ATOM_encoding;
 static atom_t ATOM_file_no;
 static atom_t ATOM_host;
 static atom_t ATOM_inet6;
@@ -103,7 +101,6 @@ static atom_t ATOM_infinite;
 static atom_t ATOM_ip_add_membership;
 static atom_t ATOM_ip_drop_membership;
 static atom_t ATOM_local;
-static atom_t ATOM_max_message_size;
 static atom_t ATOM_nodelay;
 static atom_t ATOM_nonblock;
 static atom_t ATOM_reuseaddr;
@@ -608,6 +605,19 @@ get_as(term_t arg, int *asp)
 #define socklen_t int
 #endif
 
+static PL_option_t udp_receive_options[] =
+{ PL_OPTION("as",		OPT_TERM),
+  PL_OPTION("max_message_size", OPT_TERM),
+  PL_OPTION("encoding",		OPT_TERM),
+  PL_OPTIONS_END
+};
+
+static PL_option_t udp_send_options[] =
+{ PL_OPTION("as",	OPT_TERM),
+  PL_OPTION("encoding",	OPT_TERM),
+  PL_OPTIONS_END
+};
+
 static foreign_t
 udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 { struct sockaddr_storage sockaddr;
@@ -622,35 +632,21 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
   int rc;
   int rep = REP_ISO_LATIN_1;
 
-  if ( !PL_get_nil(options) )
-  { term_t tail = PL_copy_term_ref(options);
-    term_t head = PL_new_term_ref();
-    term_t arg  = PL_new_term_ref();
+  { term_t as_opt = 0, mms_opt = 0, enc_opt = 0;
 
-    while(PL_get_list(tail, head, tail))
-    { atom_t name;
-      size_t arity;
-
-      if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
-      { _PL_get_arg(1, head, arg);
-
-	if ( name == ATOM_as )
-	{ if ( !get_as(arg, &as) )
-	    return FALSE;
-	} else if ( name == ATOM_max_message_size )
-	{ if ( !PL_get_integer(arg, &bufsize) )
-	    return pl_error(NULL, 0, NULL, ERR_TYPE, arg, "integer");
-	  if ( bufsize < 0 || bufsize > UDP_MAXDATA )
-	    return pl_error(NULL, 0, NULL, ERR_DOMAIN, arg, "0 - 65535");
-	} else if ( name == ATOM_encoding )
-	{ if ( !get_representation(arg, &rep) )
-	    return FALSE;
-	}
-      } else
-	return PL_type_error("option", head);
-    }
-    if ( !PL_get_nil_ex(tail) )
+    if ( !PL_scan_options(options, 0, "udp_option", udp_receive_options,
+			  &as_opt, &mms_opt, &enc_opt) )
       return FALSE;
+    if ( as_opt && !get_as(as_opt, &as) )
+      return FALSE;
+    if ( enc_opt && !get_representation(enc_opt, &rep) )
+      return FALSE;
+    if ( mms_opt )
+    { if ( !PL_get_integer_ex(mms_opt, &bufsize) )
+	return FALSE;
+      if ( bufsize < 0 || bufsize > UDP_MAXDATA )
+	return pl_error(NULL, 0, NULL, ERR_DOMAIN, mms_opt, "0 - 65535");
+    }
   }
 
   if ( !tcp_get_socket(Socket, &socket) )
@@ -699,29 +695,14 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
   int as = PL_VARIABLE;			/* any */
   int cvt;
 
-  if ( !PL_get_nil(options) )
-  { term_t tail = PL_copy_term_ref(options);
-    term_t head = PL_new_term_ref();
-    term_t arg  = PL_new_term_ref();
+  { term_t as_opt = 0, enc_opt = 0;
 
-    while(PL_get_list(tail, head, tail))
-    { atom_t name;
-      size_t arity;
-
-      if ( PL_get_name_arity(head, &name, &arity) && arity == 1 )
-      {	_PL_get_arg(1, head, arg);
-
-	if ( name == ATOM_as )
-	{ if ( !get_as(arg, &as) )
-	    return FALSE;
-	} else if ( name == ATOM_encoding )
-	{ if ( !get_representation(arg, &rep) )
-	    return FALSE;
-	}
-      } else
-	return PL_type_error("option", head);
-    }
-    if ( !PL_get_nil_ex(tail) )
+    if ( !PL_scan_options(options, 0, "udp_option", udp_send_options,
+			  &as_opt, &enc_opt) )
+      return FALSE;
+    if ( as_opt && !get_as(as_opt, &as) )
+      return FALSE;
+    if ( enc_opt && !get_representation(enc_opt, &rep) )
       return FALSE;
   }
 
@@ -1047,7 +1028,6 @@ install_socket(void)
 
   MKATOM(address);
   MKATOM(af_unix);
-  MKATOM(as);
   MKATOM(atom);
   MKATOM(bindtodevice);
   MKATOM(broadcast);
@@ -1055,7 +1035,6 @@ install_socket(void)
   MKATOM(dgram);
   MKATOM(dispatch);
   MKATOM(domain);
-  MKATOM(encoding);
   MKATOM(file_no);
   MKATOM(host);
   MKATOM(inet);
@@ -1064,7 +1043,6 @@ install_socket(void)
   MKATOM(ip_add_membership);
   MKATOM(ip_drop_membership);
   MKATOM(local);
-  MKATOM(max_message_size);
   MKATOM(nodelay);
   MKATOM(nonblock);
   MKATOM(reuseaddr);
