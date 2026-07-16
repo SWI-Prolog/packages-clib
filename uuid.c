@@ -57,14 +57,18 @@
 #undef UUID
 #undef uuid_t
 
-static atom_t ATOM_version;
-static atom_t ATOM_format;
 static atom_t ATOM_atom;
 static atom_t ATOM_integer;
-static atom_t ATOM_url;
-static atom_t ATOM_dns;
-static atom_t ATOM_oid;
-static atom_t ATOM_x500;
+
+static PL_option_t uuid_options[] =
+{ PL_OPTION("version", OPT_TERM),
+  PL_OPTION("format",  OPT_TERM),
+  PL_OPTION("dns",     OPT_TERM),
+  PL_OPTION("url",     OPT_TERM),
+  PL_OPTION("oid",     OPT_TERM),
+  PL_OPTION("x500",    OPT_TERM),
+  PL_OPTIONS_END
+};
 
 static foreign_t
 pl_uuid(term_t UUID, term_t options)
@@ -75,62 +79,41 @@ pl_uuid(term_t UUID, term_t options)
   char *str = NULL;
   int rc;
   uuid_rc_t urc;
+  term_t version = 0, fmt = 0, dns = 0, url = 0, oid = 0, x500 = 0, nsarg = 0;
 
-  if ( !PL_get_nil(options) )
-  { term_t tail = PL_copy_term_ref(options);
-    term_t head = PL_new_term_ref();
-    term_t arg  = PL_new_term_ref();
+  if ( !PL_scan_options(options, 0, "uuid_option", uuid_options,
+			&version, &fmt, &dns, &url, &oid, &x500) )
+    return FALSE;
 
-    while( PL_get_list(tail, head, tail) )
-    { atom_t name;
-      size_t arity;
+  if ( version )
+  { int v;
 
-      if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-	return PL_type_error("option", head);
-      _PL_get_arg(1, head, arg);
-
-      if ( name == ATOM_version )
-      { int v;
-
-	if ( !PL_get_integer_ex(arg, &v) )
-	  return FALSE;
-	switch(v)
-	{ case 1: mode = UUID_MAKE_V1; break;
-	  case 2: mode = UUID_MAKE_MC; break;
-	  case 3: mode = UUID_MAKE_V3; break;
-	  case 4: mode = UUID_MAKE_V4; break;
-	  case 5: mode = UUID_MAKE_V5; break;
-          default: return PL_domain_error("uuid_version", arg);
-	}
-      } else if ( name == ATOM_format )
-      { if ( !PL_get_atom_ex(arg, &format) )
-	  return FALSE;
-	if ( format != ATOM_atom && format != ATOM_integer )
-	  return PL_domain_error("uuid_format", arg);
-      } else
-      { char *newns = NULL;
-
-	if ( name == ATOM_dns )
-	{ newns = "ns:DNS";
-	} else if ( name == ATOM_url )
-	{ newns = "ns:URL";
-	} else if ( name == ATOM_oid )
-	{ newns = "ns:OID";
-	} else if ( name == ATOM_x500 )
-	{ newns = "ns:X500";
-	}
-
-	if ( newns )
-	{ ns = newns;
-	  if ( !PL_get_chars(arg, &str, CVT_ATOM|CVT_EXCEPTION) )
-	    return FALSE;
-	  if ( mode == UUID_MAKE_V1 )
-	    mode = UUID_MAKE_V3;
-	}
-      }
-    }
-    if ( !PL_get_nil_ex(tail) )
+    if ( !PL_get_integer_ex(version, &v) )
       return FALSE;
+    switch(v)
+    { case 1: mode = UUID_MAKE_V1; break;
+      case 2: mode = UUID_MAKE_MC; break;
+      case 3: mode = UUID_MAKE_V3; break;
+      case 4: mode = UUID_MAKE_V4; break;
+      case 5: mode = UUID_MAKE_V5; break;
+      default: return PL_domain_error("uuid_version", version);
+    }
+  }
+  if ( fmt )
+  { if ( !PL_get_atom_ex(fmt, &format) )
+      return FALSE;
+    if ( format != ATOM_atom && format != ATOM_integer )
+      return PL_domain_error("uuid_format", fmt);
+  }
+  if ( dns )       { ns = "ns:DNS";  nsarg = dns;  }
+  else if ( url )  { ns = "ns:URL";  nsarg = url;  }
+  else if ( oid )  { ns = "ns:OID";  nsarg = oid;  }
+  else if ( x500 ) { ns = "ns:X500"; nsarg = x500; }
+  if ( nsarg )
+  { if ( !PL_get_chars(nsarg, &str, CVT_ATOM|CVT_EXCEPTION) )
+      return FALSE;
+    if ( mode == UUID_MAKE_V1 )
+      mode = UUID_MAKE_V3;
   }
 
   switch(mode)
@@ -193,14 +176,8 @@ pl_uuid(term_t UUID, term_t options)
 
 install_t
 install_uuid(void)
-{ ATOM_version = PL_new_atom("version");
-  ATOM_format  = PL_new_atom("format");
-  ATOM_atom    = PL_new_atom("atom");
+{ ATOM_atom    = PL_new_atom("atom");
   ATOM_integer = PL_new_atom("integer");
-  ATOM_dns     = PL_new_atom("dns");
-  ATOM_url     = PL_new_atom("url");
-  ATOM_oid     = PL_new_atom("oid");
-  ATOM_x500    = PL_new_atom("x500");
 
   PL_register_foreign("ossp_uuid", 2, pl_uuid, 0);
 }

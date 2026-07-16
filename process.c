@@ -92,7 +92,6 @@ static atom_t ATOM_environment;
 static atom_t ATOM_priority;
 static atom_t ATOM_window;
 static atom_t ATOM_timeout;
-static atom_t ATOM_release;
 static atom_t ATOM_infinite;
 static atom_t ATOM_text;
 static atom_t ATOM_binary;
@@ -2117,43 +2116,40 @@ get_pid(term_t pid, pid_t *p)
 }
 
 
+static PL_option_t process_wait_options[] =
+{ PL_OPTION("timeout", OPT_TERM),
+  PL_OPTION("release", OPT_TERM),
+  PL_OPTIONS_END
+};
+
 static foreign_t
 process_wait(term_t pid, term_t code, term_t options)
 { pid_t p;
   wait_options opts;
-  term_t tail = PL_copy_term_ref(options);
-  term_t head = PL_new_term_ref();
-  term_t arg  = PL_new_term_ref();
+  term_t timeout = 0, release = 0;
 
   if ( !get_pid(pid, &p) )
     return FALSE;
 
   memset(&opts, 0, sizeof(opts));
-  while(PL_get_list(tail, head, tail))
-  { atom_t name;
-    size_t arity;
-
-    if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-      return PL_type_error("option", head);
-    _PL_get_arg(1, head, arg);
-    if ( name == ATOM_timeout )
-    { atom_t a;
-
-      if ( !(PL_get_atom(arg, &a) && a == ATOM_infinite) )
-      { if ( !PL_get_float(arg, &opts.timeout) )
-	  return PL_type_error("timeout", arg);
-	opts.has_timeout = TRUE;
-      }
-    } else if ( name == ATOM_release )
-    { if ( !PL_get_bool_ex(arg, &opts.release) )
-	return FALSE;
-      if ( opts.release == FALSE )
-	return PL_domain_error("true", arg);
-    } else
-      return PL_domain_error("process_wait_option", head);
-  }
-  if ( !PL_get_nil_ex(tail) )
+  if ( !PL_scan_options(options, OPT_UNKNOWN_ERROR, "process_wait_option",
+			process_wait_options, &timeout, &release) )
     return FALSE;
+  if ( timeout )
+  { atom_t a;
+
+    if ( !(PL_get_atom(timeout, &a) && a == ATOM_infinite) )
+    { if ( !PL_get_float(timeout, &opts.timeout) )
+	return PL_type_error("timeout", timeout);
+      opts.has_timeout = TRUE;
+    }
+  }
+  if ( release )
+  { if ( !PL_get_bool_ex(release, &opts.release) )
+      return FALSE;
+    if ( opts.release == FALSE )
+      return PL_domain_error("true", release);
+  }
 
   return wait_for_pid(p, code, &opts);
 }
@@ -2280,7 +2276,6 @@ install_process()
   MKATOM(priority);
   MKATOM(window);
   MKATOM(timeout);
-  MKATOM(release);
   MKATOM(infinite);
   MKATOM(text);
   MKATOM(binary);
