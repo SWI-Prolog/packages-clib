@@ -84,13 +84,6 @@ static atom_t ATOM_stdout;
 static atom_t ATOM_stderr;
 static atom_t ATOM_std;
 static atom_t ATOM_null;
-static atom_t ATOM_process;
-static atom_t ATOM_detached;
-static atom_t ATOM_cwd;
-static atom_t ATOM_env;
-static atom_t ATOM_environment;
-static atom_t ATOM_priority;
-static atom_t ATOM_window;
 static atom_t ATOM_timeout;
 static atom_t ATOM_infinite;
 static atom_t ATOM_text;
@@ -521,71 +514,66 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 }
 
 
+static PL_option_t process_options[] =
+{ PL_OPTION("stdin",	   OPT_TERM),
+  PL_OPTION("stdout",	   OPT_TERM),
+  PL_OPTION("stderr",	   OPT_TERM),
+  PL_OPTION("process",	   OPT_TERM),
+  PL_OPTION("detached",	   OPT_BOOL),
+  PL_OPTION("cwd",	   OPT_TERM),
+  PL_OPTION("window",	   OPT_BOOL),
+  PL_OPTION("env",	   OPT_TERM),
+  PL_OPTION("environment", OPT_TERM),
+  PL_OPTION("priority",	   OPT_INT),
+  PL_OPTIONS_END
+};
+
 static int
 parse_options(term_t options, p_options *info)
-{ term_t tail = PL_copy_term_ref(options);
-  term_t head = PL_new_term_ref();
-  term_t arg = PL_new_term_ref();
+{ term_t stdin_t = 0, stdout_t = 0, stderr_t = 0, process_t = 0;
+  term_t cwd_t = 0, env_t = 0, environment_t = 0;
 
   info->window = MAYBE;
 
-  while(PL_get_list(tail, head, tail))
-  { atom_t name;
-    size_t arity;
-
-    if ( !PL_get_name_arity(head, &name, &arity) || arity != 1 )
-      return PL_type_error("option", head);
-    _PL_get_arg(1, head, arg);
-
-    if ( name == ATOM_stdin )
-    { if ( !get_stream(arg, info, &info->streams[0], name) )
-	return FALSE;
-    } else if ( name == ATOM_stdout )
-    { if ( !get_stream(arg, info, &info->streams[1], name) )
-	return FALSE;
-    } else if ( name == ATOM_stderr )
-    { if ( !get_stream(arg, info, &info->streams[2], name) )
-	return FALSE;
-    } else if ( name == ATOM_process )
-    { info->pid = PL_copy_term_ref(arg);
-    } else if ( name == ATOM_detached )
-    { if ( !PL_get_bool_ex(arg, &info->detached) )
-	return FALSE;
-    } else if ( name == ATOM_cwd )
-    {
-#ifdef __WINDOWS__
-      if ( !PL_get_wchars(arg, NULL, &info->cwd,
-			 CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC) )
-	return FALSE;
-#else
-      if ( !PL_get_chars(arg, &info->cwd,
-			 CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
-	return FALSE;
-#endif
-    } else if ( name == ATOM_window )
-    { if ( !PL_get_bool_ex(arg, &info->window) )
-	return FALSE;
-    } else if ( name == ATOM_env )
-    { if ( !parse_environment(arg, info, FALSE) )
-	return FALSE;
-    } else if ( name == ATOM_environment )
-    { if ( !parse_environment(arg, info, TRUE) )
-	return FALSE;
-    } else if ( name == ATOM_priority )
-    { int tmp;
-
-      if ( !PL_get_integer_ex(arg, &tmp) )
-	return FALSE;
-      if ( tmp < -20 || tmp > 19 )
-	return PL_domain_error("priority_option", arg);
-
-      info->priority = tmp;
-    } else
-      return PL_domain_error("process_option", head);
-  }
-
-  if ( !PL_get_nil_ex(tail) )
+  if ( !PL_scan_options(options, OPT_UNKNOWN_ERROR, "process_option",
+			process_options,
+			&stdin_t, &stdout_t, &stderr_t, &process_t,
+			&info->detached, &cwd_t, &info->window, &env_t,
+			&environment_t, &info->priority) )
     return FALSE;
+
+  if ( stdin_t && !get_stream(stdin_t, info, &info->streams[0], ATOM_stdin) )
+    return FALSE;
+  if ( stdout_t && !get_stream(stdout_t, info, &info->streams[1], ATOM_stdout) )
+    return FALSE;
+  if ( stderr_t && !get_stream(stderr_t, info, &info->streams[2], ATOM_stderr) )
+    return FALSE;
+  if ( process_t )
+    info->pid = PL_copy_term_ref(process_t);
+  if ( cwd_t )
+  {
+#ifdef __WINDOWS__
+    if ( !PL_get_wchars(cwd_t, NULL, &info->cwd,
+		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC) )
+      return FALSE;
+#else
+    if ( !PL_get_chars(cwd_t, &info->cwd,
+		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
+      return FALSE;
+#endif
+  }
+  if ( env_t && !parse_environment(env_t, info, FALSE) )
+    return FALSE;
+  if ( environment_t && !parse_environment(environment_t, info, TRUE) )
+    return FALSE;
+  if ( info->priority != 255 &&
+       (info->priority < -20 || info->priority > 19) )
+  { term_t t;
+
+    return ( (t=PL_new_term_ref()) &&
+	     PL_put_integer(t, info->priority) &&
+	     PL_domain_error("priority_option", t) );
+  }
 
   return TRUE;
 }
@@ -2268,13 +2256,6 @@ install_process()
   MKATOM(stderr);
   MKATOM(std);
   MKATOM(null);
-  MKATOM(process);
-  MKATOM(detached);
-  MKATOM(cwd);
-  MKATOM(env);
-  MKATOM(environment);
-  MKATOM(priority);
-  MKATOM(window);
   MKATOM(timeout);
   MKATOM(infinite);
   MKATOM(text);
