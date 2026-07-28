@@ -1450,7 +1450,8 @@ memory_file_line_position(term_t handle,
 
 install_t
 install_memfile()
-{ MKATOM(unknown);
+{ PL_register_blob_type(&memfile_blob);
+  MKATOM(unknown);
   MKATOM(octet);
   MKATOM(ascii);
   MKATOM(iso_latin_1);

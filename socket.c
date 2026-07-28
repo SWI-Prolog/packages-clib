@@ -1024,7 +1024,8 @@ pl_debug(term_t val)
 
 install_t
 install_socket(void)
-{ nbio_init("socket");
+{ PL_register_blob_type(&socket_blob);
+  nbio_init("socket");
 
   MKATOM(address);
   MKATOM(af_unix);
