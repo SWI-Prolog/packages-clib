@@ -20,7 +20,7 @@ check_function_exists(syslog HAVE_SYSLOG)
 AC_CHECK_HEADERS(malloc.h alloca.h unistd.h sys/time.h fcntl.h
 		 utime.h execinfo.h sys/resource.h crypt.h syslog.h
 		 sys/types.h sys/wait.h sys/stat.h sys/prctl.h
-		 netinet/tcp.h crt_externs.h poll.h)
+		 netinet/tcp.h crt_externs.h poll.h sys/ioctl.h)
 
 check_type_size("long" SIZEOF_LONG)
 check_type_size("long long" SIZEOF_LONG_LONG)
@@ -28,7 +28,7 @@ check_type_size("long long" SIZEOF_LONG_LONG)
 AC_CHECK_FUNCS(setsid strerror utime getrlimit strcasestr vfork _NSGetEnviron
 	       pipe2 prctl sysconf poll initgroups setgroups chmod
 	       mallinfo mallinfo2 malloc_info open_memstream posix_spawn
-	       gai_strerror hstrerror setpriority)
+	       gai_strerror hstrerror setpriority tcgetsid)
 
 configure_file(config.h.cmake config.h)
 

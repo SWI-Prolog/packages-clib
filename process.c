@@ -1789,6 +1789,78 @@ restoreSignals(sigset_t *old)
 #define vfork fork
 #endif
 
+		 /*******************************
+		 *      CONTROLLING TERMINAL	*
+		 *******************************/
+
+/* A thread need not run on the terminal the process was started from:
+ * an Epilog window gives its Prolog thread a pty of its own, and
+ * process_create/3 hands that pty to the child.  Inheriting the fd is
+ * not enough there.  With no session owning that pty it has no
+ * foreground process group, so resizing the window raises no SIGWINCH
+ * in the child and ^C sends it no SIGINT.
+ *
+ * The child therefore calls setsid() and TIOCSCTTY when the terminal
+ * it is handed belongs to another session.  An ordinary
+ * process_create/3 is unaffected: there the terminal already is this
+ * session's controlling terminal.  Mirrors adopt_ctty() in
+ * src/os/pl-os.c, which does the same for shell/1.
+ */
+
+#include <termios.h>			/* tcgetsid() */
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>			/* TIOCSCTTY */
+#endif
+
+#if defined(HAVE_SETSID) && defined(HAVE_TCGETSID) && defined(TIOCSCTTY)
+#define O_ADOPT_CTTY 1
+
+/* Called in the child, after the dup2()s and before the exec. */
+
+static void
+adopt_ctty(void)
+{ if ( isatty(0) && tcgetsid(0) != getsid(0) )
+  { if ( setsid() != -1 )
+      ioctl(0, TIOCSCTTY, 0);
+  }
+}
+#endif
+
+#if defined(O_ADOPT_CTTY) && defined(HAVE_POSIX_SPAWN)
+
+/* The fd that becomes the child's stdin, or -1 if it has none. */
+
+static int
+child_stdin_fd(p_options *info)
+{ switch( info->streams[0].type )
+  { case std_pipe:
+    case std_stream:
+      return info->streams[0].fd[0];
+    case std_std:
+      return Sfileno(Suser_input);
+    default:
+      return -1;
+  }
+}
+
+/* Must the child adopt its terminal?  Asked in the parent, because
+ * posix_spawn() has no hook to do so and we must fork() instead.
+ */
+
+static int
+needs_ctty(p_options *info)
+{ int fd;
+
+  return ( !info->detached &&
+	   (fd=child_stdin_fd(info)) >= 0 &&
+	   isatty(fd) &&
+	   tcgetsid(fd) != getsid(0) );
+}
+
+#else
+#define needs_ctty(info) 0
+#endif
+
 static int
 do_create_process_fork(p_options *info, create_method method)
 { int pid;
@@ -1900,6 +1972,11 @@ do_create_process_fork(p_options *info, create_method method)
       }
     }
 
+#ifdef O_ADOPT_CTTY
+    if ( !info->detached )
+      adopt_ctty();
+#endif
+
     if ( info->envp )
     { execve(info->exe, info->argv, info->envp);
     } else
@@ -1935,7 +2012,7 @@ do_create_process(p_options *info)
   posix_spawnattr_t attr;
   int rc;
 
-  if ( info->cwd || create_process_method != PCREATE_SPAWN )
+  if ( info->cwd || needs_ctty(info) || create_process_method != PCREATE_SPAWN )
     return do_create_process_fork(info, create_process_method);
 
   posix_spawn_file_actions_init(&file_actions);
