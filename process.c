@@ -39,6 +39,13 @@
 #define _CRT_SECURE_NO_WARNINGS 1
 #define SWIPL_WINDOWS_NATIVE_ACCESS 1
 
+#ifdef _WIN32				/* STARTUPINFOEXW, see */
+#if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0600 /* do_create_process() */
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+#endif
+
 /*#define O_DEBUG 1*/
 #undef O_DEBUG
 #define _GNU_SOURCE			/* get pipe2() */
@@ -672,6 +679,7 @@ typedef struct process_context
 { int	magic;				/* PROCESS_MAGIC */
 #ifdef __WINDOWS__
   HANDLE handle;			/* process handle */
+  IOSTREAM *console;			/* terminal whose console it holds */
 #else
   pid_t	pid;				/* the process id */
 #endif
@@ -953,6 +961,7 @@ typedef struct win_process
 { DWORD pid;
   HANDLE handle;
   HANDLE job;
+  IOSTREAM *console;			/* terminal whose console it holds */
   struct win_process *next;
 } win_process;
 
@@ -960,12 +969,13 @@ typedef struct win_process
 static win_process *processes;
 
 static void
-register_process(DWORD pid, HANDLE h, HANDLE job)
+register_process(DWORD pid, HANDLE h, HANDLE job, IOSTREAM *console)
 { win_process *wp = PL_malloc(sizeof(*wp));
 
   wp->pid = pid;
   wp->handle = h;
   wp->job = job;
+  wp->console = console;
   LOCK();
   wp->next = processes;
   processes = wp;
@@ -980,9 +990,13 @@ unregister_process(DWORD pid)
   LOCK();
   for(wpp=&processes, wp=*wpp; wp; wpp=&wp->next, wp=*wpp)
   { if ( wp->pid == pid )
-    { *wpp = wp->next;
+    { IOSTREAM *console = wp->console;
+
+      *wpp = wp->next;
       PL_free(wp);
       UNLOCK();
+      if ( console )			/* the terminal takes it back */
+	Swinrelease_pseudoconsole(console);
       return TRUE;
     }
   }
@@ -1145,6 +1159,8 @@ static int
 wait_for_process(process_context *pc)
 { int rc = win_wait_success(pc->exe_name, pc->handle);
 
+  if ( pc->console )			/* the terminal takes it back */
+    Swinrelease_pseudoconsole(pc->console);
   PL_unregister_atom(pc->exe_name);
   PL_free(pc);
 
@@ -1225,22 +1241,88 @@ console_app(void)
 }
 
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Where the child gets its terminal from.
+
+An Epilog window has no console: it talks to its Prolog thread over two
+pipes, and a child handed those gets no terminal -- nothing echoes what it
+reads, it sees no window size and ^C does not reach it.  A pager therefore
+sat waiting for a key from a console nobody types on.  So put the child on
+the window's own pseudo console, as System() in src/pl-nt.c does for
+shell/1 and terminal_image->launch does for the process it starts.
+
+Only for the streams the caller left alone.  A child that is fully
+redirected has no business on the terminal, and holding the console is
+what tells the window that its keys are the child's rather than its own.
+Nor for a detached child, which outlives the goal that started it, or one
+the caller asked to give a window of its own.
+
+The console is claimed here and handed back when the child is reaped:
+below for a child we wait for, in wait_for_process() for one whose pipes
+we hold, and in unregister_process() for one with a process(PID).
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+static int
+on_terminal(p_options *info)
+{ int i;
+
+  if ( info->detached || info->window == TRUE )
+    return FALSE;
+
+  for(i=0; i<3; i++)
+  { if ( info->streams[i].type == std_std )
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+
 static int
 do_create_process(p_options *info)
 { int flags = 0;
   PROCESS_INFORMATION pi;
-  STARTUPINFOW si;
+  STARTUPINFOEXW siEx;
+  STARTUPINFOW *si = &siEx.StartupInfo;
+  IOSTREAM *console = NULL;		/* terminal we hold the console of */
+  void *attrs = NULL;
+  int redirected = 0;			/* streams that are not the terminal */
 
-  switch(info->window)
-  { case MAYBE:
-      if ( !console_app() )
+  memset(&siEx, 0, sizeof(siEx));
+  si->cb = sizeof(*si);
+
+  if ( on_terminal(info) )
+  { HANDLE hpc;
+
+    if ( (hpc=Swinpseudoconsole(Suser_input)) )
+    { if ( (attrs=Swinpseudoconsole_attributes(hpc)) )
+      { console	           = Suser_input;
+	siEx.lpAttributeList = attrs;
+	si->cb		     = sizeof(siEx);
+	/* Only EXTENDED_STARTUPINFO_PRESENT: CREATE_NO_WINDOW asks for a
+	 * console of the child's own, which is the opposite of what the
+	 * attribute says and wins.
+	 */
+	flags		     = EXTENDED_STARTUPINFO_PRESENT;
+	Sflush(Suser_output);		/* or it lands after the child's */
+	Sflush(Suser_error);
+      } else
+	Swinrelease_pseudoconsole(Suser_input);
+    }
+  }
+
+  if ( !console )
+  { switch(info->window)
+    { case MAYBE:
+	if ( !console_app() )
+	  flags |= CREATE_NO_WINDOW;
+	break;
+      case TRUE:
+	break;
+      case FALSE:
 	flags |= CREATE_NO_WINDOW;
-      break;
-    case TRUE:
-      break;
-    case FALSE:
-      flags |= CREATE_NO_WINDOW;
-      break;
+	break;
+    }
   }
 
   if ( info->detached )
@@ -1248,67 +1330,83 @@ do_create_process(p_options *info)
   if ( info->envbuf.buffer )
     flags |= CREATE_UNICODE_ENVIRONMENT;
 
-  memset(&si, 0, sizeof(si));
-  si.cb = sizeof(si);
-  si.dwFlags = STARTF_USESTDHANDLES;
+  si->dwFlags = STARTF_USESTDHANDLES;
 
 				      /* stdin */
   switch( info->streams[0].type )
   { case std_stream:
-      si.hStdInput = info->streams[0].fd[0];
-      SetHandleInformation(si.hStdInput,
+      si->hStdInput = info->streams[0].fd[0];
+      SetHandleInformation(si->hStdInput,
 			   HANDLE_FLAG_INHERIT, TRUE);
+      redirected++;
       break;
     case std_pipe:
-      si.hStdInput = info->streams[0].fd[0];
+      si->hStdInput = info->streams[0].fd[0];
       SetHandleInformation(info->streams[0].fd[1],
 			   HANDLE_FLAG_INHERIT, FALSE);
+      redirected++;
       break;
     case std_null:
-      si.hStdInput = open_null_stream(GENERIC_READ);
+      si->hStdInput = open_null_stream(GENERIC_READ);
+      redirected++;
       break;
     case std_std:
-      si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+      /* NULL leaves it to the pseudo console, which is the one thing
+       * STARTF_USESTDHANDLES and a console attribute agree on.
+       */
+      si->hStdInput = console ? NULL : GetStdHandle(STD_INPUT_HANDLE);
       break;
   }
 				      /* stdout */
   switch( info->streams[1].type )
   { case std_stream:
-      si.hStdOutput = info->streams[1].fd[1];
-      SetHandleInformation(si.hStdOutput,
+      si->hStdOutput = info->streams[1].fd[1];
+      SetHandleInformation(si->hStdOutput,
 			   HANDLE_FLAG_INHERIT, TRUE);
+      redirected++;
       break;
     case std_pipe:
-      si.hStdOutput = info->streams[1].fd[1];
+      si->hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(info->streams[1].fd[0],
 			   HANDLE_FLAG_INHERIT, FALSE);
+      redirected++;
       break;
     case std_null:
-      si.hStdOutput = open_null_stream(GENERIC_WRITE);
+      si->hStdOutput = open_null_stream(GENERIC_WRITE);
+      redirected++;
       break;
     case std_std:
-      si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+      si->hStdOutput = console ? NULL : GetStdHandle(STD_OUTPUT_HANDLE);
       break;
   }
 				      /* stderr */
   switch( info->streams[2].type )
   { case std_stream:
-      si.hStdError = info->streams[2].fd[1];
-      SetHandleInformation(si.hStdError,
+      si->hStdError = info->streams[2].fd[1];
+      SetHandleInformation(si->hStdError,
 			   HANDLE_FLAG_INHERIT, TRUE);
+      redirected++;
       break;
     case std_pipe:
-      si.hStdError = info->streams[2].fd[1];
+      si->hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
                            HANDLE_FLAG_INHERIT, FALSE);
+      redirected++;
       break;
     case std_null:
-      si.hStdError = open_null_stream(GENERIC_WRITE);
+      si->hStdError = open_null_stream(GENERIC_WRITE);
+      redirected++;
       break;
     case std_std:
-      si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+      si->hStdError = console ? NULL : GetStdHandle(STD_ERROR_HANDLE);
       break;
   }
+
+  /* Nothing to hand over: let the console hand the child all three, which
+   * is the path shell/1 takes and the only one the ConPTY samples show.
+   */
+  if ( console && !redirected )
+    si->dwFlags &= ~STARTF_USESTDHANDLES;
 
   if ( CreateProcessW(info->exe,
 		      info->cmdline,
@@ -1318,9 +1416,11 @@ do_create_process(p_options *info)
 		      flags,		/* Creation flags */
 		      info->envbuf.buffer, /* Environment */
 		      info->cwd,	/* Directory */
-		      &si,		/* Startup info */
+		      si,		/* Startup info */
 		      &pi) )		/* Process information */
   { int rc = TRUE;
+
+    Swinfree_pseudoconsole_attributes(attrs);
     HANDLE hJob = (HANDLE)0;
     if ( !info->detached )
     {
@@ -1337,6 +1437,7 @@ do_create_process(p_options *info)
       memset(pc, 0, sizeof(*pc));
       pc->magic    = PROCESS_MAGIC;
       pc->handle   = pi.hProcess;
+      pc->console  = console;		/* handed back in wait_for_process() */
       pc->exe_name = info->exe_name;
       PL_register_atom(pc->exe_name);
 
@@ -1403,13 +1504,22 @@ do_create_process(p_options *info)
     { AssignProcessToJobObject(rootJob, pi.hProcess);
     }
     if ( info->pid )
-    { register_process(pi.dwProcessId, pi.hProcess, hJob);
+    { /* handed back in unregister_process(), i.e. from process_wait/2 */
+      register_process(pi.dwProcessId, pi.hProcess, hJob, console);
       return PL_unify_integer(info->pid, pi.dwProcessId);
     }
 
-    return win_wait_success(info->exe_name, pi.hProcess);
+    rc = win_wait_success(info->exe_name, pi.hProcess);
+    if ( console )
+      Swinrelease_pseudoconsole(console);
+
+    return rc;
   } else
-  { return win_error("CreateProcess");
+  { Swinfree_pseudoconsole_attributes(attrs);
+    if ( console )
+      Swinrelease_pseudoconsole(console);
+
+    return win_error("CreateProcess");
   }
 }
 
