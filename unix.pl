@@ -44,7 +44,8 @@
             dup/2,                      % +From, +To
             detach_IO/0,
             detach_IO/1,                % +Stream
-            environ/1                   % -[Name=Value]
+            environ/1,                  % -[Name=Value]
+            mkfifo/2                    % +Path, +Mode
           ]).
 
 /** <module> Unix specific operations
@@ -305,6 +306,26 @@ detach_IO :-
 %   all operating systems.
 
 :- endif.
+
+%!  mkfifo(+Path, +Mode) is det.
+%
+%   Interface to Unix mkfifo(), which makes a FIFO special file with
+%   name Path and file permissions specified by Mode.
+%
+%   Once created, the FIFO can be used with open/3 and close/2 just
+%   like any normal file; however, writes will block unless the file
+%   is also open for reads, and vice versa.
+%
+%   Path is a file name and Mode mirrors the same used by chmod/2,
+%   e.g. the following creates a FIFO readable and writable by the
+%   user.
+%
+%   ```
+%     ?- mkfifo(myfifo, +urw)
+%   ```
+%
+%   Note that, in addition to Mode, actual the actual permissions
+%   granted to Path are determined by the running process' umask.
 
                  /*******************************
                  *           MESSAGES           *
