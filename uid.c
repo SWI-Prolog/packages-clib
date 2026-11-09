@@ -36,6 +36,7 @@
 #include <SWI-Prolog.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
@@ -75,110 +76,139 @@ pl_getegid(term_t gid)
 { return PL_unify_integer(gid, getegid());
 }
 
+/* Deal with the result of a get*_r() call.  Returns TRUE to retry,
+   FALSE on error or -1 if we have a result.  On ERANGE, the buffer is
+   enlarged.
+*/
+
+#define MAX_INFO_BUFSIZE (1024*1024)
+
+static int
+retry_info(int rc, char **buf, size_t *size,
+	   const char *type, term_t obj)
+{ if ( rc == 0 )
+    return -1;
+  if ( rc == EINTR )
+    return PL_handle_signals() < 0 ? FALSE : TRUE;
+  if ( rc == ERANGE && *size < MAX_INFO_BUFSIZE )
+  { char *nbuf = realloc(*buf, *size*2);
+
+    if ( !nbuf )
+      return PL_resource_error("memory");
+    *buf = nbuf;
+    *size *= 2;
+    return TRUE;
+  }
+
+  return error(rc, "info", type, obj);
+}
+
+
 static foreign_t
 pl_user_info(term_t user, term_t info)
 { int uid;
-  struct passwd pwd, *pwdp;
-  char buf[1000];
+  struct passwd pwd, *pwdp = NULL;
+  size_t size = 1024;
+  char *buf = malloc(size);
   char *name;
+  int rc;
+
+  if ( !buf )
+    return PL_resource_error("memory");
 
   if ( PL_get_integer(user, &uid) )
-  { again1:
-    errno = 0;
-    if ( getpwuid_r(uid, &pwd, buf, sizeof(buf), &pwdp) != 0 )
-    { if ( errno == EINTR )
-      { if ( PL_handle_signals() < 0 )
-	  return FALSE;
-	goto again1;
-      }
-      return error(errno, "info", "user", user);
-    }
+  { do
+    { rc = retry_info(getpwuid_r(uid, &pwd, buf, size, &pwdp),
+		      &buf, &size, "user", user);
+    } while(rc == TRUE);
   } else if ( PL_get_chars(user, &name, CVT_ATOMIC|REP_MB) )
-  { again2:
-    errno = 0;
-    if ( getpwnam_r(name, &pwd, buf, sizeof(buf), &pwdp) != 0 )
-    { if ( errno == EINTR )
-      { if ( PL_handle_signals() < 0 )
-	  return FALSE;
-	goto again2;
-      }
-      return error(errno, "info", "user", user);
-    }
+  { do
+    { rc = retry_info(getpwnam_r(name, &pwd, buf, size, &pwdp),
+		      &buf, &size, "user", user);
+    } while(rc == TRUE);
   } else
-  { return PL_type_error("user", user);
+  { free(buf);
+    return PL_type_error("user", user);
   }
 
-  if ( !pwdp )
-    return PL_existence_error("user", user);
+  if ( rc == -1 )
+  { if ( !pwdp )
+      rc = PL_existence_error("user", user);
+    else
+      rc = PL_unify_term(info,
+			 PL_FUNCTOR_CHARS, "user_info", 7,
+			   PL_MBCHARS, pwdp->pw_name,
+			   PL_MBCHARS, pwdp->pw_passwd,
+			   PL_INT, (int)pwdp->pw_uid,
+			   PL_INT, (int)pwdp->pw_gid,
+			   PL_MBCHARS, pwdp->pw_gecos,
+			   PL_MBCHARS, pwdp->pw_dir,
+			   PL_MBCHARS, pwdp->pw_shell
+			);
+  }
+  free(buf);
 
-  return PL_unify_term(info,
-		       PL_FUNCTOR_CHARS, "user_info", 7,
-		         PL_MBCHARS, pwdp->pw_name,
-		         PL_MBCHARS, pwdp->pw_passwd,
-		         PL_INT, (int)pwdp->pw_uid,
-		         PL_INT, (int)pwdp->pw_gid,
-		         PL_MBCHARS, pwdp->pw_gecos,
-		         PL_MBCHARS, pwdp->pw_dir,
-		         PL_MBCHARS, pwdp->pw_shell
-		      );
+  return rc;
 }
 
 
 static foreign_t
 pl_group_info(term_t group, term_t info)
 { int gid;
-  struct group grp, *pgrp;
-  char buf[1000];
+  struct group grp, *pgrp = NULL;
+  size_t size = 1024;
+  char *buf = malloc(size);
   char *name;
   term_t members = PL_new_term_ref();
   term_t tail = PL_copy_term_ref(members);
   term_t head = PL_new_term_ref();
   char **memp;
+  int rc;
+
+  if ( !buf )
+    return PL_resource_error("memory");
 
   if ( PL_get_integer(group, &gid) )
-  { again1:
-    errno = 0;
-    if ( getgrgid_r(gid, &grp, buf, sizeof(buf), &pgrp) != 0 )
-    { if ( errno == EINTR )
-      { if ( PL_handle_signals() < 0 )
-	  return FALSE;
-	goto again1;
-      }
-      return error(errno, "info", "group", group);
-    }
+  { do
+    { rc = retry_info(getgrgid_r(gid, &grp, buf, size, &pgrp),
+		      &buf, &size, "group", group);
+    } while(rc == TRUE);
   } else if ( PL_get_chars(group, &name, CVT_ATOMIC|REP_MB) )
-  { again2:
-    errno = 0;
-    if ( getgrnam_r(name, &grp, buf, sizeof(buf), &pgrp) != 0 )
-    { if ( errno == EINTR )
-      { if ( PL_handle_signals() < 0 )
-	  return FALSE;
-	goto again2;
-      }
-      return error(errno, "info", "group", group);
-    }
+  { do
+    { rc = retry_info(getgrnam_r(name, &grp, buf, size, &pgrp),
+		      &buf, &size, "group", group);
+    } while(rc == TRUE);
   } else
-  { return PL_type_error("group", group);
+  { free(buf);
+    return PL_type_error("group", group);
   }
 
-  if ( !pgrp )
-    return PL_existence_error("group", group);
-
-  for(memp=pgrp->gr_mem; *memp; memp++)
-  { if ( !PL_unify_list(tail, head, tail) ||
-	 !PL_unify_chars(head, PL_ATOM|REP_MB, -1, *memp) )
-      return FALSE;
+  if ( rc == -1 )
+  { if ( !pgrp )
+    { rc = PL_existence_error("group", group);
+    } else
+    { rc = TRUE;
+      for(memp=pgrp->gr_mem; *memp; memp++)
+      { if ( !PL_unify_list(tail, head, tail) ||
+	     !PL_unify_chars(head, PL_ATOM|REP_MB, -1, *memp) )
+	{ rc = FALSE;
+	  break;
+	}
+      }
+      rc = ( rc &&
+	     PL_unify_nil(tail) &&
+	     PL_unify_term(info,
+			   PL_FUNCTOR_CHARS, "group_info", 4,
+			     PL_MBCHARS, pgrp->gr_name,
+			     PL_MBCHARS, pgrp->gr_passwd,
+			     PL_INT, (int)pgrp->gr_gid,
+			     PL_TERM, members
+			) );
+    }
   }
-  if ( !PL_unify_nil(tail) )
-    return FALSE;
+  free(buf);
 
-  return PL_unify_term(info,
-		       PL_FUNCTOR_CHARS, "group_info", 4,
-		         PL_MBCHARS, pgrp->gr_name,
-		         PL_MBCHARS, pgrp->gr_passwd,
-		         PL_INT, (int)pgrp->gr_gid,
-		         PL_TERM, members
-		      );
+  return rc;
 }
 
 
@@ -319,7 +349,7 @@ pl_setgroups(term_t Groups)
   { gid_t *list;
     int rc;
 
-    if ( (list=malloc(len*sizeof(gid_t))) )
+    if ( (list=malloc((len ? len : 1)*sizeof(gid_t))) )
     { term_t tail = PL_copy_term_ref(Groups);
       term_t head = PL_new_term_ref();
       int i = 0;

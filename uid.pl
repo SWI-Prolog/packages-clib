@@ -55,6 +55,9 @@
 
 :- if(predicate_property(initgroups(_,_), defined)).
 :- export(initgroups/2).
+:- elif(predicate_property(setgroups(_), defined)).
+initgroups(_, GID) :-                   % at least drop supplementary groups
+    setgroups([GID]).
 :- else.
 initgroups(_,_).
 :- endif.
@@ -203,18 +206,19 @@ group_data(members,  group_info(_, _, _, MBR), MBR).
 
 set_user_and_group(User) :-
     user_info(User, Data),
+    user_data(name, Data, Name),
     user_data(uid, Data, UID),
     user_data(gid, Data, GID),
-    initgroups(User, GID),
+    initgroups(Name, GID),
     setgid(GID),
     setuid(UID).
 
 set_user_and_group(User, Group) :-
     user_info(User, Data),
     group_info(Group, GData),
+    user_data(name, Data, Name),
     user_data(uid, Data, UID),
-    user_data(gid, Data, UGID),
     group_data(gid, GData, GID),
-    initgroups(User, UGID),
+    initgroups(Name, GID),
     setgid(GID),
     setuid(UID).
