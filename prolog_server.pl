@@ -67,7 +67,8 @@
 %       `Peer` address as returned by tcp_accept/3 _unifies_ with
 %       IPOrList or, if IPOrList is a list, with a member of this list.
 %       If no allow option is provided access is only granted from
-%       ip(127,0,0,1) (localhost). <br>
+%       ip(127,0,0,1) (localhost) and, if Port is a plain port number,
+%       the server only listens on the loopback interface. <br>
 %       __note__ Older versions allowed for repeating this option rather
 %       than providing a list.
 %
@@ -94,20 +95,40 @@
 prolog_server(Port, Options) :-
     tcp_socket(ServerSocket),
     tcp_setopt(ServerSocket, reuseaddr),
-    tcp_bind(ServerSocket, Port),
+    (   \+ option(allow(_), Options),
+        (   var(Port)
+        ;   integer(Port)
+        )
+    ->  Address = localhost:Port
+    ;   Address = Port
+    ),
+    tcp_bind(ServerSocket, Address),
     tcp_listen(ServerSocket, 5),
     thread_create(server_loop(ServerSocket, Options), _,
                   [ alias(prolog_server)
                   ]).
 
 server_loop(ServerSocket, Options) :-
+    catch(accept_client(ServerSocket, Options), E,
+          print_message(warning, E)),
+    server_loop(ServerSocket, Options).
+
+accept_client(ServerSocket, Options) :-
     tcp_accept(ServerSocket, Slave, Peer),
     tcp_open_socket(Slave, InStream, OutStream),
-    set_stream(InStream, close_on_abort(false)),
-    set_stream(OutStream, close_on_abort(false)),
-    catch(tcp_host_to_address(Host, Peer),
-          error(socket_error(_,_),_),
-          ip_name(Peer, Host)),
+    (   allow(Peer, Options)
+    ->  set_stream(InStream, close_on_abort(false)),
+        set_stream(OutStream, close_on_abort(false)),
+        catch(tcp_host_to_address(Host, Peer),
+              error(socket_error(_,_),_),
+              ip_name(Peer, Host)),
+        create_client_thread(Host, InStream, OutStream, Peer, Options)
+    ;   catch(format(OutStream, 'Go away!!~n', []), _, true),
+        close(InStream, [force(true)]),
+        close(OutStream, [force(true)])
+    ).
+
+create_client_thread(Host, InStream, OutStream, Peer, Options) :-
     (   Postfix = []
     ;   between(2, 1000, Num),
         Postfix = [-, Num]
@@ -121,12 +142,12 @@ server_loop(ServerSocket, Options) :-
               ]),
           error(permission_error(create, thread, Alias), _),
           fail),
-    !,
-    server_loop(ServerSocket, Options).
+    !.
+create_client_thread(_Host, InStream, OutStream, Peer, Options) :-
+    thread_create(service_client(InStream, OutStream, Peer, Options),
+                  _, [detached(true)]).
 
-service_client(InStream, OutStream, Peer, Options) :-
-    allow(Peer, Options),
-    !,
+service_client(InStream, OutStream, _Peer, _Options) :-
     thread_self(Id),
     set_prolog_IO(InStream, OutStream, OutStream),
     set_stream(InStream, tty(true)),
@@ -144,12 +165,6 @@ service_client(InStream, OutStream, Peer, Options) :-
     call_cleanup(prolog,
                  ( close(InStream, [force(true)]),
                    close(OutStream, [force(true)]))).
-service_client(InStream, OutStream, _, _):-
-    thread_self(Id),
-    format(OutStream, 'Go away!!~n', []),
-    close(InStream),
-    close(OutStream),
-    thread_detach(Id).
 
 
 allow(Peer, Options) :-
