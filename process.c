@@ -272,6 +272,10 @@ add_ecbuf(ecbuf *b, echar *data, size_t len)
 		 *	ENVIRONMENT PARSING	*
 		 *******************************/
 
+#ifndef __WINDOWS__
+static int get_c_string(term_t t, char **s, int flags);
+#endif
+
 static int
 get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 { const echar *s, *e;
@@ -575,8 +579,7 @@ parse_options(term_t options, p_options *info)
 		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC) )
       return FALSE;
 #else
-    if ( !PL_get_chars(cwd_t, &info->cwd,
-		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
+    if ( !get_c_string(cwd_t, &info->cwd, CVT_ATOM|CVT_STRING|BUF_MALLOC|REP_FN) )
       return FALSE;
 #endif
   }
@@ -597,6 +600,24 @@ parse_options(term_t options, p_options *info)
 }
 
 
+#ifndef __WINDOWS__
+/* Get a 0-terminated string, raising a domain error if the text
+   contains a 0 code as this would silently truncate the value.
+*/
+
+static int
+get_c_string(term_t t, char **s, int flags)
+{ size_t len;
+
+  if ( !PL_get_nchars(t, &len, s, flags|CVT_EXCEPTION) )
+    return FALSE;
+  if ( strlen(*s) != len )
+    return PL_domain_error("text_non_zero_code", t);
+
+  return TRUE;
+}
+#endif
+
 static int
 get_exe(term_t exe, p_options *info)
 { size_t arity;
@@ -613,7 +634,7 @@ get_exe(term_t exe, p_options *info)
   if ( !win_command_line(exe, arity, info->exe, &info->cmdline) )
     return FALSE;
 #else /*__WINDOWS__*/
-  if ( !PL_get_chars(arg, &info->exe, CVT_ATOM|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
+  if ( !get_c_string(arg, &info->exe, CVT_ATOM|BUF_MALLOC|REP_FN) )
     return FALSE;
 
   if ( !(info->argv = PL_malloc((arity+2)*sizeof(char*))) )
@@ -628,8 +649,7 @@ get_exe(term_t exe, p_options *info)
     for(i=1; i<=arity; i++)
     { _PL_get_arg(i, exe, arg);
 
-      if ( !PL_get_chars(arg, &info->argv[i],
-			 CVT_ATOMIC|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
+      if ( !get_c_string(arg, &info->argv[i], CVT_ATOMIC|BUF_MALLOC|REP_FN) )
 	return FALSE;
     }
     info->argv[i] = NULL;
@@ -1594,8 +1614,12 @@ unregister_process(pid_t pid)
 static int
 kill_all_processes(int rc, void* arg)
 { posix_process* pp;
+
+  LOCK();
   for(pp=processes; pp; pp=pp->next)
     kill(pp->pid, SIGTERM);
+  UNLOCK();
+
   return 0;
 }
 
@@ -1604,7 +1628,9 @@ posix_init()
 { PL_exit_hook(kill_all_processes, NULL);
 }
 
-#endif
+#else /*HAVE_PRCTL*/
+#define unregister_process(pid) ((void)0)
+#endif /*HAVE_PRCTL*/
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1638,9 +1664,8 @@ create_pipes(p_options *info)
       { s->fd[0] = info->streams[1].fd[0];
 	s->fd[1] = info->streams[1].fd[1];
       } else
-      { int my_side;
-
-#ifdef HAVE_PIPE2
+      {
+#if defined(HAVE_PIPE2) && !defined(__APPLE__) /* weak symbol on macOS */
 	if ( pipe2(s->fd, O_CLOEXEC) == 0 )
 	{ s->cloexec = TRUE;
 	  continue;
@@ -1655,16 +1680,13 @@ create_pipes(p_options *info)
 	    Sdprintf("pipe(): unexpected error: %s\n", strerror(errno));
 	  return PL_resource_error("open_files");
 	}
-	my_side = (i == 0 ? s->fd[1] : s->fd[0]);
-#ifdef F_SETFD
-        if ( fcntl(my_side, F_SETFD, FD_CLOEXEC) == 0 )
+#ifdef F_SETFD				/* both: dup2() clears the flag */
+        if ( fcntl(s->fd[0], F_SETFD, FD_CLOEXEC) == 0 &&
+	     fcntl(s->fd[1], F_SETFD, FD_CLOEXEC) == 0 )
 	  s->cloexec = TRUE;
 #endif
       }
-    } else if ( s->term && s->type == std_stream )
-    { if ( fcntl(s->fd[0], F_SETFD, FD_CLOEXEC) == 0 )
-        s->cloexec = TRUE;
-    }
+    }				/* std_stream: do not modify the user's fd */
   }
 
   return TRUE;
@@ -1695,10 +1717,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
   if ( opts->has_timeout && opts->timeout == 0.0 )
   { if ( (p2=waitpid(pid, &status, WNOHANG)) == pid )
-    {
-#ifndef HAVE_PRCTL
-      unregister_process(pid);
-#endif
+    { unregister_process(pid);
       return unify_exit_status(code, status);
     }
     else if ( p2 == 0 )
@@ -1716,7 +1735,9 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
   for(;;)
   { if ( (p2=waitpid(pid, &status, 0)) == pid )
+    { unregister_process(pid);
       return unify_exit_status(code, status);
+    }
 
     if ( p2 == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
@@ -1736,12 +1757,9 @@ wait_success(atom_t name, pid_t pid)
   { int status;
 
     if ( (p2=waitpid(pid, &status, 0)) == pid )
-    { if ( WIFEXITED(status) && WEXITSTATUS(status) == 0 )
-      {
-#ifndef HAVE_PRCTL
-        unregister_process(pid);
-#endif
-        return TRUE;
+    { unregister_process(pid);
+      if ( WIFEXITED(status) && WEXITSTATUS(status) == 0 )
+      { return TRUE;
       } else
       { term_t code, ex;
 
@@ -1762,6 +1780,13 @@ wait_success(atom_t name, pid_t pid)
     if ( p2 == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
 	return FALSE;
+    } else
+    { term_t PID;
+
+      return ((PID = PL_new_term_ref()) &&
+	      PL_put_integer(PID, pid) &&
+	      pl_error(NULL, 0, "waitpid", ERR_ERRNO,
+		       errno, "wait", "process", PID));
     }
   }
 }
@@ -1992,6 +2017,22 @@ needs_ctty(p_options *info)
 #define needs_ctty(info) 0
 #endif
 
+/* Make fd available as target in the child.  If fd is already target,
+   dup2() is a no-op and does not clear the close-on-exec flag.
+*/
+
+static void
+dup_to(int fd, int target)
+{ if ( fd == target )
+  {
+#ifdef F_SETFD
+    fcntl(fd, F_SETFD, 0);
+#endif
+  } else
+  { dup2(fd, target);
+  }
+}
+
 static int
 do_create_process_fork(p_options *info, create_method method)
 { int pid;
@@ -2048,7 +2089,7 @@ do_create_process_fork(p_options *info, create_method method)
     if ( info->cwd )
     { if ( chdir(info->cwd) )
       { perror(info->cwd);
-	exit(1);
+	_exit(1);
       }
     }
 
@@ -2056,8 +2097,8 @@ do_create_process_fork(p_options *info, create_method method)
     switch( info->streams[0].type )
     { case std_pipe:
       case std_stream:
-        dup2(info->streams[0].fd[0], 0);
-        if ( !info->streams[0].cloexec )
+        dup_to(info->streams[0].fd[0], 0);
+        if ( info->streams[0].type == std_pipe && !info->streams[0].cloexec )
 	  close(info->streams[0].fd[1]);
 	break;
       case std_null:
@@ -2075,8 +2116,8 @@ do_create_process_fork(p_options *info, create_method method)
     switch( info->streams[1].type )
     { case std_pipe:
       case std_stream:
-	dup2(info->streams[1].fd[1], 1);
-        if ( !info->streams[1].cloexec )
+	dup_to(info->streams[1].fd[1], 1);
+        if ( info->streams[1].type == std_pipe && !info->streams[1].cloexec )
 	  close(info->streams[1].fd[0]);
 	break;
       case std_null:
@@ -2094,8 +2135,8 @@ do_create_process_fork(p_options *info, create_method method)
     switch( info->streams[2].type )
     { case std_pipe:
       case std_stream:
-	dup2(info->streams[2].fd[1], 2);
-	if ( !info->streams[2].cloexec )
+	dup_to(info->streams[2].fd[1], 2);
+	if ( info->streams[2].type == std_pipe && !info->streams[2].cloexec )
 	  close(info->streams[2].fd[0]);
 	break;
       case std_null:
@@ -2108,6 +2149,12 @@ do_create_process_fork(p_options *info, create_method method)
 	  dup2(fd, 2);
 	break;
       }
+    }
+
+    for(int i=0; i<3; i++)		/* close user stream(S) fds */
+    { if ( info->streams[i].type == std_stream &&
+	   info->streams[i].fd[0] > 2 )
+	close(info->streams[i].fd[0]);
     }
 
 #ifdef O_ADOPT_CTTY
@@ -2128,7 +2175,7 @@ do_create_process_fork(p_options *info, create_method method)
     }
 
     perror(info->exe);
-    exit(1);
+    _exit(1);
   } else if ( pid < 0 )			/* parent */
   { term_t exe = PL_new_term_ref();
     PL_put_atom_chars(exe, info->exe);
@@ -2316,8 +2363,8 @@ get_pid(term_t pid, pid_t *p)
 
   if ( !PL_get_integer_ex(pid, &n) )
     return FALSE;
-  if ( n < 0 )
-    return PL_domain_error("not_less_than_zero", pid),FALSE;
+  if ( n <= 0 )				/* 0 and -1 are process groups */
+    return PL_domain_error("not_less_than_one", pid),FALSE;
 
   *p = n;
   return TRUE;

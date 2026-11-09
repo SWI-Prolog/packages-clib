@@ -146,6 +146,22 @@ test(detached) :-                       % must not wait for the process
 		   ]),
     get_time(T1),
     assertion(T1-T0 < 5).
+test(stream_keeps_fd, [condition(has_exe(sh)), X == 'a\nb\n']) :-
+    Goal = 'process_create(path(sh), [\'-c\', \'echo a\'], \c
+                           [stdout(stream(user_error))]), \c
+            process_create(path(sh), [\'-c\', \'echo b >&2\'], [])',
+    process_create(prolog(swipl),
+                   ['-q', '-f', none, '-g', 'use_module(library(process))',
+                    '-g', Goal, '-t', halt],
+                   [ stdout(null),
+                     stderr(pipe(Err))
+                   ]),
+    read_process(Err, X).
+test(nul_arg, [condition(has_exe(true)),
+               error(domain_error(text_non_zero_code, _))]) :-
+    process_create(path(true), ['a\u0000b'], []).
+test(kill_0, error(domain_error(not_less_than_one, 0))) :-
+    process_kill(0).
 
 :- end_tests(process_create).
 

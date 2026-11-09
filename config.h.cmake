@@ -33,6 +33,7 @@
 #cmakedefine HAVE_POLL @HAVE_POLL@
 #cmakedefine HAVE_POLL_H @HAVE_POLL_H@
 #cmakedefine HAVE_PRCTL @HAVE_PRCTL@
+#cmakedefine HAVE_PIPE2 @HAVE_PIPE2@
 #cmakedefine HAVE_SETGROUPS @HAVE_SETGROUPS@
 #cmakedefine HAVE_SETPGID @HAVE_SETPGID@
 #cmakedefine HAVE_SETPGRP @HAVE_SETPGRP@
