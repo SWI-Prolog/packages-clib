@@ -43,7 +43,6 @@
 :- use_module(library(apply)).
 :- use_module(library(readutil)).
 :- use_module(library(process)).
-:- use_module(library(option)).
 
 test_process :-
     run_tests([ process_create,
@@ -57,10 +56,7 @@ read_process(In, Text) :-
     atom_codes(Text, Codes).
 
 has_exe(Name) :-
-    process:exe_options(Options),
-    merge_options([file_errors(fail)], Options, Options1),
-    absolute_file_name(path(Name), _, Options1),
-    !.
+    process_which(path(Name), _).
 
 %!  prolog_command(+Goal, -Exe, -Argv) is det.
 %
