@@ -2190,83 +2190,142 @@ do_create_process_fork(p_options *info, create_method method)
 #ifdef HAVE_POSIX_SPAWN
 #include <spawn.h>
 
+/* Can we use posix_spawn()?  Anything that needs code to run in the
+   child (changing directory, priority, controlling terminal, the Linux
+   parent death signal) requires fork().  If a pipe descriptor is
+   already at its target, dup2() does not clear close-on-exec, so we
+   also need fork().
+*/
+
+static int
+can_spawn(p_options *info)
+{ if ( info->cwd || needs_ctty(info) || info->priority != 255 ||
+       create_process_method != PCREATE_SPAWN )
+    return FALSE;
+#ifndef POSIX_SPAWN_SETSID
+  if ( info->detached )
+    return FALSE;
+#endif
+#ifdef HAVE_PRCTL
+  if ( !info->detached )		/* needs PR_SET_PDEATHSIG */
+    return FALSE;
+#endif
+
+  for(int i=0; i<3; i++)
+  { p_stream *s = &info->streams[i];
+
+    if ( s->type == std_pipe && s->fd[i==0 ? 0 : 1] == i )
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+
+static int
+spawn_std_stream(posix_spawn_file_actions_t *fa, p_options *info, int i)
+{ p_stream *s = &info->streams[i];
+  int rc = 0;
+
+  switch( s->type )
+  { case std_pipe:
+    case std_stream:
+    { int fd    = (i == 0 ? s->fd[0] : s->fd[1]);
+      int other = (i == 0 ? s->fd[1] : s->fd[0]);
+
+      if ( fd != i )
+	rc = posix_spawn_file_actions_adddup2(fa, fd, i);
+      if ( rc == 0 && s->type == std_pipe && !s->cloexec )
+	rc = posix_spawn_file_actions_addclose(fa, other);
+      break;
+    }
+    case std_null:
+      rc = posix_spawn_file_actions_addopen(fa, i, "/dev/null",
+					    i == 0 ? O_RDONLY : O_WRONLY, 0);
+      break;
+    case std_std:
+    { IOSTREAM *us = (i == 0 ? Suser_input : i == 1 ? Suser_output
+					      : Suser_error);
+      int fd = Sfileno(us);
+
+      if ( fd >= 0 && fd != i )
+	rc = posix_spawn_file_actions_adddup2(fa, fd, i);
+      break;
+    }
+  }
+
+  return rc;
+}
+
+
 static int
 do_create_process(p_options *info)
 { pid_t pid;
   posix_spawn_file_actions_t file_actions;
   posix_spawnattr_t attr;
+  char **envp = info->envp;
   int rc;
 
   if ( fire_and_forget(info) )		/* needs the double fork */
     return do_create_process_fork(info, PCREATE_FORK);
-  if ( info->cwd || needs_ctty(info) || create_process_method != PCREATE_SPAWN )
+  if ( !can_spawn(info) )
     return do_create_process_fork(info, create_process_method);
 
-  posix_spawn_file_actions_init(&file_actions);
-  posix_spawnattr_init(&attr);
+  if ( (rc=posix_spawn_file_actions_init(&file_actions)) != 0 )
+    goto error;
+  if ( (rc=posix_spawnattr_init(&attr)) != 0 )
+  { posix_spawn_file_actions_destroy(&file_actions);
+    goto error;
+  }
 
+#ifdef POSIX_SPAWN_SETSID
   if ( info->detached )
-    posix_spawnattr_setpgroup(&attr, 0);
+    rc = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
+#endif
 
-  switch( info->streams[0].type )	/* stdin */
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[0].fd[0], 0);
-      if ( !info->streams[0].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[0].fd[1]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 0,
-				       "/dev/null", O_RDONLY, 0);
-      break;
-    case std_std:
-      break;
-  }
-					/* stdout */
-  switch( info->streams[1].type )
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[1].fd[1], 1);
-      if ( !info->streams[1].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[1].fd[0]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 1,
-				       "/dev/null", O_WRONLY, 0);
-      break;
-    case std_std:
-      break;
-  }
-				      /* stderr */
-  switch( info->streams[2].type )
-  { case std_pipe:
-    case std_stream:
-      posix_spawn_file_actions_adddup2(&file_actions, info->streams[2].fd[1], 2);
-      if ( !info->streams[2].cloexec )
-	posix_spawn_file_actions_addclose(&file_actions, info->streams[2].fd[0]);
-      break;
-    case std_null:
-      posix_spawn_file_actions_addopen(&file_actions, 2,
-				       "/dev/null", O_WRONLY, 0);
-      break;
-    case std_std:
-      break;
+  for(int i=0; rc == 0 && i<3; i++)
+    rc = spawn_std_stream(&file_actions, info, i);
+
+  for(int i=0; rc == 0 && i<3; i++)	/* close user stream(S) fds */
+  { int fd = info->streams[i].fd[0];
+
+    if ( info->streams[i].type == std_stream && fd > 2 )
+    { int done = FALSE;
+
+      for(int j=0; j<i; j++)
+      { if ( info->streams[j].type == std_stream &&
+	     info->streams[j].fd[0] == fd )
+	  done = TRUE;
+      }
+      if ( !done )
+	rc = posix_spawn_file_actions_addclose(&file_actions, fd);
+    }
   }
 
-  rc = posix_spawn(&pid, info->exe,
-		   &file_actions, &attr,
-		   info->argv, info->envp);
+  if ( !envp )
+  {
+#ifdef HAVE__NSGETENVIRON
+    envp = *_NSGetEnviron();
+#else
+    extern char **environ;
+    envp = environ;
+#endif
+  }
+
+  if ( rc == 0 )
+    rc = posix_spawn(&pid, info->exe, &file_actions, &attr, info->argv, envp);
 
   posix_spawn_file_actions_destroy(&file_actions);
   posix_spawnattr_destroy(&attr);
 
   if ( rc == 0 )
-  { return process_parent_side(info, pid);
-  } else
+    return process_parent_side(info, pid);
+
+error:
   { term_t exe = PL_new_term_ref();
     PL_put_atom_chars(exe, info->exe);
 
-    return pl_error(NULL, 0, "spawn", ERR_ERRNO, errno, "fork", "process", exe);
+    return pl_error(NULL, 0, "spawn", ERR_ERRNO, rc, "fork", "process", exe);
   }
 }
 
