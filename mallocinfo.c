@@ -37,6 +37,7 @@
 #include <config.h>
 #include <SWI-Prolog.h>
 #include "error.h"
+#include <stdlib.h>
 #include <malloc.h>
 #include <errno.h>
 
@@ -101,9 +102,14 @@ pl_malloc_info(term_t info)
   FILE *fp;
 
   if ( (fp=open_memstream(&data, &len)) )
-  { return ( malloc_info(0, fp) == 0 &&
-	     fclose(fp) == 0 &&
-	     PL_unify_chars(info, PL_STRING, len, data) );
+  { int ok = (malloc_info(0, fp) == 0);
+    int rc;
+
+    ok = (fclose(fp) == 0) && ok;
+    rc = ok && PL_unify_chars(info, PL_STRING, len, data);
+    free(data);
+
+    return rc;
   }
 
   return pl_error("malloc_info", 1, NULL,
