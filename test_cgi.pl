@@ -38,6 +38,8 @@
 :- use_module(library(plunit)).
 :- use_module(library(cgi)).
 :- use_module(library(uri)).
+:- use_module(library(process)).
+:- use_module(library(readutil)).
 
 test_cgi :-
     run_tests([ cgi
@@ -76,6 +78,50 @@ test(integer, In == Out) :-
 test(float, In == Out) :-
     In = [age(42.0)],
     trip(In, Out).
+test(bad_escape, error(syntax_error(cgi_value))) :-
+    setenv('QUERY_STRING', 'a=%zz'),
+    cgi_get_form(_).
+test(bad_escape, error(syntax_error(cgi_value))) :-
+    setenv('QUERY_STRING', 'a=%4'),
+    cgi_get_form(_).
+test(short_post, Out = error(_)) :-
+    post('a=1', 10, [], Out).
+test(post, Out == [a(1),b(x)]) :-
+    post('a=1&b=x', 7, [], Out).
+test(multipart, Out == [a(''),b(x),c('')]) :-
+    Body = '--XX\r\n\c
+            Content-Disposition: form-data; name="a"\r\n\r\n\c
+            \r\n--XX\r\n\c
+            Content-Disposition: form-data; name="b"\r\n\r\n\c
+            x\r\n--XX\r\n\c
+            Content-Disposition: form-data; filename="f"; name="c"\r\n\r\n\c
+            --XX--\r\n',
+    atom_length(Body, Len),
+    post(Body, Len, ['CONTENT_TYPE'='multipart/form-data; boundary=XX'], Out).
+
+%!  post(+Body, +ContentLength, +Env, -Result)
+%
+%   Run cgi_get_form/1 in a child process that reads Body as POST
+%   data from standard input.
+
+post(Body, Len, Env, Result) :-
+    Goal = '(catch(cgi_get_form(F),E,F=error(E))->writeq(F);true),write(.),nl,halt',
+    process_create(prolog(swipl),
+                   ['-q', '-g', 'use_module(library(cgi))', '-g', Goal, '-t', 'halt(1)'],
+                   [ stdin(pipe(In)),
+                     stdout(pipe(Out)),
+                     environment(['REQUEST_METHOD'='POST',
+                                  'CONTENT_LENGTH'=Len|Env]),
+                     process(Pid)
+                   ]),
+    call_cleanup(
+        ( format(In, '~w', [Body]),
+          close(In),
+          read_term(Out, Result, [])
+        ),
+        ( close(Out),
+          process_wait(Pid, _, [timeout(10)])
+        )).
 
 :- end_tests(cgi).
 

@@ -139,6 +139,7 @@ pl_cgi_get_form(term_t form)
   bool must_free = false;
   term_t list = PL_copy_term_ref(form);
   char *ct, *boundary;
+  bool rc;
 
   if ( !get_raw_form_data(&data, &len, &must_free) )
     return false;
@@ -147,18 +148,15 @@ pl_cgi_get_form(term_t form)
        (boundary = strstr(ct, "boundary=")) )
   { boundary = strchr(boundary, '=')+1;
 
-    if ( !break_multipart(data, len, boundary,
-			  mp_add_to_form, (void *)list) )
-      return false;
+    rc = break_multipart(data, len, boundary, mp_add_to_form, (void *)list);
   } else
-  { if ( !break_form_argument(data, add_to_form, (void *)list) )
-      return false;
+  { rc = break_form_argument(data, add_to_form, (void *)list);
   }
 
   if ( must_free )
     free(data);
 
-  return PL_unify_nil(list);
+  return rc && PL_unify_nil(list);
 }
 
 

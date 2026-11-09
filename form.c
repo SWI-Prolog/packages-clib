@@ -64,7 +64,7 @@ Breaks a string holding data from a WWW form into its values.  Outputs a
 sequence of NAME=VALUE commands for a shell.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static char /* simplified */
+static int /* simplified */
 dehex(char chr)
 { if ( chr >= '0' && chr <= '9' )
     return chr - '0';
@@ -90,14 +90,14 @@ form_argument_decode(const char *in, size_t inlen, char *out, size_t outlen)
         break;
       case '%':
 	if ( in+2 < ein )
-	{ char h1 = dehex(*(++in));
-	  char h2 = dehex(*(++in));
+	{ int h1 = dehex(*(++in));
+	  int h2 = dehex(*(++in));
 
 	  if ( h1 < 0 || h2 < 0 )
 	    return (size_t)-1;
 
 	  if ( ++written < outlen )
-	    *out++ = h1<<4|h2;
+	    *out++ = (char)(h1<<4|h2);
 	} else
 	  return (size_t)-1;		/* syntax error */
 	break;
@@ -139,7 +139,10 @@ break_form_argument(const char *formdata,
       if ( !end )
 	end = eq+strlen(eq);		/* end of the string */
 
-      if ( (vlen=form_argument_decode(eq, end-eq, value, SHORTVALUE)) >= SHORTVALUE )
+      vlen = form_argument_decode(eq, end-eq, value, SHORTVALUE);
+      if ( vlen == (size_t)-1 )
+      { return PL_syntax_error("cgi_value", NULL);
+      } else if ( vlen >= SHORTVALUE )
       { char *buf;
 
 	if ( (buf=malloc(vlen+1)) )
@@ -154,8 +157,6 @@ break_form_argument(const char *formdata,
 	    return false;
 	} else
 	  return PL_resource_error("memory");
-      } else if ( vlen == (size_t)-1 )
-      { return PL_syntax_error("cgi_value", NULL);
       } else
       { if ( !(func)(formdata, nlen, value, vlen, closure) )
 	  return false;
@@ -175,7 +176,8 @@ break_form_argument(const char *formdata,
 
 
 static char *
-find_boundary(const char *data, const char *end, const char *boundary)
+find_boundary(const char *start, const char *data, const char *end,
+	      const char *boundary)
 { size_t blen = strlen(boundary);
 
   while ( data < end &&
@@ -183,7 +185,7 @@ find_boundary(const char *data, const char *end, const char *boundary)
     data++;
 
   if ( data < end )
-  { while(data[-1] == '-')
+  { while( data > start && data[-1] == '-' )
       data--;
     return (char *)data;
   }
@@ -200,9 +202,11 @@ static char *
 attribute_of_multipart_header(const char *name, char *header, char *endheader)
 { char *value;
   size_t nlen = strlen(name);
+  const char *start = header;
 
   while( header < endheader &&
-	 !(header[nlen] == '=' && strncmp(header, name, nlen) == 0) )
+	 !( strncmp(header, name, nlen) == 0 && header[nlen] == '=' &&
+	    (header == start || !isalnum(header[-1]&0xff)) ) )
     header++;
 
   if ( header < endheader )
@@ -267,6 +271,7 @@ break_multipart(char *formdata, size_t len,
 			     void *closure),
 		void *closure)
 { char *enddata = formdata+len;
+  char *start = formdata;
 
   while(formdata < enddata)
   { char *header;
@@ -274,7 +279,7 @@ break_multipart(char *formdata, size_t len,
     char *data = NULL;
     char *end;
 
-    if ( !(formdata=find_boundary(formdata, enddata, boundary)) ||
+    if ( !(formdata=find_boundary(start, formdata, enddata, boundary)) ||
 	 !(formdata=next_line(formdata)) )
       break;
 
@@ -301,11 +306,14 @@ break_multipart(char *formdata, size_t len,
     }
     filename = attribute_of_multipart_header("filename", header, data);
 
-    if ( !(formdata=find_boundary(data, enddata, boundary)) )
+    if ( !(formdata=find_boundary(data, data, enddata, boundary)) )
       break;
-    end = formdata-1;
-    if ( end[-1] == '\r' )
-      end--;
+    end = formdata;			/* remove line ending before boundary */
+    if ( end > data && end[-1] == '\n' )
+    { end--;
+      if ( end > data && end[-1] == '\r' )
+	end--;
+    }
     end[0] = '\0';
 
     if ( !(func)(name, strlen(name), data, end-data, filename, closure) )
@@ -364,39 +372,36 @@ get_raw_form_data(char **data, size_t *lenp, bool *must_free)
     q = s = malloc(len+1);
     if ( !q )
       return PL_resource_error("memory");
-    while(len > 0)
-    { size_t done;
-
 #ifdef __WINDOWS__
 #define RDLEN(len) ((unsigned int)len)
 #else
 #define RDLEN(len) len
 #endif
 
-      while( (done=read(fileno(stdin), q, RDLEN(len))) > 0 )
+    while(len > 0)
+    { ssize_t done = read(fileno(stdin), q, RDLEN(len));
+
+      if ( done > 0 )
       { q+=done;
 	len-=done;
-      }
-      if ( done < 0 )
-      { int e;
-	term_t obj;
-
-      no_data:
-	e = errno;
-	obj = PL_new_term_ref();
+      } else if ( done < 0 && errno == EINTR )
+      { if ( PL_handle_signals() < 0 )
+	{ free(s);
+	  return false;
+	}
+      } else
+      { int e = (done == 0 ? EIO : errno);	/* premature end of input */
+	term_t obj = PL_new_term_ref();
 
 	free(s);
 	PL_put_nil(obj);
 	return pl_error(NULL, 0, NULL, ERR_ERRNO, e, "read", "cgi_data", obj);
       }
     }
-    if ( len == 0 )
-    { *q = '\0';
-      *data = s;
-      *must_free = true;
-      return true;
-    } else
-      goto no_data;
+    *q = '\0';
+    *data = s;
+    *must_free = true;
+    return true;
   } else if ( (s = getenv("QUERY_STRING")) )
   { if ( lenp )
       *lenp = strlen(s);
