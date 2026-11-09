@@ -531,9 +531,26 @@ ld_dispatch(_S, reply(Key, Term), From, _Scope) :-
     ;   true
     ).
 
+blacklisted(send(Term))      :- forwarding(Term), !.
+blacklisted(request(_,Term)) :- forwarding(Term), !.
 blacklisted(send(Term))      :- black_list(Term).
 blacklisted(request(_,Term)) :- black_list(Term).
 blacklisted(reply(_,Term))   :- black_list(Term).
+
+%   forwarding(@Term) is semidet.
+%
+%   True if Term would ask this node to send a UDP message.  Such
+%   requests from the network are ignored as they would make this node
+%   relay messages to arbitrary addresses and block the inbound proxy
+%   while waiting for replies.
+
+forwarding(Term) :-
+    var(Term),
+    !.
+forwarding(udp(_,_)).
+forwarding(udp(_,_,_)).
+forwarding(udp_subnet(_)).
+forwarding(udp_subnet(_,_)).
 
 
 %!  reload_udp_proxy
@@ -740,7 +757,9 @@ udp_br_collect_replies(Queue, Timeout, Reply) :-
 %       default
 %       - multicast
 %       Use UDP multicast messages.  This can be used on WAN networks,
-%       provided the intermediate routers understand multicast.
+%       provided the intermediate routers understand multicast.  Note
+%       that messages are accepted from any host that can send UDP
+%       datagrams to the port.
 %       - unicast
 %       Send the messages individually to all registered peers.
 %
