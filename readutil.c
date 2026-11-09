@@ -89,11 +89,17 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
       goto out;
     }
 
-    if ( o+8 >= e && o[-1] != '\r' ) /* UTF-8 <= 6 bytes, may discard \r */
-    { if ( !PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) ||
+    if ( o+8 >= e )			/* UTF-8 <= 6 bytes */
+    { int cr = (o[-1] == '\r');		/* keep \r: may be discarded */
+
+      if ( cr )
+	o--;
+      if ( !PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) ||
 	   !PL_put_term(cl, diff+1) )
 	goto out;
       o = buf;
+      if ( cr )
+	*o++ = '\r';
     }
 
     o = utf8_put_char(o, c);

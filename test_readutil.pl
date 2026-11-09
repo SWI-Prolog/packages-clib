@@ -49,5 +49,40 @@ test(eof, [condition(access_file('/dev/null', read)), X == end_of_file]) :-
     open('/dev/null', read, In),
     call_cleanup(read_line_to_codes(In, X), close(In)).
 
+test(cr_run, Len-Tail == 4016-"x") :-
+    cr_line(1015, 3000, Line),
+    open_string(Line, In),
+    read_line_to_codes(In, Codes),
+    close(In),
+    length(Codes, Len),
+    last_codes(Codes, 1, Tail).
+test(cr_run_tail, Len == 4017) :-
+    cr_line(1015, 3000, Line),
+    open_string(Line, In),
+    read_line_to_codes(In, Codes, []),
+    close(In),
+    length(Codes, Len).
+test(crlf, [Len, Last] == [1023, 0'a]) :-
+    length(AL, 1023), maplist(=(0'a), AL),   % \r\n crosses the buffer end
+    append(AL, `\r\n`, Codes0),
+    string_codes(Line, Codes0),
+    open_string(Line, In),
+    read_line_to_codes(In, Codes),
+    close(In),
+    length(Codes, Len),
+    last(Codes, Last).
+
+cr_line(As, CRs, Line) :-
+    length(AL, As), maplist(=(0'a), AL),
+    length(CL, CRs), maplist(=(0'\r), CL),
+    append([AL, CL, `x\n`], Codes),
+    string_codes(Line, Codes).
+
+last_codes(Codes, N, Tail) :-
+    length(TL, N),
+    append(_, TL, Codes),
+    !,
+    string_codes(Tail, TL).
+
 :- end_tests(read_line_to_codes).
 
