@@ -134,6 +134,34 @@ test(hmac, [true(Hash=[80, 49, 254, 61, 152, 156, 109, 21,
                       40, 227, 106, 206, 34, 27, 208])]) :-
     hmac_sha(key, data, Hash, [algorithm(sha256)]).
 
+test(ctx, Hash == Direct) :-
+    sha_new_ctx(C0, [algorithm(sha256)]),
+    sha_hash_ctx(C0, foo, C1, _),
+    sha_hash_ctx(C1, bar, _, Hash),
+    sha_hash(foobar, Direct, [algorithm(sha256)]).
+test(ctx_init, C1 == C2) :-
+    sha_new_ctx(C1, [algorithm(sha512)]),
+    sha_new_ctx(C2, [algorithm(sha512)]).
+test(ctx_forged) :-
+    sha_new_ctx(C0, [algorithm(sha256)]),
+    string_codes(C0, Codes),
+    length(Codes, Len),
+    Max is min(Len-1, 64),
+    forall(between(4, Max, I),
+           forged(Codes, I)).
+
+forged(Codes, I) :-
+    length(Pre, I),
+    append(Pre, [_|Post], Codes),
+    append(Pre, [0xff|Post], Forged),
+    string_codes(C, Forged),
+    catch(( sha_hash_ctx(C, foo, _, Hash),
+            length(Hash, Len),
+            assertion(memberchk(Len, [20,28,32,48,64]))
+          ),
+          error(domain_error(_,_),_),
+          true).
+
 :- end_tests(sha).
 
 

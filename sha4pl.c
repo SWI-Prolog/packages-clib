@@ -174,9 +174,11 @@ pl_sha_new_ctx(term_t ctx, term_t options)
 { struct context c;
   optval *op = &(c.opts);
 
+  memset(&c, 0, sizeof(c));		/* do not export uninitialised data */
   if ( !sha_options(options, op) )
     return FALSE;
 
+  op->algorithm_term = 0;
   c.magic = CONTEXT_MAGIC;
 
   if ( op->algorithm == ALGORITHM_SHA1 )
@@ -190,6 +192,41 @@ pl_sha_new_ctx(term_t ctx, term_t options)
   /* so there're extra data.  It will do no harm, though. */
   /* . */
   return PL_unify_string_nchars(ctx, sizeof(c), (char*)&c);
+}
+
+
+static size_t
+digest_size(sha_algorithm algorithm)
+{ switch(algorithm)
+  { case ALGORITHM_SHA1:   return SHA1_DIGEST_SIZE;
+    case ALGORITHM_SHA224: return SHA224_DIGEST_SIZE;
+    case ALGORITHM_SHA256: return SHA256_DIGEST_SIZE;
+    case ALGORITHM_SHA384: return SHA384_DIGEST_SIZE;
+    case ALGORITHM_SHA512: return SHA512_DIGEST_SIZE;
+    default:		   return 0;
+  }
+}
+
+/* The context is a Prolog string that may have been modified.  Make
+   sure it is consistent before using it.
+*/
+
+static int
+valid_context(const struct context *c)
+{ size_t dsize;
+
+  if ( c->magic != CONTEXT_MAGIC )
+    return FALSE;
+  if ( !(dsize=digest_size(c->opts.algorithm)) ||
+       c->opts.digest_size != dsize )
+    return FALSE;
+  if ( c->opts.encoding != REP_UTF8 && c->opts.encoding != REP_ISO_LATIN_1 )
+    return FALSE;
+  if ( c->opts.algorithm != ALGORITHM_SHA1 &&
+       c->context.sha2.sha2_len != dsize )
+    return FALSE;
+
+  return TRUE;
 }
 
 
@@ -215,7 +252,7 @@ pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
     memcpy(&c, cp, sizeof(c));
   }
 
-  if ( c.magic != CONTEXT_MAGIC )
+  if ( !valid_context(&c) )
     goto bad_context;
 
   if ( !PL_get_nchars(
