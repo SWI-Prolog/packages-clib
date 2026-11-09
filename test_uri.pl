@@ -49,7 +49,8 @@ test_uri :-
                 uri_authority,
                 uri_query,
                 uri_encode,
-                uri_edit
+                uri_edit,
+                uri_normalize
               ]).
 
 trip_uri_iri(IRI, X) :-
@@ -94,6 +95,15 @@ test(resolve, URI == 'http://a/b/g')         :- resolve('../g', URI).
 test(resolve, URI == 'http://a/')            :- resolve('../..', URI).
 test(resolve, URI == 'http://a/')            :- resolve('../../', URI).
 test(resolve, URI == 'http://a/g')           :- resolve('../../g', URI).
+test(resolve, URI == 'http://a.com/foo') :-
+    uri_resolve(foo, 'http://a.com', URI).
+test(resolve, URI == 'x:/.//evil.com/x') :-
+    uri_resolve('.//evil.com/x', 'x:/', URI).
+test(resolve_long, URI == Expected) :-     % path buffer beyond 256 chars
+    length(L, 400), maplist(=(0'a), L), atom_codes(Seg, L),
+    atomic_list_concat(['http://h/', Seg, '/x'], Base),
+    uri_resolve('b%', Base, URI),
+    atomic_list_concat(['http://h/', Seg, '/b%'], Expected).
 
 :- end_tests(uri).
 
@@ -214,3 +224,26 @@ test(path, URI == 'http://my.com:4242/tmp/test') :-
     uri_edit([path('test')], 'http://my.com:4242/tmp/', URI).
 
 :- end_tests(uri_edit).
+
+:- begin_tests(uri_normalize).
+
+test(dot_authority, N == '/.//evil.com/x') :-
+    uri_normalized('/.//evil.com/x', N).
+test(dot_authority, N == '/.//evil.com') :-
+    uri_normalized('/%2e//evil.com', N).
+test(dot_authority, N == 'http:/.//evil.com/x') :-
+    uri_normalized('http:/.//evil.com/x', N).
+test(auth_at, N == 'http://evil.com%40good.com/x') :-
+    uri_normalized('http://evil.com%40good.com/x', N).
+test(auth_colon, N == 'http://host%3A8080/') :-
+    uri_normalized('http://host%3A8080/', N).
+test(slash, N == '/public%2F..%2Fadmin') :-
+    uri_normalized('/public%2F..%2Fadmin', N).
+test(percent, N == 'http://a/%252e') :-
+    uri_normalized_iri('http://a/%252e', N).
+test(unreserved, N == 'http://a.com/~user/A') :-
+    uri_normalized('http://a.com/%7Euser/%41', N).
+test(overlong, true(X \== '../')) :-
+    uri_encoded(path, X, '%C0%AE%C0%AE%C0%AF').
+
+:- end_tests(uri_normalize).

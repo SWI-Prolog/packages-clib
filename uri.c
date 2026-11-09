@@ -213,6 +213,13 @@ get_encoded_utf8_cont(const pl_wchar_t *in, int cnt, int *val)
 
 
 static const pl_wchar_t *
+get_encoded_utf8_min(const pl_wchar_t *in, int *chr, int min)
+{ if ( in && *chr < min )
+    return NULL;			/* overlong encoding */
+  return in;
+}
+
+static const pl_wchar_t *
 get_encoded_utf8(const pl_wchar_t *in, int *chr)
 { int c1;
 
@@ -222,19 +229,24 @@ get_encoded_utf8(const pl_wchar_t *in, int *chr)
     if ( ISUTF8_MB(c1) )
     { if ( (c1&0xe0) == 0xc0 )		/* 2-byte */
       { *chr = (c1&0x1f);
-	return get_encoded_utf8_cont(in, 1, chr);
+	return get_encoded_utf8_min(get_encoded_utf8_cont(in, 1, chr),
+				    chr, 0x80);
       } else if ( (c1&0xf0) == 0xe0 )	/* 3-byte */
       { *chr = (c1&0xf);
-	return get_encoded_utf8_cont(in, 2, chr);
+	return get_encoded_utf8_min(get_encoded_utf8_cont(in, 2, chr),
+				    chr, 0x800);
       } else if ( (c1&0xf8) == 0xf0 )	/* 4-byte */
       { *chr = (c1&0x7);
-	return get_encoded_utf8_cont(in, 3, chr);
+	return get_encoded_utf8_min(get_encoded_utf8_cont(in, 3, chr),
+				    chr, 0x10000);
       } else if ( (c1&0xfc) == 0xf8 )	/* 5-byte */
       { *chr = (c1&0x3);
-	return get_encoded_utf8_cont(in, 4, chr);
+	return get_encoded_utf8_min(get_encoded_utf8_cont(in, 4, chr),
+				    chr, 0x200000);
       } else if ( (c1&0xfe) == 0xfc )	/* 6-byte */
       { *chr = (c1&0x1);
-	return get_encoded_utf8_cont(in, 5, chr);
+	return get_encoded_utf8_min(get_encoded_utf8_cont(in, 5, chr),
+				    chr, 0x4000000);
       } else
 	return NULL;
     } else
@@ -280,10 +292,13 @@ static bool
 init_charbuf_at_size(charbuf *cb, size_t size)
 { size++;
 
-  if ( size < sizeof(cb->tmp)/sizeof(pl_wchar_t) )
-    cb->base = cb->here = cb->tmp;
-  else
-    cb->base = cb->here = PL_malloc(size*sizeof(pl_wchar_t));
+  if ( size <= sizeof(cb->tmp)/sizeof(pl_wchar_t) )
+  { cb->base = cb->here = cb->tmp;
+    cb->end = &cb->tmp[sizeof(cb->tmp)/sizeof(pl_wchar_t)];
+  } else
+  { cb->base = cb->here = PL_malloc(size*sizeof(pl_wchar_t));
+    cb->end = &cb->base[size];
+  }
 
   return true;
 }
@@ -309,6 +324,17 @@ add_charbuf(charbuf *cb, int c)
   }
 
   return true;
+}
+
+
+/* Make sure the content is followed by a 0, such that the %-decoding
+   functions that look ahead stop at the end of the buffer.
+*/
+
+static void
+terminate_charbuf(charbuf *cb)
+{ add_charbuf(cb, 0);
+  cb->here--;
 }
 
 
@@ -444,6 +470,23 @@ add_decoded_range_charbuf(charbuf *cb, const range *r, int flags)
 }
 
 
+/* Decoding a %-encoded reserved (gen-delim) character or % changes the
+   meaning of the URI.  These must remain encoded (RFC 3986, 6.2.2.2).
+*/
+
+static bool
+keep_encoded(int c)
+{ return c < 128 && ((charflags[c] & CH_GENDELIM) || c == '%');
+}
+
+static void
+add_pct_charbuf(charbuf *cb, int c)
+{ add_charbuf(cb, '%');
+  add_charbuf(cb, hexdigit(c>>4));
+  add_charbuf(cb, hexdigit(c&0xf));
+}
+
+
 static bool
 add_normalized_range_charbuf(charbuf *cb, const range *r, bool iri, int flags)
 { const pl_wchar_t *s = r->start;
@@ -466,7 +509,14 @@ add_normalized_range_charbuf(charbuf *cb, const range *r, bool iri, int flags)
       { s += 3;
       } else
       { c = *s++;
+	goto add;
       }
+      if ( keep_encoded(c) )
+      { add_pct_charbuf(cb, c);
+	continue;
+      }
+    add:
+      ;
     } else if ( *s == '+' && flags == ESC_QVALUE )
     { s++;
       c = ' ';
@@ -544,7 +594,14 @@ add_lwr_range_charbuf(charbuf *cb, const range *r,
       { s += 3;
       } else
       { c = *s++;
+	goto add;
       }
+      if ( keep_encoded(c) )
+      { add_pct_charbuf(cb, towlower((wint_t)c));
+	continue;
+      }
+    add:
+      ;
     } else
     { c = *s++;
     }
@@ -1214,6 +1271,21 @@ normalize_query_and_fragment(charbuf *cb, uri_component_ranges *ranges, bool une
   }
 }
 
+/* Add a path.  If there is no authority, the path may not start with
+   "//" as this would be parsed as an authority.
+*/
+
+static void
+add_path_charbuf(charbuf *cb, size_t len, const pl_wchar_t *path,
+		 bool has_authority)
+{ if ( !has_authority && len >= 2 && path[0] == '/' && path[1] == '/' )
+  { add_charbuf(cb, '/');
+    add_charbuf(cb, '.');
+  }
+  add_nchars_charbuf(cb, len, path);
+}
+
+
 static bool
 normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
 		     bool unesc, bool iri)
@@ -1247,7 +1319,7 @@ normalize_in_charbuf(charbuf *cb, uri_component_ranges *ranges,
       add_range_charbuf(&pb, &ranges->path, unesc, iri, ESC_PATH);
       init_charbuf_at_size(&path, pb.here-pb.base);
       len = removed_dot_segments(pb.here-pb.base, pb.base, path.base);
-      add_nchars_charbuf(cb, len, path.base);
+      add_path_charbuf(cb, len, path.base, ranges->authority.start != NULL);
       free_charbuf(&path);
       free_charbuf(&pb);
     }
@@ -1322,7 +1394,8 @@ ranges_in_charbuf(charbuf *cb, uri_component_ranges *ranges)
     add_charbuf(cb, '/');
     add_verb_range_charbuf(cb, &ranges->authority);
   }
-  add_verb_range_charbuf(cb, &ranges->path);
+  add_path_charbuf(cb, ranges->path.end-ranges->path.start, ranges->path.start,
+		   ranges->authority.start != NULL);
   if ( ranges->query.start )
   { add_charbuf(cb, '?');
     add_verb_range_charbuf(cb, &ranges->query);
@@ -1392,6 +1465,8 @@ base_ranges(term_t t)
       }
       base->text = s;
       parse_uri(&base->ranges, len, s);
+    } else
+    { PL_free(s);
     }
 
     return &base->ranges;
@@ -1449,9 +1524,10 @@ resolve_guarded(term_t Rel, term_t Base, term_t URI,
 	      path.end = remove_last_segment(path.start, path.end);
 	      add_verb_range_charbuf(&pb, &path);
 	      add_verb_range_charbuf(&pb, &s_ranges.path);
-	      t_ranges.path.start = pb.base;
-	      t_ranges.path.end = pb.here;
 	    }
+	    terminate_charbuf(&pb);
+	    t_ranges.path.start = pb.base;
+	    t_ranges.path.end = pb.here;
 	  }
 	  t_ranges.query = s_ranges.query;
 	}
@@ -1474,10 +1550,11 @@ resolve_guarded(term_t Rel, term_t Base, term_t URI,
 			       path.base);
     t_ranges.path.start = path.base;
     t_ranges.path.end   = path.base+len;
-    free_charbuf(&pb);
 
     ranges_in_charbuf(&out, &t_ranges);
+    free_charbuf(&path);
   }
+  free_charbuf(&pb);
 
   rc = PL_unify_wchars(URI, PL_ATOM, out.here-out.base, out.base);
   free_charbuf(&out);
