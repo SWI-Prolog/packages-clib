@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <math.h>
+#include <limits.h>
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
@@ -312,7 +313,11 @@ static void
 setTimeEventAbs(Event ev, double t)
 { struct timeval tv;
 
-  gettimeofday(&tv, NULL);
+  if ( t < 0.0 )			/* avoid undefined (long) conversion */
+    t = 0.0;
+  else if ( t >= (double)(LONG_MAX-1) )
+    t = (double)(LONG_MAX-1);
+
   tv.tv_usec = (long)((t-floor(t))*1000000);
   tv.tv_sec  = (long)t;
 
@@ -325,6 +330,10 @@ setTimeEvent(Event ev, double t)
 { struct timeval tv;
 
   gettimeofday(&tv, NULL);
+  if ( t < -(double)tv.tv_sec )		/* avoid undefined (long) conversion */
+    t = -(double)tv.tv_sec;		/* and overflow */
+  else if ( t >= (double)(LONG_MAX-1-tv.tv_sec) )
+    t = (double)(LONG_MAX-1-tv.tv_sec);
   tv.tv_usec += (long)((t-floor(t))*1000000);
   tv.tv_sec  += (long)t;
   if ( tv.tv_usec >= 1000000 )
@@ -335,6 +344,19 @@ setTimeEvent(Event ev, double t)
   ev->at = tv;
 }
 
+
+
+static int
+is_scheduled(Event ev)
+{ Event e;
+
+  for(e = TheSchedule()->first; e; e = e->next)
+  { if ( e == ev )
+      return TRUE;
+  }
+
+  return FALSE;
+}
 
 
 static int
@@ -734,7 +756,7 @@ on_alarm(int sig)
 
 
 static int
-installEvent(Event ev)
+installEvent(Event ev, const double *t)
 { int rc;
 
   ev->thread_id = pthread_self();
@@ -761,9 +783,15 @@ installEvent(Event ev)
   }
 
   if ( ev->flags & EV_REMOVED )
-    rc = ERR_EXISTENCE;
-  else if ( (rc = insertEvent(ev)) )
-    pthread_cond_signal(&cond);
+  { rc = ERR_EXISTENCE;
+  } else if ( is_scheduled(ev) )	/* must check before changing time */
+  { rc = ERR_PERMISSION;
+  } else
+  { if ( t )
+      setTimeEvent(ev, *t);
+    if ( (rc = insertEvent(ev)) )
+      pthread_cond_signal(&cond);
+  }
   UNLOCK();
 
   return rc;
@@ -881,6 +909,8 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
 
   if ( !PL_get_float(time, &t) )
     return PL_type_error("number", time);
+  if ( isnan(t) )
+    return PL_domain_error("time", time);
   if ( !PL_strip_module(callable, &m, callable) )
     return FALSE;
 
@@ -899,7 +929,7 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   if ( !(ev->flags & EV_NOINSTALL) )
   { int rc;
 
-    if ( (rc=installEvent(ev)) != TRUE )
+    if ( (rc=installEvent(ev, NULL)) != TRUE )
     { freeEvent(ev);			/* not linked: no need to lock */
       return alarm_error(id, rc);
     }
@@ -937,7 +967,7 @@ install_alarm(term_t alarm)
   if ( !get_timer(alarm, &ev) )
     return FALSE;
 
-  if ( (rc=installEvent(ev)) != TRUE )
+  if ( (rc=installEvent(ev, NULL)) != TRUE )
     return alarm_error(alarm, rc);
 
   return TRUE;
@@ -955,9 +985,10 @@ install_alarm2(term_t alarm, term_t time)
 
   if ( !PL_get_float(time, &t) )
     return PL_type_error("number", time);
+  if ( isnan(t) )
+    return PL_domain_error("time", time);
 
-  setTimeEvent(ev, t);
-  if ( (rc=installEvent(ev)) != TRUE )
+  if ( (rc=installEvent(ev, &t)) != TRUE )
     return alarm_error(alarm, rc);
 
   return TRUE;

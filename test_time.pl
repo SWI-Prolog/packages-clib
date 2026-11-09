@@ -80,6 +80,26 @@ test(removed, error(existence_error(alarm, Id))) :-
 test(stale_id) :-
     stale_id_test(2000).
 
+test(reinstall, error(permission_error(install, alarm, Id))) :-
+    alarm(100, true, Id, [install(false)]),
+    install_alarm(Id, 50),
+    call_cleanup(install_alarm(Id, 10),
+                 remove_alarm(Id)).
+test(reinstall_list, N == 1) :-
+    alarm(100, true, Id, [install(false)]),
+    install_alarm(Id, 50),
+    catch(install_alarm(Id, 10), error(permission_error(_,_,_),_), true),
+    aggregate_all(count, current_alarm(_,_,Id,_), N),
+    remove_alarm(Id).
+test(inf, Status == scheduled) :-
+    Inf is inf,
+    alarm(Inf, true, Id, []),
+    current_alarm(_, _, Id, Status),
+    remove_alarm(Id).
+test(nan, error(domain_error(time, _))) :-
+    NaN is nan,
+    alarm(NaN, true, _, []).
+
 :- end_tests(time).
 
 
