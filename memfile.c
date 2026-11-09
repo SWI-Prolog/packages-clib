@@ -280,8 +280,8 @@ free_memory_file(term_t handle)
 { memfile *m;
 
   if ( get_memfile(handle, &m) )
-  { m->symbol = 0;
-    clean_memory_file(m);
+  { clean_memory_file(m);		/* close_memfile() needs m->symbol */
+    m->symbol = 0;
     release_memfile(m);
     return TRUE;
   }
@@ -502,7 +502,7 @@ seek64_memfile(void *handle, int64_t offset, int whence)
       offset += m->here;
       break;
     case SIO_SEEK_END:
-      offset = (m->end-m->gap_size) - offset;
+      offset += (m->end-m->gap_size);
       break;
     default:
       errno = EINVAL;
@@ -619,7 +619,7 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
   foreign_t rc;
 
   if ( get_memfile(handle, &m) )
-  { int flags = SIO_FBUF|SIO_RECORDPOS|SIO_NOMUTEX;
+  { int flags = SIO_FBUF|SIO_RECORDPOS; /* locked: may be freed by another thread */
     atom_t iom;
     IOSTREAM *fd;
     IOENC encoding;
@@ -861,8 +861,10 @@ utf8_position(term_t handle, term_t here, term_t size)
 static foreign_t
 atom_to_memory_file(term_t atom, term_t handle)
 { atom_t a;
+  PL_blob_t *type;
 
-  if ( PL_get_atom(atom, &a) )
+  if ( PL_get_atom(atom, &a) &&
+       PL_blob_data(a, NULL, &type) && (type->flags & PL_BLOB_TEXT) )
   { memfile *m = calloc(1, sizeof(*m));
 
     if ( !m )
@@ -881,11 +883,6 @@ atom_to_memory_file(term_t atom, term_t handle)
     { m->encoding = ENC_WCHAR;
       m->end = m->char_count * sizeof(wchar_t);
       m->gap_start = m->end;
-    } else if ( PL_blob_data(a, &m->char_count, NULL) )
-    { m->data = PL_blob_data(a, &m->end, NULL);
-      m->encoding = ENC_OCTET;
-      m->char_count = m->end;
-      m->gap_start  = m->end;
     }
 
 #ifdef O_PLMT
@@ -1161,10 +1158,10 @@ mf_to_text(term_t handle, memfile *m, size_t from, size_t len,
   { size_t len = end-start;
     const char *data;
 
-    if ( start <= m->gap_start && end <= m->gap_start )
+    if ( end <= m->gap_start )		/* start and end are logical */
     { data = &m->data[start];
-    } else if ( start >= m->gap_start+m->gap_size )
-    { data = &m->data[m->gap_size + (start-m->gap_start)];
+    } else if ( start >= m->gap_start )
+    { data = &m->data[start + m->gap_size];
     } else
     { move_gap_to(m, end);
       data = &m->data[start];
@@ -1320,13 +1317,13 @@ skip_lines(memfile *mf, size_t from, size_t lines,
       while( s < e )
       { if ( *s++ == '\n' )
 	{ if ( --lines == 0 )
-	  { *startp   = from + (s-start) + 1;
-	    *chcountp = chcount + (s-start) + 1;
+	  { *startp   = from + (s-start);
+	    *chcountp = chcount + (s-start);
 	    return TRUE;
 	  }
 	}
       }
-      chcount += e-s;
+      chcount += e-start;
       break;
     case ENC_UTF8:
       while( s < e )
@@ -1349,13 +1346,13 @@ skip_lines(memfile *mf, size_t from, size_t lines,
       while( ws < we )
       { if ( *ws++ == '\n' )
 	{ if ( --lines == 0 )
-	  { *startp   = from + (ws-wstart) + 1;
-	    *chcountp = chcount + (ws-wstart) + 1;
+	  { *startp   = from + (ws-wstart)*sizeof(wchar_t);
+	    *chcountp = chcount + (ws-wstart);
 	    return TRUE;
 	  }
 	}
       }
-      chcount += we-ws;
+      chcount += we-wstart;
       break;
     }
     default:
@@ -1367,7 +1364,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
     goto after_gap;
   }
 
-  *startp   = mf->end;
+  *startp   = mf->end - mf->gap_size;
   *chcountp = chcount;
 
   return OUTOFRANGE;

@@ -47,7 +47,8 @@ test_memfile :-
                 mf_update,
                 mf_atom,
                 mf_position,
-                mf_encoding
+                mf_encoding,
+                mf_gap
               ]).
 
 
@@ -154,6 +155,9 @@ test(simple, Atom == Atom2) :-
 test(wide, Atom == Atom2) :-
     atom_codes(Atom, [97,98,1080,1081]),
     rd_atom(Atom, Atom2).
+test(blob, error(type_error(atom, _))) :-
+    new_memory_file(MF),
+    atom_to_memory_file(MF, _).
 
 :- end_tests(mf_atom).
 
@@ -202,8 +206,45 @@ test(end_no_nl, cleanup(free_memory_file(MF))) :-
     memory_file_line_position(MF, Line, LinePos, 3),
     assertion(Line:LinePos == 1:3).
 
+test(latin_1_line, Offset == 2) :-
+    atom_to_memory_file('a\nbb\nc', MF),
+    memory_file_line_position(MF, 2, 0, Offset).
+test(latin_1_line, LP == 2:1) :-
+    atom_to_memory_file('a\nbb\nc', MF),
+    memory_file_line_position(MF, L, P, 3),
+    LP = L:P.
+test(wide_line, Offset == 2) :-
+    atom_codes(A, [0'a, 0'\n, 1080, 1081, 0'\n, 0'c]),
+    atom_to_memory_file(A, MF),
+    memory_file_line_position(MF, 2, 0, Offset).
+test(seek_eof, Pos == 4) :-
+    mf_format(MF, write, '123456', []),
+    open_memory_file(MF, read, In),
+    seek(In, -2, eof, Pos),
+    close(In),
+    free_memory_file(MF).
 
 :- end_tests(mf_position).
+
+:- begin_tests(mf_gap).
+
+test(substring_after_gap, S == "xxxxxxxxxx") :-
+    new_memory_file(MF),
+    open_memory_file(MF, write, Out),
+    forall(between(1, 1000, _), put_char(Out, x)),
+    close(Out),
+    insert_memory_file(MF, 300, "SECRET-PASSWORD"),
+    delete_memory_file(MF, 300, 15),
+    memory_file_substring(MF, 585, 10, _, S),
+    free_memory_file(MF).
+test(free_open, error(existence_error(stream, Out))) :-
+    new_memory_file(MF),
+    open_memory_file(MF, write, Out),
+    format(Out, hello, []),
+    free_memory_file(MF),
+    format(Out, world, []).
+
+:- end_tests(mf_gap).
 
 :- begin_tests(mf_encoding).
 
