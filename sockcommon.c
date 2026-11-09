@@ -145,14 +145,17 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
     return FALSE;
   handle = socket;
 
-  in  = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF,  &readFunctions);
+  if ( !(in = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF, &readFunctions)) )
+    return PL_resource_error("memory");
   in->encoding = ENC_OCTET;
   if ( !PL_unify_stream(Read, in) )
     return FALSE;
   nbio_setopt(socket, TCP_INSTREAM, in);
 
   if ( !(nbio_get_flags(socket) & PLSOCK_LISTEN) )
-  { out = Snew(handle, SIO_OUTPUT|SIO_RECORDPOS|SIO_FBUF, &writeFunctions);
+  { if ( !(out = Snew(handle, SIO_OUTPUT|SIO_RECORDPOS|SIO_FBUF,
+		      &writeFunctions)) )
+      return PL_resource_error("memory");
     out->encoding = ENC_OCTET;
     if ( !PL_unify_stream(Write, out) )
       return FALSE;

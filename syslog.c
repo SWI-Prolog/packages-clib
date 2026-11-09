@@ -36,6 +36,7 @@
 #include <SWI-Prolog.h>
 #include <syslog.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define streq(s,q) (strcmp(s,q) == 0)
 
@@ -143,7 +144,15 @@ pl_openlog(term_t Ident, term_t Option, term_t Facility)
   if ( PL_get_chars(Ident, &ident, CVT_ATOM|REP_MB|CVT_EXCEPTION) &&
        get_option(Option, &option) &&
        get_facility(Facility, &facility) )
-  { openlog(strdup(ident), option, facility);
+  { static char *old_ident = NULL;	/* openlog() keeps a reference */
+    char *new_ident = strdup(ident);
+
+    if ( !new_ident )
+      return PL_resource_error("memory");
+    openlog(new_ident, option, facility);
+    if ( old_ident )
+      free(old_ident);
+    old_ident = new_ident;
     return TRUE;
   }
 

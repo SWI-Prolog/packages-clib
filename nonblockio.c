@@ -641,11 +641,8 @@ closeSocket(plsocket *s)
 #endif
 
   if ( sock != INVALID_SOCKET )
-  { again:
-    if ( (rval=closesocket(sock)) == SOCKET_ERROR )
-    { if ( errno == EINTR )
-	goto again;
-    }
+  { rval = closesocket(sock);		/* do not retry on EINTR: the */
+					/* descriptor may be reused */
     DEBUG(2, Sdprintf("closeSocket(%p=%d): closesocket() returned %d\n",
 		      s, (int)sock, rval));
   } else
