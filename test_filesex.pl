@@ -39,7 +39,8 @@
 :- use_module(library(filesex)).
 
 test_filesex :-
-    run_tests([ directory_file_path
+    run_tests([ directory_file_path,
+                copy_file
               ]).
 
 
@@ -51,3 +52,38 @@ test(here, Path == 'test.pl') :-
     directory_file_path('', 'test.pl', Path).
 
 :- end_tests(directory_file_path).
+
+:- begin_tests(copy_file, [condition(\+ current_prolog_flag(windows, true))]).
+
+test(mode, Mode == 0o600) :-
+    tmp_file(copy, Dir), make_directory(Dir),
+    directory_file_path(Dir, src, Src),
+    directory_file_path(Dir, dst, Dst),
+    setup_call_cleanup(open(Src, write, Out), format(Out, secret, []), close(Out)),
+    chmod(Src, 0o600),
+    copy_file(Src, Dst),
+    files_ex:file_mode_(Dst, Mode0),
+    Mode is Mode0 /\ 0o777,
+    delete_directory_and_contents(Dir).
+test(self, Size-E == 6-permission_error(overwrite, source_file, Dst)) :-
+    tmp_file(copy, Dir), make_directory(Dir),
+    directory_file_path(Dir, src, Src),
+    setup_call_cleanup(open(Src, write, Out), format(Out, secret, []), close(Out)),
+    catch(copy_file(Src, Dir), error(E, _), true),
+    directory_file_path(Dir, src, Dst),
+    size_file(Src, Size),
+    delete_directory_and_contents(Dir).
+test(symlink_dir, Entries == [l]) :-
+    tmp_file(copy, Dir), make_directory(Dir),
+    directory_file_path(Dir, src, Src), make_directory(Src),
+    directory_file_path(Dir, dst, Dst),
+    directory_file_path(Src, l, Link),
+    link_file('..', Link, symbolic),
+    copy_directory(Src, Dst),
+    directory_files(Dst, All),
+    subtract(All, ['.', '..'], Entries),
+    directory_file_path(Dst, l, DLink),
+    assertion(read_link(DLink, '..', _)),
+    delete_directory_and_contents(Dir).
+
+:- end_tests(copy_file).

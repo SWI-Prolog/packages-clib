@@ -400,20 +400,46 @@ filter_directory(_, _).
 %!  copy_file(+From, +To) is det.
 %
 %   Copy a file into a new file or  directory. The data is copied as
-%   binary data.
+%   binary data.  If the destination file does not exist, it is
+%   created with the same permissions as From.  If it exists, its
+%   permissions are not changed.  Copying a file onto itself raises
+%   a permission error.
 
 copy_file(From, To) :-
     destination_file(To, From, Dest),
     setup_call_cleanup(
-        open(Dest, write, Out, [type(binary)]),
-        copy_from(From, Out),
-        close(Out)).
-
-copy_from(File, Stream) :-
-    setup_call_cleanup(
-        open(File, read, In, [type(binary)]),
-        copy_stream_data(In, Stream),
+        open(From, read, In, [type(binary)]),
+        copy_to(In, From, Dest),
         close(In)).
+
+copy_to(In, From, Dest) :-
+    exists_file(Dest),
+    !,
+    (   same_file(From, Dest)
+    ->  permission_error(overwrite, source_file, Dest)
+    ;   true
+    ),
+    setup_call_cleanup(
+        open(Dest, write, Out, [type(binary)]),
+        copy_stream_data(In, Out),
+        close(Out)).
+:- if(current_predicate(chmod_/2)).
+copy_to(In, From, Dest) :-
+    file_mode_(From, Mode0),
+    Mode is Mode0 /\ 0o777,
+    setup_call_cleanup(                 % create without permissions
+        open(Dest, write, Out, [type(binary), create([])]),
+        copy_stream_data(In, Out),
+        ( close(Out),
+          chmod_(Dest, Mode)
+        )).
+:- else.
+copy_to(In, _From, Dest) :-
+    setup_call_cleanup(
+        open(Dest, write, Out, [type(binary)]),
+        copy_stream_data(In, Out),
+        close(Out)).
+:- endif.
 
 destination_file(Dir, File, Dest) :-
     exists_directory(Dir),
@@ -480,7 +506,8 @@ ensure_directory_(Dir) :-
 %   Copy the contents of the directory  From to To (recursively). If
 %   To is the name of an existing  directory, the _contents_ of From
 %   are copied into To. I.e., no  subdirectory using the basename of
-%   From is created.
+%   From is created.  Symbolic links inside From are copied as
+%   symbolic links rather than following them.
 
 copy_directory(From, To) :-
     (   exists_directory(To)
@@ -496,7 +523,9 @@ copy_directory_content(_From, _To, Special) :-
 copy_directory_content(From, To, Entry) :-
     directory_file_path(From, Entry, Source),
     directory_file_path(To, Entry, Dest),
-    (   exists_directory(Source)
+    (   read_link(Source, Link, _)
+    ->  link_file(Link, Dest, symbolic)
+    ;   exists_directory(Source)
     ->  copy_directory(Source, Dest)
     ;   copy_file(Source, Dest)
     ).
