@@ -66,6 +66,45 @@ test(md5, []) :-
     crypt(Passwd, E),
     ground(E),
     crypt(Passwd, E).
+test(md5_wrong, fail) :-
+    phrase("$1$", E, _),
+    crypt("My password", E),
+    crypt("My passwore", E).
+test(md5_salt, true(A \== B)) :-
+    phrase("$1$", A, _), crypt("x", A),
+    phrase("$1$", B, _), crypt("x", B).
+test(empty_hash, fail) :-
+    crypt("x", "").
+test(sha512, []) :-                    % Only if supported by crypt()
+    (   catch(crypt(x, "$6$rounds=1000$abcdefgh$"), _, fail)
+    ->  true
+    ;   E0 = `$6$saltsalt$`,
+        (   catch(crypt("My password", E0), _, fail),
+            atom_codes(H, E0),
+            sub_atom(H, 0, _, _, '$6$saltsalt$')
+        ->  crypt("My password", H),
+            \+ crypt("My passwore", H)
+        ;   true
+        )
+    ).
+test(md5_threads, [ condition(current_prolog_flag(threads, true)),
+                     Wrong == 0
+                   ]) :-
+    phrase("$1$", E, _),
+    crypt("secret", E),
+    atom_codes(H, E),
+    numlist(1, 3, L),
+    setup_call_cleanup(
+        maplist([_,Id]>>thread_create(check_loop(H, 2000), Id), L, Ids),
+        aggregate_all(count,
+                      ( between(1, 2000, _),
+                        crypt("wrong", H) ),
+                      Wrong),
+        maplist(thread_join, Ids)).
+
+check_loop(H, N) :-
+    forall(between(1, N, _),
+           assertion(crypt("secret", H))).
 
 :- end_tests(crypt).
 

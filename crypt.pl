@@ -41,4 +41,15 @@
 %!   crypt(+Passwd, ?Encripted).
 %
 %    Used to test an encrypted passwd or create one. In the latter case,
-%    the first 2 letter must be instantiated
+%    Encrypted is a partial list.  If it starts with `$1$`, an MD5
+%    based hash is created.  Otherwise the system crypt() function is
+%    used with the given prefix as salt or, if no salt is given, two
+%    random characters (classical DES).  Missing salt characters are
+%    filled with random characters.  When testing, the stored hash is
+%    passed to the system crypt() function, so all hash methods it
+%    supports can be verified.
+%
+%    Note that classical DES only uses the first 8 characters of the
+%    password and both DES and MD5 hashes are fast to compute.  New
+%    applications should use crypto_password_hash/2,3 from
+%    library(crypto).

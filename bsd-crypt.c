@@ -462,7 +462,7 @@ static const unsigned char itoa64[] =		/* 0..63 => ascii-64 */
 /* =====  Tables that are initialized at run time  ==================== */
 
 
-static unsigned char a64toi[128];	/* ascii-64 => 0..63 */
+static unsigned char a64toi[256];	/* ascii-64 => 0..63 */
 
 /* Initial key schedule permutation */
 static C_block	PC1ROT[64/CHUNKBITS][1<<CHUNKBITS];

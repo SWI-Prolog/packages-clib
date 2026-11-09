@@ -49,6 +49,11 @@ extern char *crypt(const char *key, const char *setting);
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#ifdef HAVE_SYS_RANDOM_H
+#include <sys/random.h>
+#endif
+#include <fcntl.h>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "clib.h"
@@ -74,6 +79,50 @@ static pthread_mutex_t crypt_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Fill salt with n random characters from the salt alphabet [a-zA-Z0-9./].
+Must be called with LOCK() held as the rand() fallback is not thread-safe.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+static void
+random_salt(char *salt, size_t n)
+{ static const char alphabet[] =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
+  unsigned char bytes[64];
+  int done = FALSE;
+
+  if ( n > sizeof(bytes) )
+    n = sizeof(bytes);
+#ifdef HAVE_GETENTROPY
+  if ( !done && getentropy(bytes, n) == 0 )
+    done = TRUE;
+#endif
+#ifdef O_RDONLY
+  if ( !done )
+  { int fd = open("/dev/urandom", O_RDONLY);
+
+    if ( fd >= 0 )
+    { done = (read(fd, bytes, n) == (ssize_t)n);
+      close(fd);
+    }
+  }
+#endif
+  if ( !done )
+  { static int seeded = FALSE;
+
+    if ( !seeded )
+    { srand((unsigned)time(NULL) ^ (unsigned)(size_t)&seeded);
+      seeded = TRUE;
+    }
+    for(size_t i=0; i<n; i++)
+      bytes[i] = (unsigned char)rand();
+  }
+
+  for(size_t i=0; i<n; i++)
+    salt[i] = alphabet[bytes[i]&0x3f];
+}
+
+
 static foreign_t
 pl_crypt(term_t passwd, term_t encrypted)
 { char *pw, *e;
@@ -91,23 +140,27 @@ pl_crypt(term_t passwd, term_t encrypted)
       size_t slen;
 
       if ( p && (slen=(size_t)(p-e-3)) < sizeof(salt) )
-      { strncpy(salt, e+3, slen);
+      { int rval;
+
+	strncpy(salt, e+3, slen);
 	salt[slen] = 0;
+	LOCK();				/* md5_crypt() uses static data */
 	s2 = md5_crypt(pw, salt);
-	return (strcmp(s2, e) == 0) ? TRUE : FALSE;
+	rval = (strcmp(s2, e) == 0);
+	UNLOCK();
+
+	return rval;
       } else
-      { Sdprintf("No salt???\n");
-	return FALSE;
+      { return FALSE;
       }
     } else
     { int rval;
 
-      salt[0] = e[0];
-      salt[1] = e[1];
-      salt[2] = '\0';
+      if ( strlen(e) < 2 )
+	return FALSE;
 
-      LOCK();
-      rval = ( (s2 = crypt(pw, salt)) &&
+      LOCK();				/* pass the entire hash as setting */
+      rval = ( (s2 = crypt(pw, e)) &&
 	       strcmp(s2, e) == 0
 	     );
       UNLOCK();
@@ -144,16 +197,12 @@ pl_crypt(term_t passwd, term_t encrypted)
     if ( n >= 3 && strncmp(salt, "$1$", 3) == 0 )
       slen = 3+8;
 
-    for( ; n < slen; n++ )
-    { int c = 'a'+(int)(26.0*rand()/(RAND_MAX+1.0));
-
-      if ( rand() & 0x1 )
-	c += 'A' - 'a';
-
-      salt[n] = (char) c; /* safe cast */
+    LOCK();
+    if ( n < slen )
+    { random_salt(salt+n, slen-n);
+      n = slen;
     }
     salt[n] = 0;
-    LOCK();
     if ( slen > 2 && strncmp(salt, "$1$", 3) == 0 )
     { s2 = md5_crypt(pw, salt);
     } else
