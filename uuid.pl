@@ -103,6 +103,11 @@ uuid(UUID) :-
 %   simple Prolog alternative that  only   implements  version  4 random
 %   UUIDs is provided. In this case  the   default  version is 4 and the
 %   only admissible options are version(4) and format(Format).
+%
+%   Note that the default version 1 UUIDs contain the time and MAC
+%   address and the Prolog fallback uses random/1, which is not a
+%   cryptographically secure random generator.  UUIDs should not be
+%   used as secrets, e.g., session keys.
 
 :- if(current_predicate(ossp_uuid/2)).
 uuid(UUID, Options) :-
@@ -126,11 +131,11 @@ uuid(_UUID, Options) :-
 
 random_uuid(UUID) :-
     Version = 4,
-    A is random(0xffffffff),
-    B is random(0xffff),
-    C is random(0x0fff) \/ Version<<12,
-    D is random(0x3fff) \/ 0x8000,
-    E is random(0xffffffffffff),
+    A is random(0x100000000),
+    B is random(0x10000),
+    C is random(0x1000) \/ Version<<12,
+    D is random(0x4000) \/ 0x8000,
+    E is random(0x1000000000000),
     format(atom(UUID),
            '~`0t~16r~8+-~|\c
             ~`0t~16r~4+-~|\c
@@ -140,12 +145,12 @@ random_uuid(UUID) :-
 
 random_int_uuid(UUID) :-
     Version = 4,
-    A is random(0xffffffff),
-    B is random(0xffff),
-    C is random(0x0fff) \/ Version<<12,
-    D is random(0x3fff) \/ 0x8000,
-    E is random(0xffffffffffff),
-    UUID is (A<<96)+(B<<80)+(C<<84)+(D<<48)+E.
+    A is random(0x100000000),
+    B is random(0x10000),
+    C is random(0x1000) \/ Version<<12,
+    D is random(0x4000) \/ 0x8000,
+    E is random(0x1000000000000),
+    UUID is (A<<96)+(B<<80)+(C<<64)+(D<<48)+E.
 
 :- endif.
 

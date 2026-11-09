@@ -52,5 +52,12 @@ test_uuid :-
 test(trip) :-
     uuid(UUID),
     is_uuid(UUID).
+test(int_version, V-Var == 4-2) :-
+    (   current_predicate(uuid:ossp_uuid/2)
+    ->  uuid(U, [version(4), format(integer)])
+    ;   uuid(U, [format(integer)])
+    ),
+    V is (U>>76) /\ 0xf,
+    Var is (U>>62) /\ 0x3.
 
 :- end_tests(uuid).
