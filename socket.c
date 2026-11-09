@@ -334,9 +334,9 @@ pl_host_address(term_t Host, term_t Ip, term_t options)
   } else if ( nbio_get_ip(AF_INET, Ip, &addr) )
   { struct hostent *host;
     struct sockaddr_in *sin = (struct sockaddr_in*)&addr;
-    struct addr_in *in = (struct addr_in *)&sin->sin_addr;
 
-    if ( (host = gethostbyaddr((char *)&in, sizeof(in), AF_INET)) )
+    if ( (host = gethostbyaddr((char *)&sin->sin_addr, sizeof(sin->sin_addr),
+			       AF_INET)) )
       return PL_unify_atom_chars(Host, host->h_name);
     else
       return nbio_error(GET_H_ERRNO, TCP_HERRNO);
@@ -395,7 +395,7 @@ pl_setopt(term_t Socket, term_t opt)
 	  return PL_domain_error("boolean", a);
       }
 
-      if ( (rc=nbio_setopt(socket, TCP_NO_DELAY, enable) == 0) )
+      if ( (rc=nbio_setopt(socket, TCP_NO_DELAY, enable)) == 0 )
 	return TRUE;
       if ( rc == -2 )
 	goto not_implemented;
@@ -466,7 +466,7 @@ pl_setopt(term_t Socket, term_t opt)
       _PL_get_arg(1, opt, a);
       if ( !PL_get_integer(a, &bufsize) )
 	return PL_domain_error("integer", a);
-      if ( (rc=nbio_setopt(socket, TCP_SNDBUF, bufsize) == 0) )
+      if ( (rc=nbio_setopt(socket, TCP_SNDBUF, bufsize)) == 0 )
 	return TRUE;
       if ( rc == -2 )
 	goto not_implemented;
@@ -521,7 +521,6 @@ sizeof_sockaddr(struct sockaddr_storage *sockaddr)
     }
 #endif
     default:
-      assert(0);
       return 0;
   }
 }
@@ -552,8 +551,19 @@ unify_address(term_t t, struct sockaddr_storage *addr)
 	return FALSE;
       break;
     }
+    case AF_INET6:
+    { struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)addr;
+      if ( !nbio_unify_addr(av+0, (struct sockaddr*)addr) ||
+	   !PL_unify_integer(av+1, ntohs(addr6->sin6_port)) )
+	return FALSE;
+      break;
+    }
     default:
-      assert(0);
+    { term_t ex;
+      return ( (ex=PL_new_term_ref()) &&
+	       PL_put_integer(ex, addr->ss_family) &&
+	       PL_domain_error("socket_address_family", ex) );
+    }
   }
 
   return PL_unify_term(t, PL_FUNCTOR_CHARS, ":", 2,
@@ -963,12 +973,12 @@ pl_accept(term_t Master, term_t Slave, term_t Peer)
       return FALSE;
   } else
 #endif
-  { struct sockaddr_in addr;
+  { struct sockaddr_storage addr;
     socklen_t addrlen = sizeof(addr);
 
     if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
       return FALSE;
-    if ( !nbio_unify_ip4(Peer, ntohl(addr.sin_addr.s_addr)) )
+    if ( !nbio_unify_addr(Peer, (struct sockaddr*)&addr) )
       goto failure;
   }
 

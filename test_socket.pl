@@ -258,3 +258,76 @@ ip('1::3:4:0:0:2', ip(1,0,0,3,4,0,0,2)).
 ip('abcd::',       ip(43981,0,0,0,0,0,0,0)).
 
 :- end_tests(ip_name).
+
+:- begin_tests(address).
+
+test(port_range, error(domain_error(port, 70000))) :-
+    setup_call_cleanup(
+        tcp_socket(S),
+        tcp_connect(S, localhost:70000),
+        tcp_close_socket(S)).
+test(ipv6_peer, Peer = ip(0,0,0,0,0,0,0,1)) :-
+    setup_call_cleanup(
+        tcp_socket(S),
+        ipv6_peer(S, Peer),
+        tcp_close_socket(S)).
+
+ipv6_peer(S, Peer) :-
+    catch(tcp_bind(S, ip(0,0,0,0,0,0,0,1):Port), _, fail),
+    !,
+    tcp_listen(S, 1),
+    tcp_connect(ip(0,0,0,0,0,0,0,1):Port, C, []),
+    tcp_accept(S, A, Peer),
+    tcp_close_socket(A),
+    close(C).
+ipv6_peer(_, ip(0,0,0,0,0,0,0,1)).      % No IPv6 support
+
+:- end_tests(address).
+
+:- begin_tests(socks).
+
+%!  socks(+Address, +Reply, -Result)
+%
+%   Run the SOCKS5 client negotiation against a canned server reply.
+
+socks(Address, Reply, Result) :-
+    setup_call_cleanup(
+        socks_stream(Reply, Pair),
+        catch(( socket:negotiate_socks_connection(Address, Pair),
+                Result = true
+              ),
+              error(Result, _),
+              true),
+        close(Pair)).
+
+socks_stream(Reply, Pair) :-
+    atom_codes(Data, Reply),
+    open_string(Data, In),
+    set_stream(In, type(binary)),
+    open_null_stream(Out),
+    set_stream(Out, type(binary)),
+    stream_pair(Pair, In, Out).
+
+test(ipv4, R == true) :-
+    socks(host:80, [5,0, 5,0,0,1, 1,2,3,4, 0,80], R).
+test(ipv6, R == true) :-
+    length(IP6, 16), maplist(=(0), IP6),
+    append([[5,0, 5,0,0,4], IP6, [0,80]], Reply),
+    socks(host:80, Reply, R).
+test(name, R == true) :-
+    socks(host:80, [5,0, 5,0,0,3, 1,0'x, 0,80], R).
+test(utf8_name, R == true) :-
+    socks('héllo':80, [5,0, 5,0,0,1, 1,2,3,4, 0,80], R).
+test(auth, R == socks_error(invalid_authentication_method(0, 2))) :-
+    socks(host:80, [5,2], R).
+test(address_type, R == socks_error(invalid_address_type(9))) :-
+    socks(host:80, [5,0, 5,0,0,9], R).
+test(eof, R == socks_error(unexpected_eof)) :-
+    socks(host:80, [5,0, 5,0,0,3, 10,1], R).
+test(port, R = type_error(_,70000)) :-
+    socks(host:70000, [5,0], R).
+test(long_name, R = domain_error(socks_host_name, _)) :-
+    length(Codes, 256), maplist(=(0'a), Codes), atom_codes(Host, Codes),
+    socks(Host:80, [5,0], R).
+
+:- end_tests(socks).

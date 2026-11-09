@@ -1140,7 +1140,10 @@ nbio_get_port(term_t Port, int *port)
   }
 
   if ( PL_get_integer(Port, port) )
+  { if ( *port < 0 || *port > 65535 )
+      return PL_domain_error("port", Port);
     return true;
+  }
 
   return PL_type_error("port", Port);
 }
@@ -1172,7 +1175,7 @@ nbio_get_sockaddr(nbio_sock_t socket,
       addr6->sin6_family = AF_INET6;
       break;
     default:
-      assert(0);
+      return PL_domain_error("inet_socket", Address);
   }
 
   if ( PL_is_functor(Address, FUNCTOR_module2) )	/* Host:Port */
@@ -1226,10 +1229,10 @@ nbio_get_sockaddr(nbio_sock_t socket,
 
   switch(socket->domain)
   { case AF_INET:
-      addr4->sin_port = htons((short)port);
+      addr4->sin_port = htons((uint16_t)port);
       break;
     case AF_INET6:
-      addr6->sin6_port  = htons((short)port);
+      addr6->sin6_port  = htons((uint16_t)port);
       break;
   }
 
@@ -1369,8 +1372,11 @@ nbio_unify_addr(term_t t, struct sockaddr *addr)
       return nbio_unify_ip6(t, &addr6->sin6_addr);
     }
     default:
-      assert(0);
-      return FALSE;
+    { term_t ex;
+      return ( (ex=PL_new_term_ref()) &&
+	       PL_put_integer(ex, addr->sa_family) &&
+	       PL_domain_error("socket_address_family", ex) );
+    }
   }
 }
 
@@ -1462,10 +1468,13 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
       break;
   }
 
-  s = allocSocket(slave);
+  if ( !(s = allocSocket(slave)) )
+  { closesocket(slave);
+    return NULL;
+  }
   s->flags |= PLSOCK_ACCEPT;
 #ifndef __WINDOWS__
-  if ( ison(s, PLSOCK_NONBLOCK) )
+  if ( ison(master, PLSOCK_NONBLOCK) )
     nbio_setopt(s, TCP_NONBLOCK);
 #endif
 
@@ -1494,6 +1503,13 @@ nbio_listen(nbio_sock_t socket, int backlog)
 
 #define fdFromHandle(p) ((int)((intptr_t)(p)))
 
+/* (**) nbio_read() and nbio_write() are called from the stream
+   functions.  These may be called when there is no foreign frame,
+   e.g., when flushing user_error while printing a message.  We must
+   not raise a Prolog exception, but just return -1 with errno set.
+   The stream layer reports the error.
+*/
+
 ssize_t
 nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
 { ssize_t n;
@@ -1521,8 +1537,7 @@ nbio_read(nbio_sock_t socket, char *buf, size_t bufSize)
 #endif
         continue;
       }
-      nbio_error(GET_ERRNO, TCP_ERRNO);
-      return -1;
+      return -1;			/* errno is set; see (**) */
     }
 
     break;
@@ -1555,8 +1570,7 @@ nbio_write(nbio_sock_t socket, char *buf, size_t bufSize)
 #endif
 	continue;
       }
-      nbio_error(GET_ERRNO, TCP_ERRNO);
-      return -1;
+      return -1;			/* errno is set; see (**) */
     } else if ( (size_t)n < len )		/* (else) n >= 0 */
     { if ( PL_handle_signals() < 0 )
       { errno = EPLEXCEPTION;

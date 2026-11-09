@@ -70,6 +70,7 @@
 :- autoload(library(error),
             [instantiation_error/1, syntax_error/1, must_be/2, domain_error/2]).
 :- autoload(library(option), [option/2, option/3]).
+:- autoload(library(utf8), [utf8_codes/3]).
 
 :- multifile
     rewrite_host/3.                     % +HostIn, -Host, +Socket
@@ -1018,27 +1019,36 @@ negotiate_socks_connection(Host:Port, StreamPair):-
     get_byte(StreamPair, AuthenticationMethod),
     (   ServerVersion =\= 0x05
     ->  throw(error(socks_error(invalid_version(5, ServerVersion)), _))
-    ;   AuthenticationMethod =:= 0xff
+    ;   AuthenticationMethod =\= 0x00     % we only offered "no auth"
     ->  throw(error(socks_error(invalid_authentication_method(
-                                    0xff,
+                                    0x00,
                                     AuthenticationMethod)), _))
     ;   true
     ),
+    must_be(between(0, 65535), Port),
     (   Host = ip(A,B,C,D)
     ->  AddressType = 0x1,                  % IPv4 Address
-        format(atom(Address), '~s', [[A, B, C, D]])
+        maplist(must_be(between(0, 255)), [A,B,C,D]),
+        AddressBytes = [A, B, C, D]
     ;   AddressType = 0x3,                  % Domain
-        atom_length(Host, Length),
-        format(atom(Address), '~s~w', [[Length], Host])
+        atom_codes(Host, HostCodes),
+        phrase(utf8_codes(HostCodes), HostBytes),
+        length(HostBytes, Length),
+        (   Length > 255
+        ->  domain_error(socks_host_name, Host)
+        ;   true
+        ),
+        AddressBytes = [Length|HostBytes]
     ),
     P1 is Port /\ 0xff,
     P2 is Port >> 8,
-    format(StreamPair, '~s~w~s', [[0x5,   % Version 5
-                                   0x1,   % Please establish a connection
-                                   0x0,   % reserved
-                                   AddressType],
-                                  Address,
-                                  [P2, P1]]),
+    append([[0x5,                           % Version 5
+             0x1,                           % Please establish a connection
+             0x0,                           % reserved
+             AddressType],
+            AddressBytes,
+            [P2, P1]], Request),
+    forall(member(Byte, Request), put_byte(StreamPair, Byte)),
     flush_output(StreamPair),
     get_byte(StreamPair, _EchoedServerVersion),
     get_byte(StreamPair, Status),
@@ -1046,17 +1056,27 @@ negotiate_socks_connection(Host:Port, StreamPair):-
     ->  get_byte(StreamPair, _Reserved),
         get_byte(StreamPair, EchoedAddressType),
         (   EchoedAddressType =:= 0x1
-        ->  get_byte(StreamPair, _),        % read IP4
-            get_byte(StreamPair, _),
-            get_byte(StreamPair, _),
-            get_byte(StreamPair, _)
-        ;   get_byte(StreamPair, Length),   % read host name
-            forall(between(1, Length, _),
-                   get_byte(StreamPair, _))
+        ->  skip_bytes(StreamPair, 4)       % read IP4
+        ;   EchoedAddressType =:= 0x4
+        ->  skip_bytes(StreamPair, 16)      % read IP6
+        ;   EchoedAddressType =:= 0x3
+        ->  get_byte(StreamPair, NameLength), % read host name
+            skip_bytes(StreamPair, NameLength)
+        ;   throw(error(socks_error(invalid_address_type(EchoedAddressType)), _))
         ),
         get_byte(StreamPair, _),            % read port
         get_byte(StreamPair, _)
     ;   throw(error(socks_error(negotiation_rejected(Status)), _))
+    ).
+
+
+skip_bytes(_, 0) :- !.
+skip_bytes(Stream, N) :-
+    get_byte(Stream, B),
+    (   B == -1
+    ->  throw(error(socks_error(unexpected_eof), _))
+    ;   N1 is N-1,
+        skip_bytes(Stream, N1)
     ).
 
 
@@ -1090,6 +1110,10 @@ socks_error(invalid_authentication_method(Supported, Got)) -->
       [ Got, Supported ] ].
 socks_error(negotiation_rejected(Status)) -->
     [ 'SOCKS: connection failed: ~p'-[Status] ].
+socks_error(invalid_address_type(Type)) -->
+    [ 'SOCKS: invalid address type in reply: ~p'-[Type] ].
+socks_error(unexpected_eof) -->
+    [ 'SOCKS: unexpected end of file in reply' ].
 
 proxy_tried([]) --> [].
 proxy_tried([H|T]) -->
