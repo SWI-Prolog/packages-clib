@@ -159,12 +159,14 @@ pl_wait(term_t Pid, term_t Status)
     return FALSE;
 
   for(;;)
-  { pid = waitpid(pid, &status, 0);
-    if ( pid == -1 && errno == EINTR )
+  { pid_t rc = waitpid(pid, &status, 0);
+
+    if ( rc == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
 	return FALSE;
     } else
-    { break;
+    { pid = rc;				/* do not lose pid on EINTR */
+      break;
     }
   }
 
@@ -272,6 +274,8 @@ out:
 }
 
 
+static functor_t FUNCTOR_equal2;	/* =/2 */
+
 static foreign_t
 pl_environ(term_t l)
 {
@@ -285,22 +289,21 @@ pl_environ(term_t l)
   term_t t2 = PL_new_term_ref();
   term_t nt = PL_new_term_ref();
   term_t vt = PL_new_term_ref();
-  functor_t FUNCTOR_equal2 = PL_new_functor(PL_new_atom("="), 2);
 
   for(e = environ; *e; e++)
   { char *s = strchr(*e, '=');
+    const char *v;
 
-    if ( !s )
-      s = *e + strlen(*e);
+    if ( s )
+    { v = s+1;
+    } else				/* no "=": empty value */
+    { s = *e + strlen(*e);
+      v = s;
+    }
 
-    { size_t len = s-*e;
-      char *name = alloca(len+1);
-
-      strncpy(name, *e, len);
-      name[len] = '\0';
-      PL_put_atom_chars(nt, name);
-      PL_put_atom_chars(vt, s+1);
-      if ( !PL_cons_functor(nt, FUNCTOR_equal2, nt, vt) ||
+    { if ( !PL_put_atom_nchars(nt, s-*e, *e) ||
+	   !PL_put_atom_chars(vt, v) ||
+	   !PL_cons_functor(nt, FUNCTOR_equal2, nt, vt) ||
 	   !PL_unify_list(t, t2, t) ||
 	   !PL_unify(t2, nt) )
 	return FALSE;
@@ -362,10 +365,17 @@ close_underlying_fd(IOSTREAM *s)
   { int fd;
 
     if ( (fd = Sfileno(s)) >= 0 && (s->flags & SIO_ISATTY) )
-    { close(fd);
+    { int nfd = open("/dev/null", O_RDWR);
+
+      if ( nfd >= 0 && nfd != fd )	/* keep fd in use: avoid reuse */
+      { dup2(nfd, fd);
+	close(nfd);
+      } else if ( nfd < 0 )
+      { close(fd);
+      }
 
       s->functions = &dummy;
-      s->flags &= ~SIO_FILE|SIO_ISATTY;	/* no longer a file */
+      s->flags &= ~(SIO_FILE|SIO_ISATTY); /* no longer a file */
       s->flags |= SIO_LBUF;		/* do line-buffering */
       s->fileno = -1;
     }
@@ -519,7 +529,9 @@ pl_sysconf(term_t conf)
 
 install_t
 install_unix()
-{ PL_register_foreign("fork_",     1, pl_fork, 0);
+{ FUNCTOR_equal2 = PL_new_functor(PL_new_atom("="), 2);
+
+  PL_register_foreign("fork_",     1, pl_fork, 0);
   PL_register_foreign("exec",      1, pl_exec, 0);
   PL_register_foreign("wait",      2, pl_wait, 0);
   PL_register_foreign("kill",      2, pl_kill, 0);

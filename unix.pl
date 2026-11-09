@@ -46,6 +46,7 @@
             detach_IO/1,                % +Stream
             environ/1                   % -[Name=Value]
           ]).
+:- autoload(library(error), [permission_error/3]).
 
 /** <module> Unix specific operations
 
@@ -260,7 +261,8 @@ fork_exec(Command) :-
 %
 %   Detach I/O similar to detach_IO/1. The  output streams are bound
 %   to a file =|/tmp/pl-out.<pid>|=. Output   is  line buffered (see
-%   set_stream/2).
+%   set_stream/2).  Raises a permission error if this file (or a
+%   symbolic link with this name) already exists.
 %
 %   @compat Older versions of this predicate only created this file
 %           if there was output.
@@ -270,6 +272,12 @@ fork_exec(Command) :-
 detach_IO :-
     current_prolog_flag(pid, Pid),
     atom_concat('/tmp/pl-out.', Pid, TmpFile),
+    (   (   exists_file(TmpFile)
+        ;   read_link(TmpFile, _, _)
+        )
+    ->  permission_error(create, file, TmpFile)
+    ;   true
+    ),
     open(TmpFile, write, Out, [alias(daemon_output)]),
     set_stream(Out, buffer(line)),
     detach_IO(Out).
