@@ -169,12 +169,13 @@ hash_write(void *handle, char *buf, size_t size)
   hash_append(ctx, buf, size);
 
   while ( written < size )
-  { ssize_t wr = Sfwrite(buf+written, sizeof(char), size, ctx->stream);
+  { size_t wr = Sfwrite(buf+written, sizeof(char), size-written,
+			ctx->stream);
 
-    if ( wr >= 0 )
+    if ( wr > 0 )
     { written += wr;
     } else
-      return wr;
+      return -1;
   }
 
   return size;
@@ -188,6 +189,10 @@ hash_control(void *handle, int op, void *data)
   switch(op)
   { case SIO_SETENCODING:
       return 0;				/* allow switching encoding */
+    case SIO_FLUSHOUTPUT:
+      if ( !ctx->stream->functions->control )
+	return 0;
+      /*FALLTHROUGH*/
     default:
       if ( ctx->stream->functions->control )
 	return (*ctx->stream->functions->control)(ctx->stream->handle, op, data);
@@ -349,25 +354,29 @@ pl_stream_hash(term_t stream, term_t hash)
   if ( PL_get_stream_handle(stream, &s) )
   { unsigned char hval[SHA2_MAX_DIGEST_SIZE];
     hash_context *ctx = s->handle;
+    hash_context copy;			/* finish a copy: keep going */
     int rc;
 
     if ( Sferror(s) || ((s->flags & SIO_OUTPUT) && Sflush(s) < 0) )
-      return PL_release_stream(s);
+    { (void)PL_release_stream(s);	/* raises the error if any */
+      return FALSE;
+    }
 
     if ( s->functions != &hash_functions )
     { PL_release_stream(s);
       return PL_domain_error("hash_stream", stream);
     }
 
-    switch(ctx->algorithm)
+    copy = *ctx;
+    switch(copy.algorithm)
     { case ALGORITHM_MD5:
-	md5_finish(&ctx->state.md5, (md5_byte_t*)hval);
+	md5_finish(&copy.state.md5, (md5_byte_t*)hval);
 	break;
       case ALGORITHM_SHA1:
-	sha1_end(hval, &ctx->state.sha1);
+	sha1_end(hval, &copy.state.sha1);
 	break;
       default:
-	sha2_end(hval, &ctx->state.sha2);
+	sha2_end(hval, &copy.state.sha2);
         break;
     }
     rc = unify_digest(hash, hval, ctx->digest_size);

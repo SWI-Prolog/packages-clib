@@ -113,7 +113,7 @@ stream_read(void *handle, char *buf, size_t size)
   if ( ctx->buffered )
   { size_t left = ctx->buflen - ctx->sent;
 
-    if ( left < size )
+    if ( left <= size )
     { memcpy(buf, &ctx->buffered[ctx->sent], left);
       PL_free(ctx->buffered);
       ctx->buffered = NULL;

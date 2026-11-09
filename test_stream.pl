@@ -40,9 +40,11 @@
 :- use_module(library(plunit)).
 :- use_module(library(debug)).
 :- use_module(library(prolog_stream)).
+:- use_module(library(hash_stream)).
 
 test_stream :-
-    run_tests([ prolog_stream
+    run_tests([ prolog_stream,
+                hash_stream
               ]).
 
 :- thread_local
@@ -119,5 +121,35 @@ test(error_close, Messages == []) :-
     catch(close(Out), Error, true),
     assertion(subsumes_term(error(type_error(atom,1),_), Error)),
     messages(Messages).
+test(read_chunk, Len == 1028) :-
+    open_prolog_stream(test_stream, read, In, []),
+    length(Codes, 1024), maplist(=(0'a), Codes),
+    string_codes(Chunk, Codes),
+    set_data(In, Chunk),
+    set_data(In, "TAIL"),
+    read_string(In, _, Reply),
+    close(In),
+    string_length(Reply, Len).
 
 :- end_tests(prolog_stream).
+
+:- begin_tests(hash_stream).
+
+test(null, D1 == D2) :-
+    open_null_stream(Null),
+    open_hash_stream(Null, H, [algorithm(sha1), close_parent(true)]),
+    format(H, 'Hello world', []),
+    stream_hash(H, D1),
+    stream_hash(H, D2),
+    close(H),
+    assertion(atom(D1)).
+test(continue, D == '7b502c3a1f48c8609ae212cdfb639dee39673f5e') :-
+    open_null_stream(Null),
+    open_hash_stream(Null, H, [algorithm(sha1), close_parent(true)]),
+    format(H, 'Hello ', []),
+    stream_hash(H, _),
+    format(H, 'world', []),
+    stream_hash(H, D),
+    close(H).
+
+:- end_tests(hash_stream).
