@@ -130,7 +130,8 @@ other_thread(T) :-
 
 fork_exec(Command) :-
     (   fork_(child)
-    ->  exec(Command)
+    ->  catch(exec(Command), E, print_message(error, E)),
+        halt(1)                         % exec/1 failed: do not continue
     ;   true
     ).
 
