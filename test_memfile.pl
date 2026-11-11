@@ -268,6 +268,16 @@ test(enc2) :-
     size_memory_file(MF, Size, octet),
     phrase(utf8_codes(String), Codes),
     assertion(length(Codes, Size)).
+test(invalid_utf8, Len == 60000) :-     % E2 82 is an incomplete sequence
+    new_memory_file(MF),
+    setup_call_cleanup(
+        open_memory_file(MF, write, Out, [encoding(octet)]),
+        forall(between(1, 20000, _),
+               maplist(put_byte(Out), [0xE2, 0x82, 0x61])),
+        close(Out)),
+    memory_file_to_codes(MF, Codes, utf8),
+    free_memory_file(MF),
+    length(Codes, Len).
 
 :- end_tests(mf_encoding).
 
