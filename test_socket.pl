@@ -282,6 +282,29 @@ ipv6_peer(S, Peer) :-
     close(C).
 ipv6_peer(_, ip(0,0,0,0,0,0,0,1)).      % No IPv6 support
 
+%   Connecting to a local port nobody listens on from that same port
+%   makes TCP connect the socket to itself.  This happened when
+%   `localhost` resolves to ::1 and 127.0.0.1, a server listens on
+%   127.0.0.1 and the client got the server's port number for ::1.
+
+%
+%   We force this by binding the client to the port it connects to.
+%   Linux lets that connect succeed, which is what we refuse.  macOS
+%   refuses it itself with EINVAL, though it does allow the same self
+%   connection if it picked the port.  On Windows the error is called
+%   wsaeconnrefused.
+
+test(self_connect,
+     true(memberchk(E, [econnrefused, einval, wsaeconnrefused]))) :-
+    catch(setup_call_cleanup(
+              tcp_socket(S),
+              ( tcp_bind(S, ip(127,0,0,1):Port),
+                tcp_connect(S, ip(127,0,0,1):Port)
+              ),
+              tcp_close_socket(S)),
+          error(socket_error(E, _), _),
+          true).
+
 :- end_tests(address).
 
 :- begin_tests(socks).

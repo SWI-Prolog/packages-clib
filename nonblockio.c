@@ -1391,6 +1391,27 @@ nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, socklen_t addrlen)
   return 0;
 }
 
+/* is_self_connected() is true if the socket's local address is its peer
+ * address.  TCP allows this "simultaneous open" if a client connects to
+ * a local port nobody listens on and the system picks that same port as
+ * the client's local port.  This happens, e.g., if `localhost` resolves
+ * to ::1 and 127.0.0.1 and a server listens on 127.0.0.1 only: the
+ * client first tries [::1]:Port.
+ */
+
+static int
+is_self_connected(SOCKET sock)
+{ struct sockaddr_storage local, peer;
+  socklen_t llen = sizeof(local);
+  socklen_t plen = sizeof(peer);
+
+  return ( getsockname(sock, (struct sockaddr*)&local, &llen) == 0 &&
+	   getpeername(sock, (struct sockaddr*)&peer, &plen) == 0 &&
+	   llen == plen &&
+	   memcmp(&local, &peer, llen) == 0 );
+}
+
+
 int
 nbio_connect(nbio_sock_t socket,
 	     const struct sockaddr *serv_addr,
@@ -1419,6 +1440,17 @@ nbio_connect(nbio_sock_t socket,
       return -1;
     } else
       break;
+  }
+
+  if ( (socket->domain == AF_INET || socket->domain == AF_INET6) &&
+       is_self_connected(socket->socket) )
+  {
+#ifdef __WINDOWS__
+    nbio_error(WSAECONNREFUSED, TCP_ERRNO);
+#else
+    nbio_error(ECONNREFUSED, TCP_ERRNO);
+#endif
+    return -1;
   }
 
   set(socket, PLSOCK_CONNECT);
