@@ -43,7 +43,7 @@
 :- use_module(library(plunit)).
 
 test_socket :-
-    run_tests([udp, tcp, ip_name]).
+    run_tests([udp, tcp, ip_name, address, close_race]).
 
 :- begin_tests(tcp).
 
@@ -306,6 +306,42 @@ test(self_connect,
           true).
 
 :- end_tests(address).
+
+%   Closing the input and output stream of a socket concurrently from two
+%   threads lost updates of the socket flags.  This crashed atom-GC of
+%   the socket, double closed the socket or leaked it.
+
+:- begin_tests(close_race, [condition(current_prolog_flag(threads, true))]).
+
+test(concurrent_close) :-
+    tcp_socket(S),
+    tcp_bind(S, localhost:Port),
+    tcp_listen(S, 64),
+    thread_create(accept_and_close(S), _, [detached(true)]),
+    forall(between(1, 3000, _), close_concurrently(Port)),
+    garbage_collect_atoms,
+    tcp_close_socket(S).
+
+accept_and_close(S) :-
+    catch(tcp_accept(S, C, _), _, fail),
+    !,
+    tcp_close_socket(C),
+    accept_and_close(S).
+accept_and_close(_).
+
+close_concurrently(Port) :-
+    tcp_connect(localhost:Port, Pair, []),
+    stream_pair(Pair, In, Out),
+    message_queue_create(Q),
+    thread_create((thread_get_message(Q, go), close(In)), T1, []),
+    thread_create((thread_get_message(Q, go), close(Out)), T2, []),
+    thread_send_message(Q, go),
+    thread_send_message(Q, go),
+    thread_join(T1),
+    thread_join(T2),
+    message_queue_destroy(Q).
+
+:- end_tests(close_race).
 
 :- begin_tests(socks).
 

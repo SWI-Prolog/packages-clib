@@ -185,8 +185,20 @@ typedef size_t os_bufsize_t;
 #endif
 #endif
 
-#define set(s, f)   ((s)->flags |= (f))
-#define clear(s, f) ((s)->flags &= ~(f))
+/* The input and output stream of a socket may be closed concurrently by
+   different threads, so flags are updated atomically.  FLAGS_AND()
+   returns the old flags.
+*/
+#ifdef _MSC_VER
+#include <intrin.h>
+#define FLAGS_OR(s, f)  _InterlockedOr((long volatile*)&(s)->flags, (long)(f))
+#define FLAGS_AND(s, f) _InterlockedAnd((long volatile*)&(s)->flags, (long)(f))
+#else
+#define FLAGS_OR(s, f)  __atomic_fetch_or(&(s)->flags, (f), __ATOMIC_SEQ_CST)
+#define FLAGS_AND(s, f) __atomic_fetch_and(&(s)->flags, (f), __ATOMIC_SEQ_CST)
+#endif
+#define set(s, f)   ((void)FLAGS_OR(s, f))
+#define clear(s, f) ((void)FLAGS_AND(s, ~(f)))
 #define ison(s, f)  ((s)->flags & (f))
 #define isoff(s, f) (!ison(s, f))
 
@@ -1063,8 +1075,8 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case TCP_INSTREAM:
     { IOSTREAM *in = va_arg(args, IOSTREAM*);
 
-      socket->flags |= PLSOCK_INSTREAM;
-      socket->flags &= ~PLSOCK_VIRGIN;
+      set(socket, PLSOCK_INSTREAM);
+      clear(socket, PLSOCK_VIRGIN);
       socket->input = in;
       if ( socket->symbol )
 	PL_register_atom(socket->symbol);
@@ -1076,8 +1088,8 @@ nbio_setopt(nbio_sock_t socket, nbio_option opt, ...)
     case TCP_OUTSTREAM:
     { IOSTREAM *out = va_arg(args, IOSTREAM*);
 
-      socket->flags |= PLSOCK_OUTSTREAM;
-      socket->flags &= ~PLSOCK_VIRGIN;
+      set(socket, PLSOCK_OUTSTREAM);
+      clear(socket, PLSOCK_VIRGIN);
       socket->output = out;
       if ( socket->symbol )
 	PL_register_atom(socket->symbol);
@@ -1501,7 +1513,7 @@ nbio_accept(nbio_sock_t master, struct sockaddr *addr, socklen_t *addrlen)
   { closesocket(slave);
     return NULL;
   }
-  s->flags |= PLSOCK_ACCEPT;
+  set(s, PLSOCK_ACCEPT);
 #ifndef __WINDOWS__
   if ( ison(master, PLSOCK_NONBLOCK) )
     nbio_setopt(s, TCP_NONBLOCK);
@@ -1647,15 +1659,21 @@ nbio_close_input(nbio_sock_t socket)
 
   DEBUG(2, Sdprintf("[%d]: nbio_close_input(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
+  /* The output may be closed concurrently.  Once we cleared our flag, the
+     other side may close and free the socket, so we are done with it
+     before.  Only the closer that finds the other flag cleared closes
+     the socket.
+  */
   if ( ison(socket, PLSOCK_INSTREAM) )
-  { clear(socket, PLSOCK_INSTREAM);
+  { atom_t symbol = socket->symbol;	/* closeSocket() may free socket */
 
     socket->input = NULL;
-    if ( isoff(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+    int old = FLAGS_AND(socket, ~PLSOCK_INSTREAM);
+    if ( !(old&PLSOCK_OUTSTREAM) )	/* output was closed: we are last */
       rc = closeSocket(socket);
 
-    if ( socket->symbol )
-      PL_unregister_atom(socket->symbol);
+    if ( symbol )
+      PL_unregister_atom(symbol);
   }
 
   return rc;
@@ -1679,8 +1697,8 @@ nbio_close_output(nbio_sock_t socket)
   DEBUG(2, Sdprintf("[%d]: nbio_close_output(%p, flags=0x%x)\n",
 		    PL_thread_self(), socket, socket->flags));
 
-  if ( ison(socket, PLSOCK_OUTSTREAM) )
-  { clear(socket, PLSOCK_OUTSTREAM);
+  if ( ison(socket, PLSOCK_OUTSTREAM) )	/* see nbio_close_input() */
+  { atom_t symbol = socket->symbol;	/* closeSocket() may free socket */
 
     if ( socket->socket != INVALID_SOCKET )
     { /* if ( (rc = shutdown(socket->socket, SHUT_WR)) )
@@ -1689,11 +1707,12 @@ nbio_close_output(nbio_sock_t socket)
     }
 
     socket->output = NULL;
-    if ( isoff(socket, (PLSOCK_INSTREAM|PLSOCK_OUTSTREAM)) )
+    int old = FLAGS_AND(socket, ~PLSOCK_OUTSTREAM);
+    if ( !(old&PLSOCK_INSTREAM) )	/* input was closed: we are last */
       rc = (rc + closeSocket(socket)) ? -1 : 0;
 
-    if ( socket->symbol )
-      PL_unregister_atom(socket->symbol);
+    if ( symbol )
+      PL_unregister_atom(symbol);
   }
 
   return rc;
