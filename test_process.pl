@@ -158,8 +158,47 @@ test(nul_arg, [condition(has_exe(true)),
     process_create(path(true), ['a\u0000b'], []).
 test(kill_0, error(domain_error(not_less_than_one, 0))) :-
     process_kill(0).
+% On Windows the arguments are joined into a command line that the
+% program splits again.  Quotes and backslashes must survive this.
+test(args_round_trip, Got == Args) :-
+    Args = [ 'a b', 'a"b', 'a\\', 'a b\\', next, '', 'a"" b',
+             'x\\"y', 'it''s', '&|<>^()'
+           ],
+    current_prolog_flag(executable, Exe),
+    process_create(Exe,
+                   [ '-q', '-f', none,
+                     '-g', 'current_prolog_flag(argv,A),writeq(A),write(.),nl',
+                     '-t', halt, '--'
+                   | Args
+                   ],
+                   [ stdout(pipe(Out)) ]),
+    call_cleanup(read_term(Out, Got, []), close(Out)).
+% A batch file is run by cmd.exe: metacharacters are quoted and
+% characters that cannot be passed safely are refused.
+test(batch_file, [ condition(current_prolog_flag(windows, true)),
+                   X == '["x&echo INJECTED"]'
+                 ]) :-
+    with_batch_file(Bat,
+                    ( process_create(Bat, ['x&echo INJECTED'],
+                                     [stdout(pipe(Out))]),
+                      read_process(Out, X0),
+                      split_string(X0, "", " \r\n", [S]),
+                      atom_string(X, S)
+                    )).
+test(batch_file, [ condition(current_prolog_flag(windows, true)),
+                   error(domain_error(batch_file_argument, _))
+                 ]) :-
+    with_batch_file(Bat, process_create(Bat, ['%PATH%'], [])).
 
 :- end_tests(process_create).
+
+:- meta_predicate with_batch_file(-, 0).
+
+with_batch_file(Bat, Goal) :-
+    tmp_file_stream(Bat, S, [extension(bat), encoding(ascii)]),
+    format(S, "@echo off\r\necho [%1]\r\n", []),
+    close(S),
+    call_cleanup(Goal, delete_file(Bat)).
 
 
 :- begin_tests(process_wait, [sto(rational_trees)]).
