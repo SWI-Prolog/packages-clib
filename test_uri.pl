@@ -245,5 +245,14 @@ test(unreserved, N == 'http://a.com/~user/A') :-
     uri_normalized('http://a.com/%7Euser/%41', N).
 test(overlong, true(X \== '../')) :-
     uri_encoded(path, X, '%C0%AE%C0%AE%C0%AF').
+test(surrogate, Codes == [0xED, 0xA0, 0x80]) :-
+    uri_encoded(path, X, '%ED%A0%80'),
+    atom_codes(X, Codes).
+test(too_large, Codes == [0xF4, 0x90, 0x80, 0x80]) :-
+    uri_encoded(path, X, '%F4%90%80%80'),
+    atom_codes(X, Codes).
+test(five_bytes, Codes == [0xF8, 0x88, 0x80, 0x80, 0x80]) :-
+    uri_encoded(path, X, '%F8%88%80%80%80'),
+    atom_codes(X, Codes).
 
 :- end_tests(uri_normalize).

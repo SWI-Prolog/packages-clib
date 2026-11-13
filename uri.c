@@ -212,10 +212,17 @@ get_encoded_utf8_cont(const pl_wchar_t *in, int cnt, int *val)
 }
 
 
+/* Only accept the shortest encoding of a Unicode code point.  A
+   rejected sequence decodes as its bytes.
+*/
+
 static const pl_wchar_t *
 get_encoded_utf8_min(const pl_wchar_t *in, int *chr, int min)
-{ if ( in && *chr < min )
-    return NULL;			/* overlong encoding */
+{ if ( in &&
+       ( *chr < min ||			/* overlong encoding */
+	 *chr > 0x10FFFF ||		/* not Unicode */
+	 (*chr >= 0xD800 && *chr <= 0xDFFF) ) ) /* surrogate */
+    return NULL;
   return in;
 }
 
