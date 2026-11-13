@@ -65,7 +65,7 @@ typedef enum hash_algorithm
 		 *		MD5		*
 		 *******************************/
 
-static int
+static bool
 unify_digest(term_t t, unsigned char *digest, size_t len)
 { if ( len*2 <= 256 )
   { char hex_output[256];
@@ -232,7 +232,7 @@ static IOFUNCTIONS hash_functions =
 		 *	 PROLOG CONNECTION	*
 		 *******************************/
 
-static int
+static bool
 get_hash_algorithm(term_t t, hash_algorithm *ap)
 { atom_t a;
 

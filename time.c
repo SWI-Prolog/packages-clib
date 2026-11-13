@@ -93,7 +93,7 @@ struct timezone
 { int zone;
 };
 
-static int
+static bool
 gettimeofday(struct timeval *tv, struct timezone *tz)
 { struct timeb tb;
 
@@ -220,7 +220,7 @@ static int signal_function_set = false;	/* signal function is set */
 static int sig_time = 0;
 static pl_sigaction_t saved_sigaction;	/* Old signal action */
 
-static int removeEvent(Event ev);
+static bool removeEvent(Event ev);
 static bool existence_error_removed(term_t t);
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -346,7 +346,7 @@ setTimeEvent(Event ev, double t)
 
 
 
-static int
+static bool
 is_scheduled(Event ev)
 { Event e;
 
@@ -458,7 +458,7 @@ cleanupHandler(void)
 }
 
 
-static int
+static bool
 installHandler(void)
 { if ( !signal_function_set )
   { pl_sigaction_t act = {0};
@@ -551,7 +551,7 @@ typedef struct
 
 #define BITSPERINT (8*sizeof(unsigned int))
 
-static int
+static bool
 set_bit(bitvector *v, size_t bit)
 { size_t offset = bit/BITSPERINT;
   int bi = bit%BITSPERINT;
@@ -580,7 +580,7 @@ set_bit(bitvector *v, size_t bit)
 }
 
 
-static int
+static bool
 is_set(bitvector *v, size_t bit)
 { if ( bit <= v->high )
   { size_t offset = bit/BITSPERINT;
@@ -798,7 +798,7 @@ installEvent(Event ev, const double *t)
 }
 
 
-static int
+static bool
 uninstallEvent(Event ev)
 { LOCK();
   if ( ev->flags & EV_REMOVED )
@@ -816,7 +816,7 @@ uninstallEvent(Event ev)
 }
 
 
-static int
+static bool
 removeEvent(Event ev)
 { LOCK();
   if ( ev->flags & EV_REMOVED )		/* e.g., remove(true) alarm fired */
@@ -1025,7 +1025,7 @@ remove_alarm(term_t alarm)
 }
 
 
-static int
+static bool
 unify_event_goal(term_t goal, Event ev)
 { term_t g = PL_new_term_ref();
 

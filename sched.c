@@ -47,7 +47,7 @@ static atom_t ATOM_process;
 static atom_t ATOM_pgrp;
 static atom_t ATOM_user;
 
-static int
+static bool
 get_which(term_t Which, int *whichp, const char **namep)
 { atom_t awhich;
 

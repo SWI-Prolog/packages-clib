@@ -211,7 +211,7 @@ typedef struct wait_options
    reclaim it.  On Windows we simply close the handles.
 */
 
-static int
+static bool
 fire_and_forget(const p_options *info)
 { return info->detached && info->pid == 0 && info->pipes == 0;
 }
@@ -228,7 +228,7 @@ static create_method create_process_method = PCREATE_SPAWN;
 #endif
 
 #ifdef __WINDOWS__
-static int win_command_line(term_t t, size_t arity,
+static bool win_command_line(term_t t, size_t arity,
 			    const wchar_t *exepath, wchar_t **cmdline);
 #endif
 
@@ -245,7 +245,7 @@ free_ecbuf(ecbuf *b)
 }
 
 
-static int
+static bool
 add_ecbuf(ecbuf *b, echar *data, size_t len)
 { if ( b->size + len > b->allocated )
   { size_t newsize = (b->allocated ? b->allocated * 2 : 2048);
@@ -273,10 +273,10 @@ add_ecbuf(ecbuf *b, echar *data, size_t len)
 		 *******************************/
 
 #ifndef __WINDOWS__
-static int get_c_string(term_t t, char **s, int flags);
+static bool get_c_string(term_t t, char **s, int flags);
 #endif
 
-static int
+static bool
 get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 { const echar *s, *e;
 
@@ -306,7 +306,7 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 #define ECHARS(s) s
 #endif
 
-static int
+static bool
 already_in_env(const echar *env, int count, const echar *e)
 { for(; count-- > 0; env += ecslen(env)+1)
   { const echar *s, *q;
@@ -320,7 +320,7 @@ already_in_env(const echar *env, int count, const echar *e)
   return false;
 }
 
-static int
+static bool
 parse_environment(term_t t, p_options *info, int pass)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
@@ -416,7 +416,7 @@ parse_environment(term_t t, p_options *info, int pass)
 }
 
 
-static int
+static bool
 get_type(term_t head, IOENC *enc)
 { atom_t a;
 
@@ -438,7 +438,7 @@ get_type(term_t head, IOENC *enc)
  * the IOENC enum
  */
 
-static int
+static bool
 get_encoding(term_t head, IOENC *enc)
 { atom_t a;
 
@@ -457,7 +457,7 @@ get_encoding(term_t head, IOENC *enc)
 }
 
 
-static int
+static bool
 get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
 { atom_t a;
   int i;
@@ -550,7 +550,7 @@ static PL_option_t process_options[] =
   PL_OPTIONS_END
 };
 
-static int
+static bool
 parse_options(term_t options, p_options *info)
 { term_t stdin_t = 0, stdout_t = 0, stderr_t = 0, process_t = 0;
   term_t cwd_t = 0, env_t = 0, environment_t = 0;
@@ -605,7 +605,7 @@ parse_options(term_t options, p_options *info)
    contains a 0 code as this would silently truncate the value.
 */
 
-static int
+static bool
 get_c_string(term_t t, char **s, int flags)
 { size_t len;
 
@@ -618,7 +618,7 @@ get_c_string(term_t t, char **s, int flags)
 }
 #endif
 
-static int
+static bool
 get_exe(term_t exe, p_options *info)
 { size_t arity;
   term_t arg = PL_new_term_ref();
@@ -898,7 +898,7 @@ typedef struct wbuf
   size_t   size;
 } wbuf;
 
-static int
+static bool
 wbuf_add(wbuf *b, wchar_t c)
 { if ( b->len+1 >= b->size )
   { size_t nsize = b->size ? b->size*2 : 256;
@@ -914,7 +914,7 @@ wbuf_add(wbuf *b, wchar_t c)
   return true;
 }
 
-static int
+static bool
 wbuf_add_n(wbuf *b, wchar_t c, size_t n)
 { while(n-- > 0)
   { if ( !wbuf_add(b, c) )
@@ -923,7 +923,7 @@ wbuf_add_n(wbuf *b, wchar_t c, size_t n)
   return true;
 }
 
-static int
+static bool
 is_batch_file(const wchar_t *exe)
 { size_t len = wcslen(exe);
 
@@ -932,7 +932,7 @@ is_batch_file(const wchar_t *exe)
 	     _wcsicmp(exe+len-4, L".cmd") == 0 ) );
 }
 
-static int
+static bool
 add_quoted_arg(wbuf *b, const wchar_t *s, size_t len, int batch)
 { int needq = (len == 0);
   size_t i;
@@ -985,7 +985,7 @@ add_quoted_arg(wbuf *b, const wchar_t *s, size_t len, int batch)
 /* Characters that cmd.exe interprets also inside "...": quotes end the
    quoted string, % and ! expand variables, CR and LF end the command. */
 
-static int
+static bool
 batch_safe_arg(const wchar_t *s, size_t len)
 { size_t i;
 
@@ -996,7 +996,7 @@ batch_safe_arg(const wchar_t *s, size_t len)
   return true;
 }
 
-static int
+static bool
 win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
 { if ( arity > 0 )
   { term_t arg = PL_new_term_ref();
@@ -1091,7 +1091,7 @@ register_process(DWORD pid, HANDLE h, HANDLE job, IOSTREAM *console)
 }
 
 
-static int
+static bool
 unregister_process(DWORD pid)
 { win_process **wpp, *wp;
 
@@ -1208,7 +1208,7 @@ retry:
 }
 
 
-static int
+static bool
 wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 { HANDLE *h;
 
@@ -1238,7 +1238,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 }
 
 
-static int
+static bool
 win_wait_success(atom_t exe, HANDLE process)
 { ULONG rc;
 
@@ -1276,7 +1276,7 @@ wait_for_process(process_context *pc)
 }
 
 
-static int
+static bool
 create_pipes(p_options *info)
 { int i;
   SECURITY_ATTRIBUTES sa;
@@ -1334,7 +1334,7 @@ open_null_stream(DWORD access)
 }
 
 
-static int
+static bool
 console_app(void)
 { HANDLE h;
 
@@ -1370,7 +1370,7 @@ below for a child we wait for, in wait_for_process() for one whose pipes
 we hold, and in unregister_process() for one with a process(PID).
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static int
+static bool
 on_terminal(p_options *info)
 { int i;
 
@@ -1671,7 +1671,7 @@ register_process(pid_t pid)
   UNLOCK();
 }
 
-static int
+static bool
 unregister_process(pid_t pid)
 { posix_process **ppp, *pp;
   LOCK();
@@ -1728,7 +1728,7 @@ returns ENOSYS to indicate it is not   implemented. Hence, we need to go
 for a runtime solution.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static int
+static bool
 create_pipes(p_options *info)
 { int i;
 
@@ -1770,7 +1770,7 @@ create_pipes(p_options *info)
 }
 
 
-static int
+static bool
 unify_exit_status(term_t code, int status)
 { if ( WIFEXITED(status) )
   { return PL_unify_term(code,
@@ -1787,7 +1787,7 @@ unify_exit_status(term_t code, int status)
 }
 
 
-static int
+static bool
 wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 { pid_t p2;
   int status;
@@ -1826,7 +1826,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 }
 
 
-static int
+static bool
 wait_success(atom_t name, pid_t pid)
 { pid_t p2;
 
@@ -1912,7 +1912,7 @@ p_fdopen(p_options *info, int which, int fdn, char *mode)
 }
 
 
-static int
+static bool
 process_parent_side(p_options *info, int pid)
 { int rc = true;
 
@@ -2080,7 +2080,7 @@ child_stdin_fd(p_options *info)
  * posix_spawn() has no hook to do so and we must fork() instead.
  */
 
-static int
+static bool
 needs_ctty(p_options *info)
 { int fd;
 
@@ -2274,7 +2274,7 @@ do_create_process_fork(p_options *info, create_method method)
    also need fork().
 */
 
-static int
+static bool
 can_spawn(p_options *info)
 { if ( info->cwd || needs_ctty(info) || info->priority != 255 ||
        create_process_method != PCREATE_SPAWN )
@@ -2433,7 +2433,7 @@ resources to bind the return value.
 Ideally, we need a call to ask for sufficient resources.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static int
+static bool
 ensure_stack_resources(int count)
 { fid_t fid = PL_open_foreign_frame();
   term_t list = PL_new_term_ref();
@@ -2493,7 +2493,7 @@ out:
 }
 
 
-static int
+static bool
 get_pid(term_t pid, pid_t *p)
 { int n;
 

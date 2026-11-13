@@ -52,7 +52,7 @@ again:
 }
 
 
-static int
+static bool
 win_error(const char *op)
 { atom_t msg = WinError();
   term_t ex = PL_new_term_ref();

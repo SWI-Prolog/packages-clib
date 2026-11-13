@@ -40,7 +40,7 @@
 
 #define streq(s,q) (strcmp(s,q) == 0)
 
-static int
+static bool
 get_option(term_t t, int *opt)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
@@ -70,7 +70,7 @@ get_option(term_t t, int *opt)
   return false;
 }
 
-static int
+static bool
 get_facility(term_t t, int *fac)
 { char *s;
   int facility;
@@ -108,7 +108,7 @@ get_facility(term_t t, int *fac)
   return true;
 }
 
-static int
+static bool
 get_priority(term_t t, int *pri)
 { char *s;
   int priority;

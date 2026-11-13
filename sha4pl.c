@@ -86,7 +86,7 @@ static PL_option_t sha_option_specs[] =
   PL_OPTIONS_END
 };
 
-static int
+static bool
 sha_options(term_t options, optval *result)
 { term_t algorithm = 0;
   term_t encoding  = 0;
@@ -211,7 +211,7 @@ digest_size(sha_algorithm algorithm)
    sure it is consistent before using it.
 */
 
-static int
+static bool
 valid_context(const struct context *c)
 { size_t dsize;
 

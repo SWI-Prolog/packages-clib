@@ -232,7 +232,7 @@ static plsocket *allocSocket(SOCKET socket);
 #ifdef __WINDOWS__
 static const char *WinSockError(unsigned long eno);
 #endif
-static int need_retry(int error);
+static bool need_retry(int error);
 
 #ifdef O_DEBUG
 static int debugging;
@@ -334,7 +334,7 @@ nbio_fcntl(nbio_sock_t socket, int op, int arg)
 }
 
 
-static int
+static bool
 need_retry(int error)
 { if ( error == WSAEINTR || error == WSAEWOULDBLOCK )
   { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, WinSockError(error)));
@@ -431,7 +431,7 @@ nbio_wait(nbio_sock_t socket, nbio_request request)
 
 #else /*__WINDOWS__*/
 
-static int
+static bool
 need_retry(int error)
 { if ( error == EINTR || error == EAGAIN || error == EWOULDBLOCK )
   { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, strerror(error)));
@@ -1295,7 +1295,7 @@ nbio_get_ip4(term_t ip4, struct in_addr *ip, int error)
 }
 
 
-static int
+static bool
 nbio_get_ip6(term_t ip8, struct in6_addr *ip)
 { if ( PL_is_functor(ip8, FUNCTOR_ip8) )
   { unsigned short ia;
@@ -1354,7 +1354,7 @@ nbio_unify_ip4(term_t Ip, uint32_t hip)
 
 #define NSHORTARG(i) PL_INT, ntohs(i)
 
-static int
+static bool
 nbio_unify_ip6(term_t t, struct in6_addr *addr)
 { return PL_unify_term(t,
 		       PL_FUNCTOR, FUNCTOR_ip8,
@@ -1411,7 +1411,7 @@ nbio_bind(nbio_sock_t socket, struct sockaddr *my_addr, socklen_t addrlen)
  * client first tries [::1]:Port.
  */
 
-static int
+static bool
 is_self_connected(SOCKET sock)
 { struct sockaddr_storage local, peer;
   socklen_t llen = sizeof(local);

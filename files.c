@@ -91,7 +91,7 @@ static atom_t    ATOM_symbolic;
 		 *	       TIME		*
 		 *******************************/
 
-static int
+static bool
 add_time_option(term_t list, functor_t f, time_t time)
 { term_t tail = PL_copy_term_ref(list);
   term_t head = PL_new_term_ref();
@@ -112,7 +112,7 @@ add_time_option(term_t list, functor_t f, time_t time)
 }
 
 
-static int
+static bool
 close_list(term_t list)
 { term_t tail = PL_copy_term_ref(list);
   term_t head = PL_new_term_ref();
@@ -124,7 +124,7 @@ close_list(term_t list)
 }
 
 
-static int
+static bool
 get_time_option(term_t list, functor_t f, time_t def, time_t *tme)
 { term_t tail = PL_copy_term_ref(list);
   term_t head = PL_new_term_ref();

@@ -43,7 +43,7 @@
 
 static functor_t FUNCTOR_equals2;
 
-static int
+static bool
 addNameInteger(term_t list, const char *name, intptr_t val)
 { term_t head = PL_new_term_ref();
 

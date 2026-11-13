@@ -52,7 +52,7 @@ static PL_option_t md5_option_specs[] =
   PL_OPTIONS_END
 };
 
-static int
+static bool
 md5_options(term_t options, optval *result)
 { term_t encoding = 0;
 
@@ -80,7 +80,7 @@ md5_options(term_t options, optval *result)
 }
 
 
-static int
+static bool
 md5_unify_digest(term_t t, md5_byte_t digest[16])
 { char hex_output[16*2];
   int di;

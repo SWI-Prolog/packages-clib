@@ -234,7 +234,7 @@ pl_pipe(term_t Read, term_t Write)
 }
 
 
-static int
+static bool
 get_stream_no(term_t t, IOSTREAM **s, int *fn)
 { if ( PL_get_integer(t, fn) )
     return true;

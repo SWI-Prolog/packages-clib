@@ -86,7 +86,7 @@ create_pipe(int size, int blocking)
 }
 
 
-static int
+static bool
 destroy_pipe(pipe *p)
 { ISPIPE(p);
 

@@ -39,7 +39,7 @@
 #include "error.h"
 #include <ctype.h>
 
-static int
+static bool
 print_byte(IOSTREAM *out, int value)
 { if ( isgraph(value) || isspace(value) )
   { Sfprintf(out, "%c", value);
@@ -50,7 +50,7 @@ print_byte(IOSTREAM *out, int value)
   return 0;
 }
 
-static int
+static bool
 print_buffer(IOSTREAM *out, const char *data, size_t len)
 { size_t i;
 

@@ -48,7 +48,7 @@
 
 #define isdigit(c) (c >= '0' && c <= '9')
 
-static int
+static bool
 isnumber(const char *s, size_t len)
 { int digits = 0;
   const char *e = &s[len];

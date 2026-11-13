@@ -172,7 +172,7 @@ static PL_blob_t socket_blob =
 };
 
 
-static int
+static bool
 tcp_unify_socket(term_t handle, nbio_sock_t socket)
 { if ( PL_unify_blob(handle, &socket, sizeof(socket), &socket_blob) )
     return true;
@@ -219,7 +219,7 @@ static PL_option_t host_address_options[] =
 };
 
 
-static int
+static bool
 put_socket_domain(term_t t, int domain)
 { switch(domain)
   { case AF_INET:  return PL_put_atom(t, ATOM_inet);
@@ -229,7 +229,7 @@ put_socket_domain(term_t t, int domain)
   }
 }
 
-static int
+static bool
 put_socket_type(term_t t, int type)
 { switch(type)
   { case SOCK_STREAM: return PL_put_atom(t, ATOM_stream);
@@ -539,7 +539,7 @@ From/To are of the format <Host>:<Port>
 #define UDP_MAXDATA         65535
 #define UDP_DEFAULT_BUFSIZE  4096
 
-static int
+static bool
 unify_address(term_t t, struct sockaddr_storage *addr)
 { term_t av = PL_new_term_refs(2);
 
@@ -571,7 +571,7 @@ unify_address(term_t t, struct sockaddr_storage *addr)
 		       PL_TERM, av+1);
 }
 
-static int
+static bool
 get_representation(term_t arg, int *rp)
 { atom_t a;
   IOENC enc;
@@ -593,7 +593,7 @@ get_representation(term_t arg, int *rp)
   return true;
 }
 
-static int
+static bool
 get_as(term_t arg, int *asp)
 { atom_t a;
   int as;
@@ -751,7 +751,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 		 *	PROLOG CONNECTION	*
 		 *******************************/
 
-static int
+static bool
 atom_domain_error(const char *domain, atom_t a)
 { term_t t;
 

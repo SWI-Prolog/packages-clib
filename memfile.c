@@ -108,7 +108,7 @@ typedef struct
   IOENC		encoding;		/* encoding of the data */
 } memfile;
 
-static int	destroy_memory_file(memfile *m);
+static bool	destroy_memory_file(memfile *m);
 
 
 		 /*******************************
@@ -160,7 +160,7 @@ static PL_blob_t memfile_blob =
 };
 
 
-static int
+static bool
 unify_memfile(term_t handle, memfile *mf)
 { if ( PL_unify_blob(handle, mf, sizeof(*mf), &memfile_blob) )
     return true;
@@ -262,7 +262,7 @@ clean_memory_file(memfile *m)
 }
 
 
-static int
+static bool
 destroy_memory_file(memfile *m)
 { clean_memory_file(m);
 #ifdef O_PLMT
@@ -695,7 +695,7 @@ open_memory_file(term_t handle, term_t mode, term_t stream)
 }
 
 
-static int
+static bool
 get_size_mf(memfile *m, IOENC encoding, size_t *sizep)
 { size_t size;
 
@@ -1208,7 +1208,7 @@ memory_file_to_string3(term_t handle, term_t atom, term_t encoding)
 }
 
 
-static int
+static bool
 get_size_or_var(term_t t, size_t *sp)
 { if ( PL_is_variable(t) )
   { *sp = NOSIZE;
