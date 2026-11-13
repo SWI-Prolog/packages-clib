@@ -340,10 +340,12 @@ pl_stream_hash_open(term_t org, term_t new, term_t options)
     PL_release_stream(s);
 
     return TRUE;
-  } else
-  { PL_release_stream(s);
-    return FALSE;
   }
+
+  ctx->close_parent = false;		/* restores s and frees ctx */
+  Sclose(s2);
+  PL_release_stream(s);
+  return PL_uninstantiation_error(new);
 }
 
 

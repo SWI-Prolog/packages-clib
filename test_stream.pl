@@ -151,5 +151,16 @@ test(continue, D == '7b502c3a1f48c8609ae212cdfb639dee39673f5e') :-
     format(H, 'world', []),
     stream_hash(H, D),
     close(H).
+test(bound_output, [E, Enc, N] == [uninstantiation_error(x), Enc0, N0]) :-
+    setup_call_cleanup(
+        open_string("abc", In),
+        ( stream_property(In, encoding(Enc0)),
+          aggregate_all(count, stream_property(_, mode(_)), N0),
+          catch(open_hash_stream(In, x, [close_parent(true)]),
+                error(E, _), true),
+          stream_property(In, encoding(Enc)),
+          aggregate_all(count, stream_property(_, mode(_)), N)
+        ),
+        close(In)).
 
 :- end_tests(hash_stream).
