@@ -279,6 +279,35 @@ test(invalid_utf8, Len == 60000) :-     % E2 82 is an incomplete sequence
     free_memory_file(MF),
     length(Codes, Len).
 
+%   Offsets in a UTF-8 memory file count the characters as decoding
+%   does.  The overlong C0 AF is two characters, the surrogate ED A0 80
+%   one.
+
+invalid_utf8_mf(MF) :-
+    new_memory_file(MF),
+    setup_call_cleanup(
+        open_memory_file(MF, write, Out, [encoding(utf8)]),
+        ( set_stream(Out, encoding(octet)),
+          maplist(put_byte(Out), [0'a, 0xC0, 0xAF, 0'b, 0xED, 0xA0, 0x80, 0'c])
+        ),
+        close(Out)).
+
+test(invalid_utf8_offsets,
+     [ Codes == [0'a, 0xC0, 0'X, 0xAF, 0'b, 0xFFFD, 0'c] ]) :-
+    invalid_utf8_mf(MF),
+    insert_memory_file(MF, 2, "X"),
+    memory_file_to_codes(MF, Codes),
+    free_memory_file(MF).
+test(invalid_utf8_end, Size == 6) :-
+    invalid_utf8_mf(MF),
+    size_memory_file(MF, Size),
+    insert_memory_file(MF, Size, "X"),
+    free_memory_file(MF).
+test(invalid_utf8_substring, [Sub, After] == ["\u00AF", 3]) :-
+    invalid_utf8_mf(MF),
+    memory_file_substring(MF, 2, 1, After, Sub),
+    free_memory_file(MF).
+
 :- end_tests(mf_encoding).
 
                  /*******************************

@@ -916,19 +916,42 @@ can_modify_memory_file(term_t handle, memfile *mf)
 }
 
 
-/* Get the byte offset for a character
+/* Get the byte offset for a character.  This must agree with
+   PL_utf8_strlen() on invalid UTF-8: only the shortest encoding of a
+   code point up to U+10FFFF is a character.  Otherwise the first byte
+   is.  A surrogate is a character, decoded as U+FFFD.
 */
 
 static char *
 utf8_skip_char(const char *in, const char *e)
-{ if ( !(in[0]&0x80) )
-  { return (char*)in+1;
+{ static const int min_code[4] = { 0, 0x80, 0x800, 0x10000 };
+  const unsigned char *s = (const unsigned char *)in;
+  int code, n;
+
+  if ( s[0] < 0xc0 )
+    return (char*)in+1;
+  if ( s[0] < 0xe0 )
+  { code = s[0] & 0x1f;
+    n = 1;
+  } else if ( s[0] < 0xf0 )
+  { code = s[0] & 0x0f;
+    n = 2;
+  } else if ( s[0] < 0xf8 )
+  { code = s[0] & 0x07;
+    n = 3;
   } else
-  { in++;
-    while ( in < e && ISUTF8_CB(in[0]) )
-      in++;
-    return (char*)in;
+    return (char*)in+1;
+
+  for(int k=1; k<=n; k++)
+  { if ( in+k >= e || !ISUTF8_CB(s[k]) )
+      return (char*)in+1;
+    code = (code << 6) | (s[k] & 0x3f);
   }
+
+  if ( code < min_code[n] || code > 0x10ffff )
+    return (char*)in+1;
+
+  return (char*)in+n+1;
 }
 
 
