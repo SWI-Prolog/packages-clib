@@ -142,14 +142,14 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
   void *handle;
 
   if ( !tcp_get_socket(Socket, &socket) )
-    return FALSE;
+    return false;
   handle = socket;
 
   if ( !(in = Snew(handle, SIO_INPUT|SIO_RECORDPOS|SIO_FBUF, &readFunctions)) )
     return PL_resource_error("memory");
   in->encoding = ENC_OCTET;
   if ( !PL_unify_stream(Read, in) )
-    return FALSE;
+    return false;
   nbio_setopt(socket, TCP_INSTREAM, in);
 
   if ( !(nbio_get_flags(socket) & PLSOCK_LISTEN) )
@@ -158,11 +158,11 @@ pl_open_socket(term_t Socket, term_t Read, term_t Write)
       return PL_resource_error("memory");
     out->encoding = ENC_OCTET;
     if ( !PL_unify_stream(Write, out) )
-      return FALSE;
+      return false;
     nbio_setopt(socket, TCP_OUTSTREAM, out);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -180,7 +180,7 @@ get_socket_from_stream(term_t t, IOSTREAM **stp, nbio_sock_t *sp)
       else
 	PL_release_stream(s);
     } else
-    { rc = FALSE;
+    { rc = false;
       PL_release_stream(s);
     }
   }
@@ -195,15 +195,15 @@ pl_listen(term_t Sock, term_t BackLog)
   int backlog;
 
   if ( !tcp_get_socket(Sock, &socket) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_integer(BackLog, &backlog) )
     return PL_type_error("integer", BackLog);
 
   if ( nbio_listen(socket, backlog) < 0 )
-    return FALSE;
+    return false;
 
-  return TRUE;
+  return true;
 }
 
 
@@ -212,10 +212,10 @@ pl_close_socket(term_t socket)
 { nbio_sock_t sock;
 
   if ( !tcp_get_socket(socket, &sock) )
-    return FALSE;
+    return false;
 
   if ( nbio_closesocket(sock) < 0 )
     return nbio_error(errno, TCP_ERRNO);;
 
-  return TRUE;
+  return true;
 }

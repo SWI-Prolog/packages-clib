@@ -83,13 +83,13 @@ pl_uuid(term_t UUID, term_t options)
 
   if ( !PL_scan_options(options, 0, "uuid_option", uuid_options,
 			&version, &fmt, &dns, &url, &oid, &x500) )
-    return FALSE;
+    return false;
 
   if ( version )
   { int v;
 
     if ( !PL_get_integer_ex(version, &v) )
-      return FALSE;
+      return false;
     switch(v)
     { case 1: mode = UUID_MAKE_V1; break;
       case 2: mode = UUID_MAKE_MC; break;
@@ -101,7 +101,7 @@ pl_uuid(term_t UUID, term_t options)
   }
   if ( fmt )
   { if ( !PL_get_atom_ex(fmt, &format) )
-      return FALSE;
+      return false;
     if ( format != ATOM_atom && format != ATOM_integer )
       return PL_domain_error("uuid_format", fmt);
   }
@@ -111,7 +111,7 @@ pl_uuid(term_t UUID, term_t options)
   else if ( x500 ) { ns = "ns:X500"; nsarg = x500; }
   if ( nsarg )
   { if ( !PL_get_chars(nsarg, &str, CVT_ATOM|CVT_EXCEPTION) )
-      return FALSE;
+      return false;
     if ( mode == UUID_MAKE_V1 )
       mode = UUID_MAKE_V3;
   }
@@ -141,7 +141,7 @@ pl_uuid(term_t UUID, term_t options)
     }
     default:
       assert(0);
-      return FALSE;
+      return false;
   }
 
   if ( format == ATOM_atom )
@@ -165,7 +165,7 @@ pl_uuid(term_t UUID, term_t options)
 	 );
   } else
   { assert(0);
-    return FALSE;
+    return false;
   }
 
   uuid_destroy(uuid);

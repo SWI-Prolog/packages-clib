@@ -235,7 +235,7 @@ open_prolog_stream(term_t module, term_t mode, term_t stream, term_t options)
   module_t m;
 
   if ( !PL_get_atom_ex(mode, &a) )
-    return FALSE;
+    return false;
   if ( a == ATOM_read )
     flags |= SIO_INPUT;
   else if ( a == ATOM_write )
@@ -244,7 +244,7 @@ open_prolog_stream(term_t module, term_t mode, term_t stream, term_t options)
     return PL_domain_error("io_mode", mode);
 
   if ( !PL_get_atom_ex(module, &a) )
-    return FALSE;
+    return false;
   m = PL_new_module(a);
 
   ctx = alloc_stream_context();
@@ -255,7 +255,7 @@ open_prolog_stream(term_t module, term_t mode, term_t stream, term_t options)
   s->newline  = SIO_NL_POSIX;
 
   if ( PL_unify_stream(stream, s) )
-  { return TRUE;
+  { return true;
   } else
   { Sclose(s);
     return PL_uninstantiation_error(stream);

@@ -89,13 +89,13 @@ random_salt(char *salt, size_t n)
 { static const char alphabet[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
   unsigned char bytes[64];
-  int done = FALSE;
+  int done = false;
 
   if ( n > sizeof(bytes) )
     n = sizeof(bytes);
 #ifdef HAVE_GETENTROPY
   if ( !done && getentropy(bytes, n) == 0 )
-    done = TRUE;
+    done = true;
 #endif
 #ifdef O_RDONLY
   if ( !done )
@@ -108,11 +108,11 @@ random_salt(char *salt, size_t n)
   }
 #endif
   if ( !done )
-  { static int seeded = FALSE;
+  { static int seeded = false;
 
     if ( !seeded )
     { srand((unsigned)time(NULL) ^ (unsigned)(size_t)&seeded);
-      seeded = TRUE;
+      seeded = true;
     }
     for(size_t i=0; i<n; i++)
       bytes[i] = (unsigned char)rand();
@@ -151,13 +151,13 @@ pl_crypt(term_t passwd, term_t encrypted)
 
 	return rval;
       } else
-      { return FALSE;
+      { return false;
       }
     } else
     { int rval;
 
       if ( strlen(e) < 2 )
-	return FALSE;
+	return false;
 
       LOCK();				/* pass the entire hash as setting */
       rval = ( (s2 = crypt(pw, e)) &&

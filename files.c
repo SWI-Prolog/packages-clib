@@ -108,7 +108,7 @@ add_time_option(term_t list, functor_t f, time_t time)
   if ( PL_unify_list(tail, head, tail) )
     return PL_unify_term(head, PL_FUNCTOR, f, PL_FLOAT, (double)time);
 
-  return FALSE;
+  return false;
 }
 
 
@@ -140,17 +140,17 @@ get_time_option(term_t list, functor_t f, time_t def, time_t *tme)
 
 	if ( PL_get_atom(a, &now) && now == ATOM_now )
 	{ time(tme);
-	  return TRUE;
+	  return true;
 	} else
 	  return PL_type_error("time", a);
       }
       *tme = (long)f;
-      return TRUE;
+      return true;
     }
   }
 
   *tme = def;
-  return TRUE;
+  return true;
 }
 
 
@@ -166,7 +166,7 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
   statstruct sbuf;
 
   if ( !PL_get_file_name(spec, &name, 0) )
-    return FALSE;
+    return false;
 
   if ( statfunc(name, &sbuf) )
     return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "stat", "file", spec);
@@ -182,10 +182,10 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
 
     if ( !get_time_option(new, FUNCTOR_access1,
 			  sbuf.st_atime, &tbuf.actime) )
-      return FALSE;
+      return false;
     if ( !get_time_option(new, FUNCTOR_modified1,
 			  sbuf.st_mtime, &tbuf.modtime) )
-      return FALSE;
+      return false;
 
     if ( utimefunc(name, &tbuf) != 0 )
       return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "set_time", "file", spec);
@@ -201,13 +201,13 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
 
     if ( !get_time_option(new, FUNCTOR_access1,
                           sbuf.st_atime, &tmp) )
-       return FALSE;
+       return false;
     ll = Int32x32To64(tmp, 10000000) + 116444736000000000LL;
     atime.dwLowDateTime = (DWORD)ll;
     atime.dwHighDateTime = ll >> 32;
     if ( !get_time_option(new, FUNCTOR_modified1,
                           sbuf.st_mtime, &tmp) )
-       return FALSE;
+       return false;
     ll = Int32x32To64(tmp, 10000000) + 116444736000000000;
     mtime.dwLowDateTime = (DWORD)ll;
     mtime.dwHighDateTime = ll >> 32;
@@ -225,14 +225,14 @@ pl_set_time_file(term_t spec, term_t old, term_t new)
                      &atime,
                      &mtime);
     CloseHandle(hFile);
-    if (rc == FALSE)
-       return FALSE;
+    if (rc == false)
+       return false;
   }
 #else
     return pl_error(NULL, 0, NULL, ERR_NOTIMPLEMENTED, "set_time", name);
 #endif
 
-  return TRUE;
+  return true;
 }
 
 
@@ -242,7 +242,7 @@ pl_file_mode(term_t spec, term_t mode)
   statstruct sbuf;
 
   if ( !PL_get_file_name(spec, &name, 0) )
-    return FALSE;
+    return false;
 
   if ( statfunc(name, &sbuf) )
     return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "stat", "file", spec);
@@ -259,7 +259,7 @@ pl_chmod(term_t spec, term_t mode)
 
   if ( !PL_get_file_name(spec, &name, 0) ||
        !PL_get_integer_ex(mode, &imode) )
-    return FALSE;
+    return false;
 
 #ifdef __WINDOWS__
   if ( _wchmod(name, imode) != 0 )
@@ -268,7 +268,7 @@ pl_chmod(term_t spec, term_t mode)
 #endif
     return pl_error(NULL, 0, NULL, ERR_ERRNO, errno, "chmod", "file", mode);
 
-  return TRUE;
+  return true;
 }
 #endif
 
@@ -283,7 +283,7 @@ pl_link_file(term_t from, term_t to, term_t how)
 
   if ( !PL_get_file_name(from, &fname, PL_FILE_OSPATH) ||
        !PL_get_file_name(to,   &tname, PL_FILE_OSPATH) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_atom(how, &hname) )
     return PL_type_error("atom", how);
@@ -295,14 +295,14 @@ pl_link_file(term_t from, term_t to, term_t how)
       return win_error("CreateHardLink");
   } else if ( hname == ATOM_symbolic )
   { static int (*symlink)(wchar_t *new, wchar_t *existing, DWORD flags);
-    static int fetched = FALSE;
+    static int fetched = false;
 
     if ( !fetched )
     { HMODULE hmod = GetModuleHandle("kernel32.dll");
       void *addr = GetProcAddress(hmod, "CreateSymbolicLink");
 
       symlink = addr;
-      fetched = TRUE;
+      fetched = true;
     }
 
     if ( !symlink )
@@ -326,7 +326,7 @@ pl_link_file(term_t from, term_t to, term_t how)
 
 #endif /*__WINDOWS__*/
 
-  return TRUE;
+  return true;
 }
 
 

@@ -120,7 +120,7 @@ pl_rlimit(term_t what, term_t old, term_t new)
 	  if ( setrlimit(resource, &rlim) != 0 )
 	    return pl_error("rlimit", 3, NULL, ERR_ERRNO, errno, "set", "resource_limit", what);
 	}
-	return TRUE;
+	return true;
       } else if ( PL_get_atom_chars(new, &s) && strcmp(s, "unlimited") == 0 )
       { n = RLIM_INFINITY;
 	goto set;
@@ -128,7 +128,7 @@ pl_rlimit(term_t what, term_t old, term_t new)
 	return pl_error("rlimit", 3, NULL, ERR_TYPE,
 			new, "integer_or_unlimited");
     } else
-      return FALSE;
+      return false;
   } else
     return pl_error("rlimit", 3, NULL, ERR_ERRNO, errno, "get",  "resource_limit", what);
 }

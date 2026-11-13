@@ -100,13 +100,13 @@ sha_options(term_t options, optval *result)
 
   if ( !PL_scan_options(options, 0, "sha_option", sha_option_specs,
 			&algorithm, &encoding) )
-    return FALSE;
+    return false;
 
   if ( algorithm )
   { result->algorithm_term = algorithm;
 
     if ( !PL_get_atom_ex(algorithm, &a) )
-      return FALSE;
+      return false;
     if ( a == ATOM_sha1 )
     { result->algorithm   = ALGORITHM_SHA1;
       result->digest_size = SHA1_DIGEST_SIZE;
@@ -128,7 +128,7 @@ sha_options(term_t options, optval *result)
 
   if ( encoding )
   { if ( !PL_get_atom_ex(encoding, &a) )
-      return FALSE;
+      return false;
     if ( a == ATOM_utf8 )
       result->encoding = REP_UTF8;
     else if ( a == ATOM_octet )
@@ -137,7 +137,7 @@ sha_options(term_t options, optval *result)
       return PL_domain_error("encoding", encoding);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -151,11 +151,11 @@ pl_sha_hash(term_t from, term_t hash, term_t options)
   unsigned char hval[SHA2_MAX_DIGEST_SIZE];
 
   if ( !sha_options(options, &opts) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_nchars(from, &datalen, &data,
 		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|opts.encoding) )
-    return FALSE;
+    return false;
 
   if ( opts.algorithm == ALGORITHM_SHA1 )
   { sha1((unsigned char*)hval,
@@ -176,7 +176,7 @@ pl_sha_new_ctx(term_t ctx, term_t options)
 
   memset(&c, 0, sizeof(c));		/* do not export uninitialised data */
   if ( !sha_options(options, op) )
-    return FALSE;
+    return false;
 
   op->algorithm_term = 0;
   c.magic = CONTEXT_MAGIC;
@@ -216,17 +216,17 @@ valid_context(const struct context *c)
 { size_t dsize;
 
   if ( c->magic != CONTEXT_MAGIC )
-    return FALSE;
+    return false;
   if ( !(dsize=digest_size(c->opts.algorithm)) ||
        c->opts.digest_size != dsize )
-    return FALSE;
+    return false;
   if ( c->opts.encoding != REP_UTF8 && c->opts.encoding != REP_ISO_LATIN_1 )
-    return FALSE;
+    return false;
   if ( c->opts.algorithm != ALGORITHM_SHA1 &&
        c->context.sha2.sha2_len != dsize )
-    return FALSE;
+    return false;
 
-  return TRUE;
+  return true;
 }
 
 
@@ -241,7 +241,7 @@ pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
   { struct context *cp;
 
     if ( !PL_get_string_chars(old_ctx, (char **)&cp, &clen) )
-      return FALSE;
+      return false;
 
     if ( clen != sizeof (*cp) )
     { bad_context:
@@ -258,19 +258,19 @@ pl_sha_hash_ctx(term_t old_ctx, term_t from, term_t new_ctx, term_t hash)
   if ( !PL_get_nchars(
 	    from, &datalen, &data,
 	    CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|c.opts.encoding) )
-    return FALSE;
+    return false;
 
   if ( c.opts.algorithm == ALGORITHM_SHA1 )
   { sha1_ctx *c1p = &c.context.sha1;
     sha1_hash((unsigned char*)data, (unsigned long)datalen, c1p);
     if ( !PL_unify_string_nchars(new_ctx, sizeof(c), (char*)&c) )
-      return FALSE;
+      return false;
     sha1_end((unsigned char *)hval, c1p);
   } else
   { sha2_ctx *c1p = &c.context.sha2;
     sha2_hash((unsigned char*)data, (unsigned long)datalen, c1p);
     if ( !PL_unify_string_nchars(new_ctx, sizeof(c), (char*)&c) )
-      return FALSE;
+      return false;
     sha2_end((unsigned char *)hval, c1p);
   }
 
@@ -288,13 +288,13 @@ pl_hmac_sha(term_t key, term_t data, term_t mac, term_t options)
 
   if ( !PL_get_nchars(key, &keylen, &skey,
 		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION) )
-    return FALSE;
+    return false;
   if ( !PL_get_nchars(data, &datalen, &sdata,
 		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION) )
-    return FALSE;
+    return false;
 
   if ( !sha_options(options, &opts) )
-    return FALSE;
+    return false;
 
   switch(opts.algorithm)
   { case ALGORITHM_SHA1:

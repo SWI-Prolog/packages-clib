@@ -48,14 +48,14 @@ addNameInteger(term_t list, const char *name, intptr_t val)
 { term_t head = PL_new_term_ref();
 
   if ( !PL_unify_list(list, head, list) )
-    return FALSE;
+    return false;
   if ( !PL_unify_term(head, PL_FUNCTOR, FUNCTOR_equals2,
 		      PL_CHARS, name, PL_INTPTR, val) )
-    return FALSE;
+    return false;
 
   PL_reset_term_refs(head);
 
-  return TRUE;
+  return true;
 }
 
 

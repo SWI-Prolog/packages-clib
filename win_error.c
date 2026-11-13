@@ -64,5 +64,5 @@ win_error(const char *op)
 			   PL_VARIABLE) )
     return PL_raise_exception(ex);
 
-  return FALSE;
+  return false;
 }

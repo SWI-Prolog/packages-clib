@@ -61,13 +61,13 @@ md5_options(term_t options, optval *result)
 
   if ( !PL_scan_options(options, 0, "md5_option", md5_option_specs,
 			&encoding) )
-    return FALSE;
+    return false;
 
   if ( encoding )
   { atom_t a;
 
     if ( !PL_get_atom_ex(encoding, &a) )
-      return FALSE;
+      return false;
     if ( a == ATOM_utf8 )
       result->encoding = REP_UTF8;
     else if ( a == ATOM_octet )
@@ -76,7 +76,7 @@ md5_options(term_t options, optval *result)
       return PL_domain_error("encoding", encoding);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -105,11 +105,11 @@ md5_hash(term_t from, term_t md5, term_t options)
   md5_state_t state;
 
   if ( !md5_options(options, &opts) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_nchars(from, &datalen, &data,
 		      CVT_ATOM|CVT_STRING|CVT_LIST|CVT_EXCEPTION|opts.encoding) )
-    return FALSE;
+    return false;
 
   md5_init(&state);
   md5_append(&state, (const md5_byte_t *)data, datalen);

@@ -76,8 +76,8 @@ pl_getegid(term_t gid)
 { return PL_unify_integer(gid, getegid());
 }
 
-/* Deal with the result of a get*_r() call.  Returns TRUE to retry,
-   FALSE on error or -1 if we have a result.  On ERANGE, the buffer is
+/* Deal with the result of a get*_r() call.  Returns true to retry,
+   false on error or -1 if we have a result.  On ERANGE, the buffer is
    enlarged.
 */
 
@@ -89,7 +89,7 @@ retry_info(int rc, char **buf, size_t *size,
 { if ( rc == 0 )
     return -1;
   if ( rc == EINTR )
-    return PL_handle_signals() < 0 ? FALSE : TRUE;
+    return PL_handle_signals() < 0 ? false : true;
   if ( rc == ERANGE && *size < MAX_INFO_BUFSIZE )
   { char *nbuf = realloc(*buf, *size*2);
 
@@ -97,7 +97,7 @@ retry_info(int rc, char **buf, size_t *size,
       return PL_resource_error("memory");
     *buf = nbuf;
     *size *= 2;
-    return TRUE;
+    return true;
   }
 
   return error(rc, "info", type, obj);
@@ -120,12 +120,12 @@ pl_user_info(term_t user, term_t info)
   { do
     { rc = retry_info(getpwuid_r(uid, &pwd, buf, size, &pwdp),
 		      &buf, &size, "user", user);
-    } while(rc == TRUE);
+    } while(rc == true);
   } else if ( PL_get_chars(user, &name, CVT_ATOMIC|REP_MB) )
   { do
     { rc = retry_info(getpwnam_r(name, &pwd, buf, size, &pwdp),
 		      &buf, &size, "user", user);
-    } while(rc == TRUE);
+    } while(rc == true);
   } else
   { free(buf);
     return PL_type_error("user", user);
@@ -172,12 +172,12 @@ pl_group_info(term_t group, term_t info)
   { do
     { rc = retry_info(getgrgid_r(gid, &grp, buf, size, &pgrp),
 		      &buf, &size, "group", group);
-    } while(rc == TRUE);
+    } while(rc == true);
   } else if ( PL_get_chars(group, &name, CVT_ATOMIC|REP_MB) )
   { do
     { rc = retry_info(getgrnam_r(name, &grp, buf, size, &pgrp),
 		      &buf, &size, "group", group);
-    } while(rc == TRUE);
+    } while(rc == true);
   } else
   { free(buf);
     return PL_type_error("group", group);
@@ -187,11 +187,11 @@ pl_group_info(term_t group, term_t info)
   { if ( !pgrp )
     { rc = PL_existence_error("group", group);
     } else
-    { rc = TRUE;
+    { rc = true;
       for(memp=pgrp->gr_mem; *memp; memp++)
       { if ( !PL_unify_list(tail, head, tail) ||
 	     !PL_unify_chars(head, PL_ATOM|REP_MB, -1, *memp) )
-	{ rc = FALSE;
+	{ rc = false;
 	  break;
 	}
       }
@@ -217,10 +217,10 @@ pl_setuid(term_t uid)
 { int id;
 
   if ( !PL_get_integer_ex(uid, &id) )
-    return FALSE;
+    return false;
 
   if ( setuid(id) == 0 )
-    return TRUE;
+    return true;
 
   return error(errno, "setuid", "uid", uid);
 }
@@ -231,10 +231,10 @@ pl_setgid(term_t gid)
 { int id;
 
   if ( !PL_get_integer_ex(gid, &id) )
-    return FALSE;
+    return false;
 
   if ( setgid(id) == 0 )
-    return TRUE;
+    return true;
 
   return error(errno, "setgid", "gid", gid);
 }
@@ -245,10 +245,10 @@ pl_seteuid(term_t uid)
 { int id;
 
   if ( !PL_get_integer_ex(uid, &id) )
-    return FALSE;
+    return false;
 
   if ( seteuid(id) == 0 )
-    return TRUE;
+    return true;
 
   return error(errno, "seteuid", "uid", uid);
 }
@@ -259,10 +259,10 @@ pl_setegid(term_t gid)
 { int id;
 
   if ( !PL_get_integer_ex(gid, &id) )
-    return FALSE;
+    return false;
 
   if ( setegid(id) == 0 )
-    return TRUE;
+    return true;
 
   return error(errno, "setegid", "gid", gid);
 }
@@ -276,10 +276,10 @@ pl_initgroups(term_t user, term_t group)
 
   if ( !PL_get_integer_ex(group, &g) ||
        !PL_get_chars(user, &u, CVT_ATOMIC|REP_MB|CVT_EXCEPTION) )
-    return FALSE;
+    return false;
 
   if ( initgroups(u, g) == 0 )
-    return TRUE;
+    return true;
 
   return error(errno, "initgroups", "user", user);
 }
@@ -323,7 +323,7 @@ pl_getgroups(term_t Groups)
     for(i=0; i<rc; i++)
     { if ( !PL_unify_list(tail, head, tail) ||
 	   !PL_unify_integer(head, list[i]) )
-      { rc = FALSE;
+      { rc = false;
 	goto out;
       }
     }
@@ -368,7 +368,7 @@ pl_setgroups(term_t Groups)
       { if ( setgroups(i, list) < 0 )
 	  rc = error(errno, "setgroups", "", Groups);
 	else
-	  rc = TRUE;
+	  rc = true;
       }
     } else
       rc = PL_resource_error("memory");

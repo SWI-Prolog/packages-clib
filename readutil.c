@@ -64,12 +64,12 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
   IOSTREAM *s;
   term_t diff = PL_new_term_refs(2);
   term_t cl = diff;
-  int rc = FALSE;
+  int rc = false;
 
   if ( !PL_unify(codes, cl) )
-    return FALSE;
+    return false;
   if ( !PL_get_stream(stream, &s, SIO_INPUT) )
-    return FALSE;
+    return false;
 
   for(;;)
   { int	c = Sgetcode(s);
@@ -84,7 +84,7 @@ read_line_to_codes3(term_t stream, term_t codes, term_t tail)
       }
       if ( PL_unify_chars(cl, UCFLAGS, o-buf, buf) &&
            (tail == 0 || PL_unify_nil(tail)) )
-	rc = TRUE;
+	rc = true;
 
       goto out;
     }
@@ -139,19 +139,19 @@ read_stream_to_codes3(term_t stream, term_t codes, term_t tail)
   term_t cl = diff;
 
   if ( !PL_unify(codes, cl) )
-    return FALSE;
+    return false;
   if ( !PL_get_stream(stream, &s, SIO_INPUT) )
-    return FALSE;
+    return false;
 
   for(;;)
   { int	c = Sgetcode(s);
 
     if ( c == EOF )
     { if ( !PL_release_stream(s) )
-	return FALSE;			/* error */
+	return false;			/* error */
 
       if ( PL_exception(0) )
-	return FALSE;
+	return false;
 
       if ( tail )
       { return ( PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) &&
@@ -165,7 +165,7 @@ read_stream_to_codes3(term_t stream, term_t codes, term_t tail)
     { if ( !PL_unify_chars(diff, PL_DIFF_LIST|UCFLAGS, o-buf, buf) ||
 	   !PL_put_term(cl, diff+1) )
       { PL_release_stream(s);
-	return FALSE;
+	return false;
       }
       o = buf;
     }

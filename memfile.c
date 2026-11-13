@@ -126,7 +126,7 @@ release_memfile_symbol(atom_t symbol)
 { memfile *mf = PL_blob_data(symbol, NULL, NULL);
 
   destroy_memory_file(mf);
-  return TRUE;
+  return true;
 }
 
 static int
@@ -145,7 +145,7 @@ write_memfile_symbol(IOSTREAM *s, atom_t symbol, int flags)
 { memfile *mf = PL_blob_data(symbol, NULL, NULL);
 
   Sfprintf(s, "<memory_file>(%p)", mf);
-  return TRUE;
+  return true;
 }
 
 
@@ -163,12 +163,12 @@ static PL_blob_t memfile_blob =
 static int
 unify_memfile(term_t handle, memfile *mf)
 { if ( PL_unify_blob(handle, mf, sizeof(*mf), &memfile_blob) )
-    return TRUE;
+    return true;
 
   if ( !PL_is_variable(handle) )
     return PL_uninstantiation_error(handle);
 
-  return FALSE;					/* (resource) error */
+  return false;					/* (resource) error */
 }
 
 
@@ -186,12 +186,12 @@ get_memfile(term_t handle, memfile **mfp)
     if ( mf->symbol )
     { *mfp = mf;
 
-      return TRUE;
+      return true;
     }
 
     UNLOCK(mf);
     PL_permission_error("access", "freed_memory_file", handle);
-    return FALSE;
+    return false;
   }
 
   return PL_type_error("memory_file", handle),false;
@@ -238,10 +238,10 @@ new_memory_file(term_t handle)
 #endif
 
   if ( unify_memfile(handle, m) )
-    return TRUE;
+    return true;
 
   destroy_memory_file(m);
-  return FALSE;
+  return false;
 }
 
 
@@ -271,7 +271,7 @@ destroy_memory_file(memfile *m)
   m->magic = MEMFILE_CMAGIC;
   free(m);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -283,10 +283,10 @@ free_memory_file(term_t handle)
   { clean_memory_file(m);		/* close_memfile() needs m->symbol */
     m->symbol = 0;
     release_memfile(m);
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 		 /*******************************
@@ -575,7 +575,7 @@ get_encoding(term_t t, IOENC *enc)
       return PL_domain_error("encoding", t),false;
 
     *enc = encoding;
-    return TRUE;
+    return true;
   }
 
   return PL_type_error("encoding", t),false;
@@ -598,7 +598,7 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
     atom_t iom;
     IOSTREAM *fd;
     IOENC encoding;
-    int free_on_close = FALSE;
+    int free_on_close = false;
 
     if ( m->stream )
     { rc = alreadyOpen(handle, "open");
@@ -617,11 +617,11 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
 
       if ( !PL_scan_options(options, 0, "memory_file_option", mf_option_specs,
 			    &enc, &free_on_close) )
-      { rc = FALSE;
+      { rc = false;
 	goto out;
       }
       if ( enc && !get_encoding(enc, &encoding) )
-      { rc = FALSE;
+      { rc = false;
 	goto out;
       }
     }
@@ -683,7 +683,7 @@ open_memory_file4(term_t handle, term_t mode, term_t stream, term_t options)
   out:
     release_memfile(m);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -726,7 +726,7 @@ get_size_mf(memfile *m, IOENC encoding, size_t *sizep)
       }
       default:
 	assert(0);
-        return FALSE;
+        return false;
     }
 
     if ( encoding == m->encoding )
@@ -734,7 +734,7 @@ get_size_mf(memfile *m, IOENC encoding, size_t *sizep)
   }
 
   *sizep = size;
-  return TRUE;
+  return true;
 }
 
 
@@ -755,7 +755,7 @@ size_memory_file(term_t handle, term_t sizeh, term_t encoding)
 
     if ( encoding )
     { if ( !get_encoding(encoding, &size_enc) )
-      { rc = FALSE;
+      { rc = false;
 	goto out;
       }
     } else
@@ -767,7 +767,7 @@ size_memory_file(term_t handle, term_t sizeh, term_t encoding)
   out:
     release_memfile(m);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -808,7 +808,7 @@ utf8_position(term_t handle, term_t here, term_t size)
       goto out;
     }
     if ( !PL_unify_integer(size, m->end - m->gap_size) )
-    { rc = FALSE;
+    { rc = false;
       goto out;
     }
 
@@ -827,7 +827,7 @@ utf8_position(term_t handle, term_t here, term_t size)
   out:
     release_memfile(m);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -865,10 +865,10 @@ atom_to_memory_file(term_t atom, term_t handle)
 #endif
 
     if ( unify_memfile(handle, m) )
-    { return TRUE;
+    { return true;
     } else
     { destroy_memory_file(m);
-      return FALSE;
+      return false;
     }
   } else
   { return PL_type_error("atom", atom);
@@ -887,7 +887,7 @@ can_modify_memory_file(term_t handle, memfile *mf)
   if ( mf->stream )
     return alreadyOpen(handle, "modify");
 
-  return TRUE;
+  return true;
 }
 
 
@@ -907,8 +907,8 @@ utf8_skip_char(const char *in, const char *e)
    outside the limits of the memory file.  Returns:
 
      OUTOFRANGE if memfile is too small
-     FALSE      if the encoding is not supported
-     TRUE       if ok
+     false      if the encoding is not supported
+     true       if ok
 */
 
 #define OUTOFRANGE -1
@@ -951,7 +951,7 @@ mf_skip(memfile *mf, IOENC encoding, size_t from, size_t chars, size_t *end)
 	    mf->pcache.valid |= V_CHARCOUNT;
 	  }
 	  *end = from;
-	  return TRUE;
+	  return true;
 	}
 	assert(s == e);
       }
@@ -985,7 +985,7 @@ mf_skip(memfile *mf, IOENC encoding, size_t from, size_t chars, size_t *end)
   }
 
   *end = to;
-  return TRUE;
+  return true;
 }
 
 
@@ -1002,7 +1002,7 @@ get_offset(term_t where, memfile *mf, IOENC encoding, size_t *pos)
     return PL_domain_error("offset", where);
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1052,11 +1052,11 @@ insert_memory_file(term_t handle, term_t where, term_t data)
 	  rc = PL_representation_error("encoding");
       }
     } else
-      rc = FALSE;
+      rc = false;
 
     release_memfile(m);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -1074,7 +1074,7 @@ delete_memory_file(term_t handle, term_t where, term_t len)
     if ( can_modify_memory_file(handle, m) &&
 	 get_offset(where, m, m->encoding, &pos) &&
 	 PL_get_size_ex(len, &l) &&
-	 mf_skip(m, m->encoding, pos, l, &end) != FALSE )
+	 mf_skip(m, m->encoding, pos, l, &end) != false )
     { if ( end > pos )
       { if ( pos < m->pcache.byte_count )
 	  m->pcache.valid = 0;
@@ -1083,13 +1083,13 @@ delete_memory_file(term_t handle, term_t where, term_t len)
 	m->gap_size += end-pos;
 	m->char_count = NOSIZE;
       }
-      rc = TRUE;
+      rc = true;
     } else
-      rc = FALSE;
+      rc = false;
 
     release_memfile(m);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -1106,22 +1106,22 @@ mf_to_text(term_t handle, memfile *m, size_t from, size_t len,
 
   if ( encoding )
   { if ( !get_encoding(encoding, &enc) )
-      return FALSE;
+      return false;
   } else
     enc = m->encoding;
 
   if ( from == NOSIZE )
   { start = 0;
   } else
-  { if ( mf_skip(m, enc, 0, from, &start) != TRUE )
-      return FALSE;
+  { if ( mf_skip(m, enc, 0, from, &start) != true )
+      return false;
   }
 
   if ( len == NOSIZE )
   { end = m->end - m->gap_size;
   } else
-  { if ( mf_skip(m, enc, start, len, &end) != TRUE )
-      return FALSE;
+  { if ( mf_skip(m, enc, start, len, &end) != true )
+      return false;
   }
 
   if ( m->data )
@@ -1153,7 +1153,7 @@ mf_to_text(term_t handle, memfile *m, size_t from, size_t len,
   } else
     return PL_unify_chars(atom, flags, 0, "");
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1166,7 +1166,7 @@ memory_file_to_text(term_t handle, term_t text, term_t encoding, int flags)
   { rc = mf_to_text(handle, mf, NOSIZE, NOSIZE, text, encoding, flags);
     release_memfile(mf);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }
@@ -1212,7 +1212,7 @@ static int
 get_size_or_var(term_t t, size_t *sp)
 { if ( PL_is_variable(t) )
   { *sp = NOSIZE;
-    return TRUE;
+    return true;
   }
 
   return PL_get_size_ex(t, sp);
@@ -1246,7 +1246,7 @@ memory_file_substring(term_t handle,
       { rc = PL_instantiation_error(b != NOSIZE ? before : len);
       }
     } else
-      rc = FALSE;
+      rc = false;
 
     release_memfile(mf);
   }
@@ -1268,7 +1268,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
   if ( lines == 0 )
   { *startp = from;
     *chcountp = 0;
-    return TRUE;
+    return true;
   }
 
   if ( from < mf->gap_start )
@@ -1289,7 +1289,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
 	{ if ( --lines == 0 )
 	  { *startp   = from + (s-start);
 	    *chcountp = chcount + (s-start);
-	    return TRUE;
+	    return true;
 	  }
 	}
       }
@@ -1302,7 +1302,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
 	{ if ( --lines == 0 )
 	  { *startp   = from + (s-start) + 1;
 	    *chcountp = chcount;
-	    return TRUE;
+	    return true;
 	  }
 	}
 	s = utf8_skip_char(s, e);
@@ -1318,7 +1318,7 @@ skip_lines(memfile *mf, size_t from, size_t lines,
 	{ if ( --lines == 0 )
 	  { *startp   = from + (ws-wstart)*sizeof(wchar_t);
 	    *chcountp = chcount + (ws-wstart);
-	    return TRUE;
+	    return true;
 	  }
 	}
       }
@@ -1370,12 +1370,12 @@ memory_file_line_position(term_t handle,
 	}
 	l--;
 
-	if (     skip_lines(mf, 0,      l, &lstart, &chcount)  == TRUE &&
-	     (rc=skip_lines(mf, lstart, 1, &nstart, &linelen)) != FALSE &&
+	if (     skip_lines(mf, 0,      l, &lstart, &chcount)  == true &&
+	     (rc=skip_lines(mf, lstart, 1, &nstart, &linelen)) != false &&
 	     (lp < linelen || (lp == linelen && rc == OUTOFRANGE)) )
 	  rc = PL_unify_int64(offset, chcount+lp);
 	else
-	  rc = FALSE;
+	  rc = false;
       } else if ( o != NOSIZE )
       { size_t chcount = 0;
 	size_t lstart = 0;
@@ -1384,7 +1384,7 @@ memory_file_line_position(term_t handle,
 	do
 	{ size_t linelen;
 
-	  if ( (rc=skip_lines(mf, lstart, 1, &lstart, &linelen)) != FALSE )
+	  if ( (rc=skip_lines(mf, lstart, 1, &lstart, &linelen)) != false )
 	  { if (  chcount + linelen > o ||
 		 (chcount + linelen == o && rc == OUTOFRANGE)
 	       )
@@ -1395,19 +1395,19 @@ memory_file_line_position(term_t handle,
 	  }
 	  line_count++;
 	  chcount += linelen;
-	} while(chcount < o && rc == TRUE);
+	} while(chcount < o && rc == true);
 
-	rc = FALSE;
+	rc = false;
       } else
       { rc = PL_instantiation_error(offset);
       }
     } else
-      rc = FALSE;
+      rc = false;
 
   out:
     release_memfile(mf);
   } else
-    rc = FALSE;
+    rc = false;
 
   return rc;
 }

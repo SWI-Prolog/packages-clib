@@ -138,7 +138,7 @@ release_socket_symbol(atom_t symbol)
   nbio_closesocket(s);			/* no-op if already done */
   freeSocket(s);
 
-  return TRUE;
+  return true;
 }
 
 static int
@@ -157,7 +157,7 @@ write_socket_symbol(IOSTREAM *s, atom_t symbol, int flags)
 { nbio_sock_t sock = *(nbio_sock_t*)PL_blob_data(symbol, NULL, NULL);
 
   Sfprintf(s, "<socket>(%p)", sock);
-  return TRUE;
+  return true;
 }
 
 
@@ -175,12 +175,12 @@ static PL_blob_t socket_blob =
 static int
 tcp_unify_socket(term_t handle, nbio_sock_t socket)
 { if ( PL_unify_blob(handle, &socket, sizeof(socket), &socket_blob) )
-    return TRUE;
+    return true;
 
   if ( !PL_is_variable(handle) )
     return PL_uninstantiation_error(handle);
 
-  return FALSE;					/* (resource) error */
+  return false;					/* (resource) error */
 }
 
 
@@ -225,7 +225,7 @@ put_socket_domain(term_t t, int domain)
   { case AF_INET:  return PL_put_atom(t, ATOM_inet);
     case AF_INET6: return PL_put_atom(t, ATOM_inet6);
     default:
-      return FALSE;
+      return false;
   }
 }
 
@@ -235,7 +235,7 @@ put_socket_type(term_t t, int type)
   { case SOCK_STREAM: return PL_put_atom(t, ATOM_stream);
     case SOCK_DGRAM:  return PL_put_atom(t, ATOM_dgram);
     default:
-      return FALSE;
+      return false;
   }
 }
 
@@ -247,11 +247,11 @@ pl_host_address(term_t Host, term_t Ip, term_t options)
   char *host_name;
   atom_t a_domain = 0;
   atom_t a_type   = 0;
-  int    cname    = FALSE;
+  int    cname    = false;
 
   if ( !PL_scan_options(options, 0, "socket_options", host_address_options,
                         &a_domain, &a_type, &cname) )
-    return FALSE;
+    return false;
 
   if ( PL_get_chars(Host, &host_name, CVT_ATOM|CVT_STRING|CVT_LIST) )
   { struct addrinfo hints;
@@ -311,7 +311,7 @@ pl_host_address(term_t Host, term_t Ip, term_t options)
 	    continue;
 	out_fail:
 	  freeaddrinfo(res);
-	  return FALSE;
+	  return false;
 	}
 	if ( res->ai_canonname )
 	{ if ( !PL_put_chars(values+0, PL_ATOM|REP_MB,
@@ -342,7 +342,7 @@ pl_host_address(term_t Host, term_t Ip, term_t options)
       return nbio_error(GET_H_ERRNO, TCP_HERRNO);
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -359,14 +359,14 @@ pl_setopt(term_t Socket, term_t opt)
   size_t arity;
 
   if ( !tcp_get_socket(Socket, &socket) )
-    return FALSE;
+    return false;
 
   if ( PL_get_name_arity(opt, &a, &arity) )
   { if ( a == ATOM_reuseaddr && arity == 0 )
-    { if ( nbio_setopt(socket, TCP_REUSEADDR, TRUE) == 0 )
-	return TRUE;
+    { if ( nbio_setopt(socket, TCP_REUSEADDR, true) == 0 )
+	return true;
 
-      return FALSE;
+      return false;
     } else if ( a == ATOM_bindtodevice && arity == 1)
     { term_t a = PL_new_term_ref();
       char *dev;
@@ -374,19 +374,19 @@ pl_setopt(term_t Socket, term_t opt)
 
       _PL_get_arg(1, opt, a);
       if ( !PL_get_chars(a, &dev, CVT_ATOM|CVT_EXCEPTION) )
-	return FALSE;
+	return false;
 
       if ( (rc=nbio_setopt(socket, SCK_BINDTODEVICE, dev)) == 0 )
-	return TRUE;
+	return true;
       if ( rc == -2 )
 	goto not_implemented;
 
-      return FALSE;
+      return false;
     } else if ( a == ATOM_nodelay && arity <= 1 )
     { int enable, rc;
 
       if ( arity == 0 )
-      { enable = TRUE;
+      { enable = true;
       } else /*if ( arity == 1 )*/
       { term_t a = PL_new_term_ref();
 
@@ -396,29 +396,29 @@ pl_setopt(term_t Socket, term_t opt)
       }
 
       if ( (rc=nbio_setopt(socket, TCP_NO_DELAY, enable)) == 0 )
-	return TRUE;
+	return true;
       if ( rc == -2 )
 	goto not_implemented;
 
-      return FALSE;
+      return false;
     } else if ( a == ATOM_broadcast && arity == 0 )
-    { if ( nbio_setopt(socket, UDP_BROADCAST, TRUE) == 0 )
-	return TRUE;
+    { if ( nbio_setopt(socket, UDP_BROADCAST, true) == 0 )
+	return true;
 
-      return FALSE;
+      return false;
     } else if ( a == ATOM_dispatch && arity == 1 )
     { int val;
       term_t a1 = PL_new_term_ref();
 
       if ( PL_get_arg(1, opt, a1) && PL_get_bool(a1, &val) )
       { if ( nbio_setopt(socket, TCP_DISPATCH, val) == 0 )
-	  return TRUE;
-	return FALSE;
+	  return true;
+	return false;
       }
     } else if ( a == ATOM_nonblock && arity == 0 )
     { if ( nbio_setopt(socket, TCP_NONBLOCK) == 0 )
-	return TRUE;
-      return FALSE;
+	return true;
+      return false;
 #ifdef IP_ADD_MEMBERSHIP
     } else if ( (a == ATOM_ip_add_membership || a == ATOM_ip_drop_membership)
 		&& arity >= 1 )
@@ -435,11 +435,11 @@ pl_setopt(term_t Socket, term_t opt)
 
       _PL_get_arg(1, opt, arg);
       memset(&mreq, 0, sizeof(mreq));
-      if ( !nbio_get_ip4(arg, &mreq.imr_multiaddr, TRUE) )
+      if ( !nbio_get_ip4(arg, &mreq.imr_multiaddr, true) )
 	return PL_domain_error("ip", arg);
       if ( arity >= 2 )
       { _PL_get_arg(2, opt, arg);
-	if ( !nbio_get_ip4(arg, &mreq.imr_address, TRUE) )
+	if ( !nbio_get_ip4(arg, &mreq.imr_address, true) )
 	  return PL_domain_error("ip", arg);
       } else
 	mreq.imr_address.s_addr = htonl(INADDR_ANY);
@@ -447,7 +447,7 @@ pl_setopt(term_t Socket, term_t opt)
       if ( arity == 3 )
       { _PL_get_arg(3, opt, arg);
 	if ( !PL_get_integer(arg, &mreq.imr_ifindex) )
-	  return FALSE;
+	  return false;
       }
 #endif
       if ( arity > 3 )
@@ -457,7 +457,7 @@ pl_setopt(term_t Socket, term_t opt)
 		      (void*)&mreq, sizeof(mreq)) < 0 )
 	return nbio_error(GET_ERRNO, TCP_ERRNO);
       else
-	return TRUE;
+	return true;
 #endif
     } else if ( a == ATOM_sndbuf && arity == 1 )
     { int bufsize;
@@ -467,11 +467,11 @@ pl_setopt(term_t Socket, term_t opt)
       if ( !PL_get_integer(a, &bufsize) )
 	return PL_domain_error("integer", a);
       if ( (rc=nbio_setopt(socket, TCP_SNDBUF, bufsize)) == 0 )
-	return TRUE;
+	return true;
       if ( rc == -2 )
 	goto not_implemented;
 
-      return FALSE;
+      return false;
     }
   }
 
@@ -487,7 +487,7 @@ pl_getopt(term_t Socket, term_t opt)
   size_t arity;
 
   if ( !tcp_get_socket(Socket, &socket) )
-    return FALSE;
+    return false;
 
   if ( PL_get_name_arity(opt, &a, &arity) && arity >= 1 )
   { term_t a1 = PL_new_term_ref();
@@ -498,7 +498,7 @@ pl_getopt(term_t Socket, term_t opt)
 
       if ( s != -1 )
 	return PL_unify_integer(a1, s);
-      return FALSE;
+      return false;
     }
   }
 
@@ -548,14 +548,14 @@ unify_address(term_t t, struct sockaddr_storage *addr)
     { struct sockaddr_in *addr4 = (struct sockaddr_in*)addr;
       if ( !nbio_unify_ip4(av+0, ntohl(addr4->sin_addr.s_addr)) ||
 	   !PL_unify_integer(av+1, ntohs(addr4->sin_port)) )
-	return FALSE;
+	return false;
       break;
     }
     case AF_INET6:
     { struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)addr;
       if ( !nbio_unify_addr(av+0, (struct sockaddr*)addr) ||
 	   !PL_unify_integer(av+1, ntohs(addr6->sin6_port)) )
-	return FALSE;
+	return false;
       break;
     }
     default:
@@ -578,7 +578,7 @@ get_representation(term_t arg, int *rp)
   int rep;
 
   if ( !PL_get_atom_ex(arg, &a) )
-    return FALSE;
+    return false;
 
   switch((enc=PL_atom_to_encoding(a)))
   { case ENC_OCTET:
@@ -590,7 +590,7 @@ get_representation(term_t arg, int *rp)
   }
 
   *rp = rep;
-  return TRUE;
+  return true;
 }
 
 static int
@@ -599,7 +599,7 @@ get_as(term_t arg, int *asp)
   int as;
 
   if ( !PL_get_atom_ex(arg, &a) )
-    return FALSE;
+    return false;
   if ( a == ATOM_atom )
     as = PL_ATOM;
   else if ( a == ATOM_codes )
@@ -612,7 +612,7 @@ get_as(term_t arg, int *asp)
     return PL_domain_error("as", arg);
 
   *asp = as;
-  return TRUE;
+  return true;
 }
 
 
@@ -651,21 +651,21 @@ udp_receive(term_t Socket, term_t Data, term_t From, term_t options)
 
     if ( !PL_scan_options(options, 0, "udp_option", udp_receive_options,
 			  &as_opt, &mms_opt, &enc_opt) )
-      return FALSE;
+      return false;
     if ( as_opt && !get_as(as_opt, &as) )
-      return FALSE;
+      return false;
     if ( enc_opt && !get_representation(enc_opt, &rep) )
-      return FALSE;
+      return false;
     if ( mms_opt )
     { if ( !PL_get_integer_ex(mms_opt, &bufsize) )
-	return FALSE;
+	return false;
       if ( bufsize < 0 || bufsize > UDP_MAXDATA )
 	return PL_domain_error("0 - 65535", mms_opt);
     }
   }
 
   if ( !tcp_get_socket(Socket, &socket) )
-    return FALSE;
+    return false;
 
   if ( bufsize > UDP_DEFAULT_BUFSIZE )
   { if ( !(buf = malloc(bufsize)) )
@@ -714,11 +714,11 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 
     if ( !PL_scan_options(options, 0, "udp_option", udp_send_options,
 			  &as_opt, &enc_opt) )
-      return FALSE;
+      return false;
     if ( as_opt && !get_as(as_opt, &as) )
-      return FALSE;
+      return false;
     if ( enc_opt && !get_representation(enc_opt, &rep) )
-      return FALSE;
+      return false;
   }
 
   switch(as)
@@ -727,15 +727,15 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
     case PL_STRING:
     case PL_CODE_LIST: cvt = CVT_STRING|CVT_LIST; break;
     case PL_TERM:      cvt = CVT_WRITE_CANONICAL; break;
-    default:	       assert(0);                 return FALSE;
+    default:	       assert(0);                 return false;
   }
 
   if ( !PL_get_nchars(Data, &dlen, &data, cvt|CVT_EXCEPTION|rep) )
-    return FALSE;
+    return false;
 
   if ( !tcp_get_socket(Socket, &socket) ||
        !nbio_get_sockaddr(socket, To, &sockaddr, NULL) )
-    return FALSE;
+    return false;
 
   if ( (n=nbio_sendto(socket, data,
 		      (int)dlen,
@@ -744,7 +744,7 @@ udp_send(term_t Socket, term_t Data, term_t To, term_t options)
 		      sizeof_sockaddr(&sockaddr))) == -1 )
     return nbio_error(GET_ERRNO, TCP_ERRNO);;
 
-  return TRUE;
+  return true;
 }
 
 		 /*******************************
@@ -778,7 +778,7 @@ socket_create(term_t socket, term_t options)
 
   if ( !PL_scan_options(options, 0, "socket_options", socket_options,
                         &a_domain, &a_type) )
-    return FALSE;
+    return false;
 
   if ( a_domain == ATOM_inet )
     domain = AF_INET;
@@ -799,7 +799,7 @@ socket_create(term_t socket, term_t options)
     return atom_domain_error("socket_type", a_type);
 
   if ( !(sock = nbio_socket(domain, type, 0)) )
-    return FALSE;
+    return false;
 
   return tcp_unify_socket(socket, sock);
 }
@@ -809,7 +809,7 @@ create_socket(int domain, int type, term_t socket)
 { nbio_sock_t sock;
 
   if ( !(sock = nbio_socket(domain, type, 0)) )
-    return FALSE;
+    return false;
 
   return tcp_unify_socket(socket, sock);
 }
@@ -898,19 +898,19 @@ pl_connect(term_t Socket, term_t Address)
   int rc;
 
   if ( !tcp_get_socket(Socket, &sock) )
-    return FALSE;
+    return false;
 
   if ( (rc=af_unix_connect(sock, Address)) != -1 )
     return rc;
 
   if ( !nbio_get_sockaddr(sock, Address, &sockaddr, NULL) )
-    return FALSE;
+    return false;
 
   if ( nbio_connect(sock, (struct sockaddr*)&sockaddr,
 		    sizeof_sockaddr(&sockaddr)) == 0 )
-    return TRUE;
+    return true;
 
-  return FALSE;
+  return false;
 }
 
 
@@ -920,7 +920,7 @@ pl_bind(term_t Socket, term_t Address)
   int rc;
 
   if ( !tcp_get_socket(Socket, &socket) )
-    return FALSE;
+    return false;
 
   if ( (rc=af_unix_bind(socket, Address)) != -1 )
   { return rc;
@@ -930,11 +930,11 @@ pl_bind(term_t Socket, term_t Address)
 
     memset(&sockaddr, 0, sizeof(sockaddr));
     if ( !nbio_get_sockaddr(socket, Address, &sockaddr, &varport) )
-      return FALSE;
+      return false;
 
     if ( nbio_bind(socket, (struct sockaddr*)&sockaddr,
 		   sizeof_sockaddr(&sockaddr)) < 0 )
-      return FALSE;
+      return false;
 
     if ( varport )
     { SOCKET fd = nbio_fd(socket);
@@ -950,7 +950,7 @@ pl_bind(term_t Socket, term_t Address)
       return PL_unify_integer(varport, ntohs(addr.sin_port));
     }
 
-    return TRUE;
+    return true;
   }
 }
 
@@ -960,7 +960,7 @@ pl_accept(term_t Master, term_t Slave, term_t Peer)
 { nbio_sock_t master, slave;
 
   if ( !tcp_get_socket(Master, &master) )
-    return FALSE;
+    return false;
 
 #ifdef AF_UNIX
   if ( nbio_domain(master) == AF_UNIX )
@@ -968,26 +968,26 @@ pl_accept(term_t Master, term_t Slave, term_t Peer)
     socklen_t addrlen = sizeof(addr);
 
     if ( !PL_unify_atom(Peer, ATOM_af_unix) )
-      return FALSE;
+      return false;
     if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
-      return FALSE;
+      return false;
   } else
 #endif
   { struct sockaddr_storage addr;
     socklen_t addrlen = sizeof(addr);
 
     if ( !(slave = nbio_accept(master, (struct sockaddr*)&addr, &addrlen)) )
-      return FALSE;
+      return false;
     if ( !nbio_unify_addr(Peer, (struct sockaddr*)&addr) )
       goto failure;
   }
 
   if ( tcp_unify_socket(Slave, slave) )
-    return TRUE;
+    return true;
 
 failure:
   nbio_closesocket(slave);
-  return FALSE;
+  return false;
 }
 
 
@@ -1028,10 +1028,10 @@ pl_debug(term_t val)
 
   if ( PL_get_integer(val, &dbg) )
   { nbio_debug(dbg);
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 #endif
 

@@ -265,7 +265,7 @@ add_ecbuf(ecbuf *b, echar *data, size_t len)
   memcpy(b->buffer+b->size, data, len*sizeof(echar));
   b->size += len;
 
-  return TRUE;
+  return true;
 }
 
 		 /*******************************
@@ -281,7 +281,7 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
 { const echar *s, *e;
 
   if ( !PL_get_arg(i, from, arg) )
-    return FALSE;
+    return false;
 
 #ifdef __WINDOWS__
   if ( !PL_get_wchars(arg, lenp, sp,
@@ -290,14 +290,14 @@ get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
   if ( !PL_get_nchars(arg, lenp, sp,
 		      CVT_ATOMIC|CVT_EXCEPTION|REP_FN) )
 #endif
-    return FALSE;
+    return false;
 
   for(s = *sp, e = s+*lenp; s<e; s++)
   { if ( !*s )
       return PL_domain_error("text_non_zero_code", arg);
   }
 
-  return TRUE;
+  return true;
 }
 
 #ifdef __WINDOWS__
@@ -314,10 +314,10 @@ already_in_env(const echar *env, int count, const echar *e)
     for(s=env, q=e; *s && *q && *s == *q && *s != '=' && *q != '='; s++,q++)
       ;
     if (*s == *q && *s == '=' )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 static int
@@ -344,11 +344,11 @@ parse_environment(term_t t, p_options *info, int pass)
       return PL_type_error("environment_variable", head);
 
     if ( !get_echars_arg_ex(1, head, tmp, &s, &len) )
-      return FALSE;
+      return false;
     add_ecbuf(eb, s, len);
     add_ecbuf(eb, ECHARS("="), 1);
     if ( !get_echars_arg_ex(2, head, tmp, &s, &len) )
-      return FALSE;
+      return false;
     add_ecbuf(eb, s, len);
     add_ecbuf(eb, ECHARS("\0"), 1);
 
@@ -356,10 +356,10 @@ parse_environment(term_t t, p_options *info, int pass)
   }
 
   if ( !PL_get_nil_ex(tail) )
-    return FALSE;
+    return false;
 
   if ( pass && count == 0 )
-    return TRUE;			/* environment([]) is a no-op */
+    return true;			/* environment([]) is a no-op */
 
   if ( pass )
   {
@@ -412,7 +412,7 @@ parse_environment(term_t t, p_options *info, int pass)
   *ep = NULL;
 #endif
 
-  return TRUE;
+  return true;
 }
 
 
@@ -428,10 +428,10 @@ get_type(term_t head, IOENC *enc)
     else
       return PL_domain_error("stream_type", head);
 
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 /* TBD: provide a public API for translating encoding names to
@@ -447,13 +447,13 @@ get_encoding(term_t head, IOENC *enc)
 
     if ( (e=PL_atom_to_encoding(a)) != ENC_UNKNOWN )
     { *enc = e;
-      return TRUE;
+      return true;
     }
 
     return PL_domain_error("encoding", head);
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -464,10 +464,10 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
   if ( PL_get_atom(t, &a) )
   { if ( a == ATOM_null )
     { stream->type = std_null;
-      return TRUE;
+      return true;
     } else if ( a == ATOM_std )
     { stream->type = std_std;
-      return TRUE;
+      return true;
     } else
     { return PL_domain_error("process_stream", t);
     }
@@ -493,27 +493,27 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
       { if ( PL_is_functor(head, FUNCTOR_type1) )
 	{ _PL_get_arg(1, head, head);
 	  if ( !get_type(head, &stream->encoding) )
-	    return FALSE;
+	    return false;
 	} else if ( PL_is_functor(head, FUNCTOR_encoding1) )
 	{ _PL_get_arg(1, head, head);
 	  if ( !get_encoding(head, &stream->encoding) )
-	    return FALSE;
+	    return false;
 	} else
 	  return PL_domain_error("pipe_option", head);
       }
       if ( !PL_get_nil_ex(tail) )
-	return FALSE;
+	return false;
     }
     stream->type = std_pipe;
     info->pipes++;
-    return TRUE;
+    return true;
   } else if ( PL_is_functor(t, FUNCTOR_stream1) )
   { IOSTREAM *s;
     stream->term = PL_new_term_ref();
     _PL_get_arg(1, t, stream->term);
     if ( !PL_get_stream(stream->term, &s,
 			name == ATOM_stdin ? SIO_INPUT : SIO_OUTPUT) )
-      return FALSE;
+      return false;
     stream->type = std_stream;
 
 #ifdef __WINDOWS__
@@ -530,7 +530,7 @@ get_stream(term_t t, p_options *info, p_stream *stream, atom_t name)
       return PL_domain_error("file_stream", stream->term);
 #endif
 
-    return TRUE;
+    return true;
   } else
     return PL_type_error("process_stream", t);
 }
@@ -562,14 +562,14 @@ parse_options(term_t options, p_options *info)
 			&stdin_t, &stdout_t, &stderr_t, &process_t,
 			&info->detached, &cwd_t, &info->window, &env_t,
 			&environment_t, &info->priority) )
-    return FALSE;
+    return false;
 
   if ( stdin_t && !get_stream(stdin_t, info, &info->streams[0], ATOM_stdin) )
-    return FALSE;
+    return false;
   if ( stdout_t && !get_stream(stdout_t, info, &info->streams[1], ATOM_stdout) )
-    return FALSE;
+    return false;
   if ( stderr_t && !get_stream(stderr_t, info, &info->streams[2], ATOM_stderr) )
-    return FALSE;
+    return false;
   if ( process_t )
     info->pid = PL_copy_term_ref(process_t);
   if ( cwd_t )
@@ -577,16 +577,16 @@ parse_options(term_t options, p_options *info)
 #ifdef __WINDOWS__
     if ( !PL_get_wchars(cwd_t, NULL, &info->cwd,
 		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC) )
-      return FALSE;
+      return false;
 #else
     if ( !get_c_string(cwd_t, &info->cwd, CVT_ATOM|CVT_STRING|BUF_MALLOC|REP_FN) )
-      return FALSE;
+      return false;
 #endif
   }
-  if ( env_t && !parse_environment(env_t, info, FALSE) )
-    return FALSE;
-  if ( environment_t && !parse_environment(environment_t, info, TRUE) )
-    return FALSE;
+  if ( env_t && !parse_environment(env_t, info, false) )
+    return false;
+  if ( environment_t && !parse_environment(environment_t, info, true) )
+    return false;
   if ( info->priority != 255 &&
        (info->priority < -20 || info->priority > 19) )
   { term_t t;
@@ -596,7 +596,7 @@ parse_options(term_t options, p_options *info)
 	     PL_domain_error("priority_option", t) );
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -610,11 +610,11 @@ get_c_string(term_t t, char **s, int flags)
 { size_t len;
 
   if ( !PL_get_nchars(t, &len, s, flags|CVT_EXCEPTION) )
-    return FALSE;
+    return false;
   if ( strlen(*s) != len )
     return PL_domain_error("text_non_zero_code", t);
 
-  return TRUE;
+  return true;
 }
 #endif
 
@@ -630,12 +630,12 @@ get_exe(term_t exe, p_options *info)
 
 #ifdef __WINDOWS__
   if ( !PL_get_wchars(arg, NULL, &info->exe, CVT_ATOM|CVT_EXCEPTION|BUF_MALLOC) )
-    return FALSE;
+    return false;
   if ( !win_command_line(exe, arity, info->exe, &info->cmdline) )
-    return FALSE;
+    return false;
 #else /*__WINDOWS__*/
   if ( !get_c_string(arg, &info->exe, CVT_ATOM|BUF_MALLOC|REP_FN) )
-    return FALSE;
+    return false;
 
   if ( !(info->argv = PL_malloc((arity+2)*sizeof(char*))) )
     return PL_resource_error("memory");
@@ -650,13 +650,13 @@ get_exe(term_t exe, p_options *info)
     { _PL_get_arg(i, exe, arg);
 
       if ( !get_c_string(arg, &info->argv[i], CVT_ATOMIC|BUF_MALLOC|REP_FN) )
-	return FALSE;
+	return false;
     }
     info->argv[i] = NULL;
   }
 #endif /*__WINDOWS__*/
 
-  return TRUE;
+  return true;
 }
 
 
@@ -905,22 +905,22 @@ wbuf_add(wbuf *b, wchar_t c)
     wchar_t *n = PL_realloc(b->base, nsize*sizeof(wchar_t));
 
     if ( !n )
-      return FALSE;
+      return false;
     b->base = n;
     b->size = nsize;
   }
   b->base[b->len++] = c;
   b->base[b->len] = 0;
-  return TRUE;
+  return true;
 }
 
 static int
 wbuf_add_n(wbuf *b, wchar_t c, size_t n)
 { while(n-- > 0)
   { if ( !wbuf_add(b, c) )
-      return FALSE;
+      return false;
   }
-  return TRUE;
+  return true;
 }
 
 static int
@@ -941,21 +941,21 @@ add_quoted_arg(wbuf *b, const wchar_t *s, size_t len, int batch)
   { wchar_t c = s[i];
 
     if ( c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '"' )
-      needq = TRUE;
+      needq = true;
     else if ( batch && wcschr(L"&|<>^()", c) )
-      needq = TRUE;
+      needq = true;
   }
 
   if ( !needq )
   { for(i=0; i<len; i++)
     { if ( !wbuf_add(b, s[i]) )
-	return FALSE;
+	return false;
     }
-    return TRUE;
+    return true;
   }
 
   if ( !wbuf_add(b, '"') )
-    return FALSE;
+    return false;
   for(i=0; i<len; )
   { size_t bs = 0;
 
@@ -965,17 +965,17 @@ add_quoted_arg(wbuf *b, const wchar_t *s, size_t len, int batch)
     }
     if ( i == len )			/* backslashes before closing quote */
     { if ( !wbuf_add_n(b, '\\', bs*2) )
-	return FALSE;
+	return false;
       break;
     } else if ( s[i] == '"' )		/* backslashes before a quote */
     { if ( !wbuf_add_n(b, '\\', bs*2+1) ||
 	   !wbuf_add(b, '"') )
-	return FALSE;
+	return false;
       i++;
     } else
     { if ( !wbuf_add_n(b, '\\', bs) ||
 	   !wbuf_add(b, s[i]) )
-	return FALSE;
+	return false;
       i++;
     }
   }
@@ -991,9 +991,9 @@ batch_safe_arg(const wchar_t *s, size_t len)
 
   for(i=0; i<len; i++)
   { if ( wcschr(L"\"%!\r\n", s[i]) )
-      return FALSE;
+      return false;
   }
-  return TRUE;
+  return true;
 }
 
 static int
@@ -1050,19 +1050,19 @@ win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
     }
 
     *cline = b.base;
-    return TRUE;
+    return true;
 
   nomem:
     PL_resource_error("memory");
   error:
     if ( b.base )
       PL_free(b.base);
-    return FALSE;
+    return false;
   } else
   { *cline = NULL;
   }
 
-  return TRUE;
+  return true;
 }
 
 typedef struct win_process
@@ -1105,12 +1105,12 @@ unregister_process(DWORD pid)
       UNLOCK();
       if ( console )			/* the terminal takes it back */
 	Swinrelease_pseudoconsole(console);
-      return TRUE;
+      return true;
     }
   }
 
   UNLOCK();
-  return FALSE;
+  return false;
 }
 
 
@@ -1174,7 +1174,7 @@ wait_process_handle(HANDLE process, ULONG *rc, DWORD timeout)
 retry:
   wc = MsgWaitForMultipleObjects(1,
 				 &process,
-				 FALSE,	/* return on any event */
+				 false,	/* return on any event */
 				 timeout,
 				 QS_ALLINPUT);
 
@@ -1183,10 +1183,10 @@ retry:
       if ( !GetExitCodeProcess(process, rc) )
       { win_error("GetExitCodeProcess");
 	CloseHandle(process);
-	return FALSE;
+	return false;
       }
       CloseHandle(process);
-      return TRUE;
+      return true;
     case WAIT_OBJECT_0+1:
     { MSG msg;
 
@@ -1194,7 +1194,7 @@ retry:
       { TranslateMessage(&msg);
 	DispatchMessage(&msg);
 	if ( PL_handle_signals() < 0 )
-	  return FALSE;
+	  return false;
       }
       goto retry;
     }
@@ -1203,7 +1203,7 @@ retry:
     default:
       win_error("WaitForSingleObject");
       CloseHandle(process);
-      return FALSE;
+      return false;
   }
 }
 
@@ -1223,7 +1223,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
       timeout = INFINITE;
 
     if ( !(wc=wait_process_handle(h, &rc, timeout)) )
-      return FALSE;
+      return false;
     if ( wc == WP_TIMEOUT )
       return PL_unify_atom(code, ATOM_timeout);
 
@@ -1233,7 +1233,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 			 PL_FUNCTOR, FUNCTOR_exit1,
 			   PL_LONG, rc);
   } else
-  { return FALSE;
+  { return false;
   }
 }
 
@@ -1243,7 +1243,7 @@ win_wait_success(atom_t exe, HANDLE process)
 { ULONG rc;
 
   if ( !wait_process_handle(process, &rc, INFINITE) )
-    return FALSE;
+    return false;
 
   if ( rc != 0 )
   { term_t ex = PL_new_term_ref();
@@ -1256,10 +1256,10 @@ win_wait_success(atom_t exe, HANDLE process)
 			     PL_LONG, rc,
 			 PL_VARIABLE) )
       return PL_raise_exception(ex);
-    return FALSE;
+    return false;
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1301,7 +1301,7 @@ create_pipes(p_options *info)
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1342,10 +1342,10 @@ console_app(void)
   { DWORD mode;
 
     if ( GetConsoleMode(h, &mode) )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1374,15 +1374,15 @@ static int
 on_terminal(p_options *info)
 { int i;
 
-  if ( info->detached || info->window == TRUE )
-    return FALSE;
+  if ( info->detached || info->window == true )
+    return false;
 
   for(i=0; i<3; i++)
   { if ( info->streams[i].type == std_std )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1425,9 +1425,9 @@ do_create_process(p_options *info)
 	if ( !console_app() )
 	  flags |= CREATE_NO_WINDOW;
 	break;
-      case TRUE:
+      case true:
 	break;
-      case FALSE:
+      case false:
 	flags |= CREATE_NO_WINDOW;
 	break;
     }
@@ -1445,13 +1445,13 @@ do_create_process(p_options *info)
   { case std_stream:
       si->hStdInput = info->streams[0].fd[0];
       SetHandleInformation(si->hStdInput,
-			   HANDLE_FLAG_INHERIT, TRUE);
+			   HANDLE_FLAG_INHERIT, true);
       redirected++;
       break;
     case std_pipe:
       si->hStdInput = info->streams[0].fd[0];
       SetHandleInformation(info->streams[0].fd[1],
-			   HANDLE_FLAG_INHERIT, FALSE);
+			   HANDLE_FLAG_INHERIT, false);
       redirected++;
       break;
     case std_null:
@@ -1470,13 +1470,13 @@ do_create_process(p_options *info)
   { case std_stream:
       si->hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(si->hStdOutput,
-			   HANDLE_FLAG_INHERIT, TRUE);
+			   HANDLE_FLAG_INHERIT, true);
       redirected++;
       break;
     case std_pipe:
       si->hStdOutput = info->streams[1].fd[1];
       SetHandleInformation(info->streams[1].fd[0],
-			   HANDLE_FLAG_INHERIT, FALSE);
+			   HANDLE_FLAG_INHERIT, false);
       redirected++;
       break;
     case std_null:
@@ -1492,13 +1492,13 @@ do_create_process(p_options *info)
   { case std_stream:
       si->hStdError = info->streams[2].fd[1];
       SetHandleInformation(si->hStdError,
-			   HANDLE_FLAG_INHERIT, TRUE);
+			   HANDLE_FLAG_INHERIT, true);
       redirected++;
       break;
     case std_pipe:
       si->hStdError = info->streams[2].fd[1];
       SetHandleInformation(info->streams[2].fd[0],
-                           HANDLE_FLAG_INHERIT, FALSE);
+                           HANDLE_FLAG_INHERIT, false);
       redirected++;
       break;
     case std_null:
@@ -1520,13 +1520,13 @@ do_create_process(p_options *info)
 		      info->cmdline,
 		      NULL,		/* Process security */
 		      NULL,		/* Thread security */
-		      TRUE,		/* Inherit handles */
+		      true,		/* Inherit handles */
 		      flags,		/* Creation flags */
 		      info->envbuf.buffer, /* Environment */
 		      info->cwd,	/* Directory */
 		      si,		/* Startup info */
 		      &pi) )		/* Process information */
-  { int rc = TRUE;
+  { int rc = true;
 
     Swinfree_pseudoconsole_attributes(attrs);
     HANDLE hJob = (HANDLE)0;
@@ -1624,7 +1624,7 @@ do_create_process(p_options *info)
       if ( console )
 	Swinrelease_pseudoconsole(console);
 
-      return TRUE;
+      return true;
     }
 
     rc = win_wait_success(info->exe_name, pi.hProcess);
@@ -1680,12 +1680,12 @@ unregister_process(pid_t pid)
     { *ppp = pp->next;
       PL_free(pp);
       UNLOCK();
-      return TRUE;
+      return true;
     }
   }
 
   UNLOCK();
-  return FALSE;
+  return false;
 }
 
 static int
@@ -1744,7 +1744,7 @@ create_pipes(p_options *info)
       {
 #if defined(HAVE_PIPE2) && !defined(__APPLE__) /* weak symbol on macOS */
 	if ( pipe2(s->fd, O_CLOEXEC) == 0 )
-	{ s->cloexec = TRUE;
+	{ s->cloexec = true;
 	  continue;
 	} else if ( errno != ENOSYS )	/* See (*) */
 	{ if ( errno != EMFILE )
@@ -1760,13 +1760,13 @@ create_pipes(p_options *info)
 #ifdef F_SETFD				/* both: dup2() clears the flag */
         if ( fcntl(s->fd[0], F_SETFD, FD_CLOEXEC) == 0 &&
 	     fcntl(s->fd[1], F_SETFD, FD_CLOEXEC) == 0 )
-	  s->cloexec = TRUE;
+	  s->cloexec = true;
 #endif
       }
     }				/* std_stream: do not modify the user's fd */
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1782,7 +1782,7 @@ unify_exit_status(term_t code, int status)
 			   PL_INT, (int)WTERMSIG(status));
   } else
   { assert(0);
-    return FALSE;
+    return false;
   }
 }
 
@@ -1818,7 +1818,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
     if ( p2 == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
-	return FALSE;
+	return false;
     } else
     { goto error;
     }
@@ -1836,7 +1836,7 @@ wait_success(atom_t name, pid_t pid)
     if ( (p2=waitpid(pid, &status, 0)) == pid )
     { unregister_process(pid);
       if ( WIFEXITED(status) && WEXITSTATUS(status) == 0 )
-      { return TRUE;
+      { return true;
       } else
       { term_t code, ex;
 
@@ -1850,13 +1850,13 @@ wait_success(atom_t name, pid_t pid)
 			       PL_TERM, code,
 			     PL_VARIABLE) )
 	  return PL_raise_exception(ex);
-	return FALSE;
+	return false;
       }
     }
 
     if ( p2 == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
-	return FALSE;
+	return false;
     } else
     { term_t PID;
 
@@ -1914,7 +1914,7 @@ p_fdopen(p_options *info, int which, int fdn, char *mode)
 
 static int
 process_parent_side(p_options *info, int pid)
-{ int rc = TRUE;
+{ int rc = true;
 
   if ( info->pipes > 0 && info->pid == 0 )
   { IOSTREAM *s;			/* no pid(Pid): wait */
@@ -2278,24 +2278,24 @@ static int
 can_spawn(p_options *info)
 { if ( info->cwd || needs_ctty(info) || info->priority != 255 ||
        create_process_method != PCREATE_SPAWN )
-    return FALSE;
+    return false;
 #ifndef POSIX_SPAWN_SETSID
   if ( info->detached )
-    return FALSE;
+    return false;
 #endif
 #ifdef HAVE_PRCTL
   if ( !info->detached )		/* needs PR_SET_PDEATHSIG */
-    return FALSE;
+    return false;
 #endif
 
   for(int i=0; i<3; i++)
   { p_stream *s = &info->streams[i];
 
     if ( s->type == std_pipe && s->fd[i==0 ? 0 : 1] == i )
-      return FALSE;
+      return false;
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -2367,12 +2367,12 @@ do_create_process(p_options *info)
   { int fd = info->streams[i].fd[0];
 
     if ( info->streams[i].type == std_stream && fd > 2 )
-    { int done = FALSE;
+    { int done = false;
 
       for(int j=0; j<i; j++)
       { if ( info->streams[j].type == std_stream &&
 	     info->streams[j].fd[0] == fd )
-	  done = TRUE;
+	  done = true;
       }
       if ( !done )
 	rc = posix_spawn_file_actions_addclose(&file_actions, fd);
@@ -2445,12 +2445,12 @@ ensure_stack_resources(int count)
     if ( !(head = PL_new_term_ref()) ||
 	 !PL_unify_list(tail, head, tail) )
     { PL_close_foreign_frame(fid);
-      return FALSE;
+      return false;
     }
   }
 
   PL_discard_foreign_frame(fid);
-  return TRUE;
+  return true;
 }
 
 
@@ -2468,10 +2468,10 @@ Basic process creation interface takes
 static foreign_t
 process_create(term_t exe, term_t options)
 { p_options info;
-  int rc = FALSE;
+  int rc = false;
 
   if ( !ensure_stack_resources(10) )	/* max 3 stream structures */
-    return FALSE;
+    return false;
 
   memset(&info, 0, sizeof(info));
 
@@ -2498,12 +2498,12 @@ get_pid(term_t pid, pid_t *p)
 { int n;
 
   if ( !PL_get_integer_ex(pid, &n) )
-    return FALSE;
+    return false;
   if ( n <= 0 )				/* 0 and -1 are process groups */
-    return PL_domain_error("not_less_than_one", pid),FALSE;
+    return PL_domain_error("not_less_than_one", pid),false;
 
   *p = n;
-  return TRUE;
+  return true;
 }
 
 
@@ -2520,25 +2520,25 @@ process_wait(term_t pid, term_t code, term_t options)
   term_t timeout = 0, release = 0;
 
   if ( !get_pid(pid, &p) )
-    return FALSE;
+    return false;
 
   memset(&opts, 0, sizeof(opts));
   if ( !PL_scan_options(options, OPT_UNKNOWN_ERROR, "process_wait_option",
 			process_wait_options, &timeout, &release) )
-    return FALSE;
+    return false;
   if ( timeout )
   { atom_t a;
 
     if ( !(PL_get_atom(timeout, &a) && a == ATOM_infinite) )
     { if ( !PL_get_float(timeout, &opts.timeout) )
 	return PL_type_error("timeout", timeout);
-      opts.has_timeout = TRUE;
+      opts.has_timeout = true;
     }
   }
   if ( release )
   { if ( !PL_get_bool_ex(release, &opts.release) )
-      return FALSE;
-    if ( opts.release == FALSE )
+      return false;
+    if ( opts.release == false )
       return PL_domain_error("true", release);
   }
 
@@ -2549,7 +2549,7 @@ process_wait(term_t pid, term_t code, term_t options)
 static foreign_t
 process_kill_posix(term_t pid_term, pid_t pid, int sig)
 { if ( kill(pid, sig) == 0 )
-    return TRUE;
+    return true;
 
   switch(errno)
   { case EPERM:
@@ -2570,24 +2570,24 @@ process_kill(term_t pid, term_t signal)
 { pid_t p;
 
   if ( !get_pid(pid, &p) )
-    return FALSE;
+    return false;
 
 {
 #ifdef __WINDOWS__
   HANDLE h;
 
   if ( !(h=find_process_from_pid(p, "process_kill")) )
-    return FALSE;
+    return false;
 
   if ( TerminateProcess(h, 255) )
-    return TRUE;
+    return true;
 
   return win_error("TerminateProcess");
 #else /*__WINDOWS__*/
   int sig;
 
   if ( !PL_get_signum_ex(signal, &sig) )
-    return FALSE;
+    return false;
 
   return process_kill_posix(pid, p, sig);
 #endif /*__WINDOWS__*/
@@ -2599,7 +2599,7 @@ process_group_kill(term_t pid, term_t signal)
 { pid_t p;
 
   if ( !get_pid(pid, &p) )
-    return FALSE;
+    return false;
 
 {
 #ifdef __WINDOWS__
@@ -2611,11 +2611,11 @@ process_group_kill(term_t pid, term_t signal)
   */
   if (hJob == rootJob)
     exit(255);
-  return TRUE;
+  return true;
 #else /*__WINDOWS__*/
    int sig;
    if ( !PL_get_signum_ex(signal, &sig) )
-     return FALSE;
+     return false;
    return process_kill_posix(pid, -p, sig);
 #endif /*__WINDOWS__*/
  }
@@ -2643,10 +2643,10 @@ process_set_method(term_t how)
 #else
     (void)m;
 #endif
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 #define MKATOM(n) ATOM_ ## n = PL_new_atom(#n)

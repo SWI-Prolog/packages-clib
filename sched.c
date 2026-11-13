@@ -59,12 +59,12 @@ get_which(term_t Which, int *whichp, const char **namep)
     } else if ( awhich == ATOM_user )
     { *whichp = PRIO_USER; *namep = "user";
     } else
-      return PL_domain_error("priority_which", Which),FALSE;
+      return PL_domain_error("priority_which", Which),false;
 
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 #ifdef HAVE_SETPRIORITY
@@ -78,10 +78,10 @@ pl_setpriority(term_t Which, term_t Who, term_t Prio)
   if ( !get_which(Which, &which, &which_str) ||
        !PL_get_integer_ex(Who, &who) ||
        !PL_get_integer_ex(Prio, &prio) )
-    return FALSE;
+    return false;
 
   if ( setpriority(which, who, prio) == 0 )
-    return TRUE;
+    return true;
 
   switch(errno)
   { case ESRCH:
@@ -104,7 +104,7 @@ pl_getpriority(term_t Which, term_t Who, term_t Prio)
 
   if ( !get_which(Which, &which, &which_str) ||
        !PL_get_integer_ex(Who, &who) )
-    return FALSE;
+    return false;
 
   errno = 0;
   prio = getpriority(which, who);

@@ -79,7 +79,7 @@ create_pipe(int size, int blocking)
   p->blocking = blocking;
 
   InitializeCriticalSection(&p->mutex);
-  p->event = CreateEvent(NULL, FALSE, FALSE, NULL);
+  p->event = CreateEvent(NULL, false, false, NULL);
   p->magic = PIPE_MAGIC;
 
   return p;
@@ -170,7 +170,7 @@ retry:
     LeaveCriticalSection(&pipe->mutex);
     rc = MsgWaitForMultipleObjects(1,
 				   &pipe->event,
-				   FALSE,	/* wait for either event */
+				   false,	/* wait for either event */
 				   INFINITE,
 				   QS_ALLINPUT);
     if ( rc == WAIT_OBJECT_0+1 )	/* message arrived */
@@ -243,7 +243,7 @@ static IOFUNCTIONS pipe_write_functions =
 
 static foreign_t
 tcp_pipe(term_t in, term_t out)
-{ pipe *p = create_pipe(4096, TRUE);
+{ pipe *p = create_pipe(4096, true);
   IOSTREAM *sin, *sout;
 
   sin  = Snew(p, SIO_FBUF|SIO_INPUT|SIO_RECORDPOS,  &pipe_read_functions);
@@ -256,10 +256,10 @@ tcp_pipe(term_t in, term_t out)
   { Sclose(sin);
     Sclose(sout);
 
-    return FALSE;
+    return false;
   }
 
-  return TRUE;
+  return true;
 }
 
 #else /*__WINDOWS__*/
@@ -277,12 +277,12 @@ tcp_pipe(term_t Read, term_t Write)
 
   if ( PL_unify_stream(Read, in) &&
        PL_unify_stream(Write, out) )
-    return TRUE;
+    return true;
 
   Sclose(in);
   Sclose(out);
 
-  return FALSE;
+  return false;
 }
 
 #endif /*__WINDOWS__*/

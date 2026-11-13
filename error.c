@@ -45,11 +45,11 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 { fid_t fid;
   term_t except, formal, swi;
   int rc;
-  int msg_locale = FALSE;
+  int msg_locale = false;
   va_list args;
 
   if ( !(fid=PL_open_foreign_frame()) )
-    return FALSE;
+    return false;
 
   except = PL_new_term_ref();
   formal = PL_new_term_ref();
@@ -67,7 +67,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
 	object = PL_new_term_ref();
 
       msg = strerror(err);
-      msg_locale = TRUE;
+      msg_locale = true;
 
       switch(err)
       { case ENOMEM:
@@ -189,7 +189,7 @@ pl_error(const char *pred, int arity, const char *msg, int id, ...)
     }
     default:
       assert(0);
-      rc = FALSE;
+      rc = false;
   }
   va_end(args);
 

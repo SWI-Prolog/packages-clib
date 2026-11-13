@@ -255,10 +255,10 @@ get_hash_algorithm(term_t t, hash_algorithm *ap)
       return PL_domain_error("algorithm", t);
 
     *ap = alg;
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -293,17 +293,17 @@ pl_stream_hash_open(term_t org, term_t new, term_t options)
 { hash_context *ctx;
   IOSTREAM *s, *s2;
   hash_algorithm algorithm = ALGORITHM_SHA1;
-  int close_parent = TRUE;
+  int close_parent = true;
   term_t alg = 0;
 
   if ( !PL_scan_options(options, 0, "hash_option", hash_stream_options,
 			&alg, &close_parent) )
-    return FALSE;
+    return false;
   if ( alg && !get_hash_algorithm(alg, &algorithm) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_stream_handle(org, &s) )
-    return FALSE;			/* Error */
+    return false;			/* Error */
 
   ctx = alloc_hash_context(s);
   ctx->close_parent = close_parent;
@@ -328,7 +328,7 @@ pl_stream_hash_open(term_t org, term_t new, term_t options)
   { PL_release_stream(s);
     free_hash_context(ctx);			/* no memory */
 
-    return FALSE;
+    return false;
   }
 
   s2->encoding = s->encoding;
@@ -339,7 +339,7 @@ pl_stream_hash_open(term_t org, term_t new, term_t options)
   { Sset_filter(s, s2);
     PL_release_stream(s);
 
-    return TRUE;
+    return true;
   }
 
   ctx->close_parent = false;		/* restores s and frees ctx */
@@ -361,7 +361,7 @@ pl_stream_hash(term_t stream, term_t hash)
 
     if ( Sferror(s) || ((s->flags & SIO_OUTPUT) && Sflush(s) < 0) )
     { (void)PL_release_stream(s);	/* raises the error if any */
-      return FALSE;
+      return false;
     }
 
     if ( s->functions != &hash_functions )
@@ -387,7 +387,7 @@ pl_stream_hash(term_t stream, term_t hash)
     return rc;
   }
 
-  return FALSE;
+  return false;
 }
 
 

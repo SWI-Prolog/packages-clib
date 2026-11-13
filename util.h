@@ -40,10 +40,7 @@
 #include <stdarg.h>
 #include <time.h>
 
-#ifndef TRUE
-#define TRUE 1
-#define FALSE 0
-#endif
+#include <stdbool.h>
 
 typedef struct
 { char *name;

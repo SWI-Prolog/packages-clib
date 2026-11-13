@@ -156,14 +156,14 @@ pl_wait(term_t Pid, term_t Status)
       return PL_domain_error("process_id", Pid);
     pid = pid_i;
   } else
-    return FALSE;
+    return false;
 
   for(;;)
   { pid_t rc = waitpid(pid, &status, 0);
 
     if ( rc == -1 && errno == EINTR )
     { if ( PL_handle_signals() < 0 )
-	return FALSE;
+	return false;
     } else
     { pid = rc;				/* do not lose pid on EINTR */
       break;
@@ -189,7 +189,7 @@ pl_wait(term_t Pid, term_t Status)
     assert(0);
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -201,13 +201,13 @@ pl_kill(term_t Pid, term_t Sig)
   if ( !PL_get_integer(Pid, &pid) )
     return pl_error("kill", 2, NULL, ERR_ARGTYPE, 1, Pid, "pid");
   if ( !PL_get_signum_ex(Sig, &sig) )
-    return FALSE;
+    return false;
 
   if ( kill(pid, sig) < 0 )
     return pl_error("kill", 2, NULL, ERR_ERRNO, errno,
 		    "kill", "process", Pid);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -228,29 +228,29 @@ pl_pipe(term_t Read, term_t Write)
 
   if ( PL_open_stream(Read, in) &&
        PL_open_stream(Write, out) )
-    return TRUE;
+    return true;
 
-  return FALSE;
+  return false;
 }
 
 
 static int
 get_stream_no(term_t t, IOSTREAM **s, int *fn)
 { if ( PL_get_integer(t, fn) )
-    return TRUE;
+    return true;
   if ( PL_get_stream_handle(t, s) )
   { *fn = Sfileno(*s);
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
 static foreign_t
 pl_dup(term_t from, term_t to)
 { IOSTREAM *f = NULL, *t = NULL;
-  int rval = FALSE;
+  int rval = false;
   int fn, tn;
 
   if ( !get_stream_no(from, &f, &fn) ||
@@ -261,7 +261,7 @@ pl_dup(term_t from, term_t to)
   { pl_error("dup", 2, NULL, ERR_ERRNO, errno, "dup", "stream", from);
     goto out;
   } else
-  { rval = TRUE;
+  { rval = true;
   }
 
 out:
@@ -306,7 +306,7 @@ pl_environ(term_t l)
 	   !PL_cons_functor(nt, FUNCTOR_equal2, nt, vt) ||
 	   !PL_unify_list(t, t2, t) ||
 	   !PL_unify(t2, nt) )
-	return FALSE;
+	return false;
     }
   }
 
@@ -405,7 +405,7 @@ pl_detach_IO(term_t stream)
     atom_t symbol;
 
     if ( !PL_get_stream_handle(stream, &s) )
-      return FALSE;
+      return false;
     if ( PL_get_atom(stream, &symbol) )
       PL_register_atom(symbol);	/* avoid AGC to close the stream */
 
@@ -419,7 +419,7 @@ pl_detach_IO(term_t stream)
     detach_process();
   }
 
-  return TRUE;
+  return true;
 }
 
 #if defined(HAVE_PRCTL) && defined(HAVE_SYS_PRCTL_H)
@@ -444,9 +444,9 @@ pl_prctl(term_t option)
       { int i;
 
 	if ( !PL_get_bool_ex(a+0, &i) )
-	  return FALSE;
+	  return false;
 	if ( prctl(PR_SET_DUMPABLE, i, 0, 0, 0) >= 0 )
-	  return TRUE;
+	  return true;
 	return pl_error("prctl", 1, NULL, ERR_ERRNO,
 			errno, "set_dumpable", "process", a+0);
       } else if ( strcmp(opt, "get_dumpable") == 0 && arity == 1 )
@@ -519,7 +519,7 @@ pl_sysconf(term_t conf)
       }
     }
 
-    return FALSE;
+    return false;
   }
   return PL_type_error("compound", conf);
 }

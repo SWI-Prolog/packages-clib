@@ -207,7 +207,7 @@ typedef struct
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
-static int scheduler_running = FALSE;	/* is scheduler running? */
+static int scheduler_running = false;	/* is scheduler running? */
 static pthread_t scheduler;		/* thread id of scheduler */
 
 #define LOCK()   pthread_mutex_lock(&mutex)
@@ -216,7 +216,7 @@ static pthread_t scheduler;		/* thread id of scheduler */
 static schedule the_schedule = {0};	/* the schedule */
 #define TheSchedule() (&the_schedule)	/* current schedule */
 
-static int signal_function_set = FALSE;	/* signal function is set */
+static int signal_function_set = false;	/* signal function is set */
 static int sig_time = 0;
 static pl_sigaction_t saved_sigaction;	/* Old signal action */
 
@@ -246,7 +246,7 @@ release_alarm_symbol(atom_t symbol)
     free(ev);
   }
 
-  return TRUE;
+  return true;
 }
 
 static int
@@ -265,7 +265,7 @@ write_alarm_symbol(IOSTREAM *s, atom_t symbol, int flags)
 
   (void)flags;
   Sfprintf(s, "<alarm>(%p)", ev);
-  return TRUE;
+  return true;
 }
 
 static PL_blob_t alarm_blob =
@@ -352,10 +352,10 @@ is_scheduled(Event ev)
 
   for(e = TheSchedule()->first; e; e = e->next)
   { if ( e == ev )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -390,7 +390,7 @@ insertEvent(Event ev)
       }
       e->previous = ev;
 
-      return TRUE;
+      return true;
     } else
     { if ( e->next )
 	continue;
@@ -398,12 +398,12 @@ insertEvent(Event ev)
       ev->previous = e;			/* end of the list */
       e->next = ev;
 
-      return TRUE;
+      return true;
     }
   }
 
   sched->first = ev;			/* the very first one */
-  return TRUE;
+  return true;
 }
 
 
@@ -453,7 +453,7 @@ static void
 cleanupHandler(void)
 { if ( signal_function_set )
   { PL_sigaction(sig_time, &saved_sigaction, NULL);
-    signal_function_set = FALSE;
+    signal_function_set = false;
   }
 }
 
@@ -467,12 +467,12 @@ installHandler(void)
     act.sa_flags     = PLSIG_SYNC;
 
     if ( (sig_time = PL_sigaction(0, &act, &saved_sigaction)) > 0 )
-      signal_function_set = TRUE;
+      signal_function_set = true;
     else
       return PL_warning("Could not initialize alarm signal handler\n");
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -481,7 +481,7 @@ cleanup(int rc, void *arg)
 { Event ev;
   schedule *sched = TheSchedule();
 
-  sched->stop = TRUE;
+  sched->stop = true;
   while( (ev=sched->first) )
     removeEvent(ev);
 
@@ -493,7 +493,7 @@ cleanup(int rc, void *arg)
     UNLOCK();
 
     pthread_join(scheduler, NULL);
-    scheduler_running = FALSE;
+    scheduler_running = false;
   }
 
   return 0;
@@ -561,7 +561,7 @@ set_bit(bitvector *v, size_t bit)
     unsigned int *newbits = realloc(v->bits, osize*2);
 
     if ( !newbits )
-      return FALSE;
+      return false;
     memset((char*)newbits+osize, 0, osize);
     v->bits  = newbits;
     v->size *= 2;
@@ -576,7 +576,7 @@ set_bit(bitvector *v, size_t bit)
   }
 
   v->bits[offset] |= 1<<bi;
-  return TRUE;
+  return true;
 }
 
 
@@ -589,7 +589,7 @@ is_set(bitvector *v, size_t bit)
     return (v->bits[offset] & (1<<bi)) != 0;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -766,7 +766,7 @@ installEvent(Event ev, const double *t)
   if ( !scheduler_running )
   { pthread_attr_t attr;
 
-    TheSchedule()->stop = FALSE;
+    TheSchedule()->stop = false;
     pthread_attr_init(&attr);
     pthread_attr_setstacksize(&attr, 8192);
     rc = pthread_create(&scheduler, &attr, alarm_loop, NULL);
@@ -779,7 +779,7 @@ installEvent(Event ev, const double *t)
     }
 
     DEBUG(1, Sdprintf("Started scheduler thread\n"));
-    scheduler_running = TRUE;
+    scheduler_running = true;
   }
 
   if ( ev->flags & EV_REMOVED )
@@ -803,7 +803,7 @@ uninstallEvent(Event ev)
 { LOCK();
   if ( ev->flags & EV_REMOVED )
   { UNLOCK();
-    return FALSE;
+    return false;
   }
   if ( TheSchedule()->scheduled == ev )
     ev->flags |= EV_DONE;
@@ -812,7 +812,7 @@ uninstallEvent(Event ev)
   pthread_cond_signal(&cond);
   UNLOCK();
 
-  return TRUE;
+  return true;
 }
 
 
@@ -821,7 +821,7 @@ removeEvent(Event ev)
 { LOCK();
   if ( ev->flags & EV_REMOVED )		/* e.g., remove(true) alarm fired */
   { UNLOCK();
-    return TRUE;
+    return true;
   }
   if ( TheSchedule()->scheduled == ev )
     ev->flags |= EV_DONE;
@@ -829,7 +829,7 @@ removeEvent(Event ev)
   pthread_cond_signal(&cond);
   UNLOCK();
 
-  return TRUE;
+  return true;
 }
 
 
@@ -849,7 +849,7 @@ alarm_error(term_t alarm, int err)
       return existence_error_removed(alarm);
     default:
       assert(0);
-      return FALSE;
+      return false;
   }
 }
 
@@ -860,14 +860,14 @@ get_timer(term_t t, Event *ev)
   void *data;
 
   if ( TheSchedule()->stop )
-    return FALSE;
+    return false;
 
   if ( PL_get_blob(t, &data, NULL, &type) && type == &alarm_blob )
   { Event e = data;
 
     assert(e->magic == EV_MAGIC);
     *ev = e;
-    return TRUE;
+    return true;
   }
 
   return pl_error("get_timer", 1, NULL,
@@ -896,11 +896,11 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   unsigned long flags = 0L;
 
   if ( options )
-  { int remove = FALSE, install = TRUE;
+  { int remove = false, install = true;
 
     if ( !PL_scan_options(options, 0, "alarm_option", alarm_options,
 			  &remove, &install) )
-      return FALSE;
+      return false;
     if ( remove )
       flags |= EV_REMOVE;
     if ( !install )
@@ -912,10 +912,10 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   if ( isnan(t) )
     return PL_domain_error("time", time);
   if ( !PL_strip_module(callable, &m, callable) )
-    return FALSE;
+    return false;
 
   if ( !(ev = allocEvent(id)) )
-    return FALSE;
+    return false;
 
   if (abs_rel==TIME_REL)
 	  setTimeEvent(ev, t);
@@ -929,13 +929,13 @@ alarm4_gen(time_abs_rel abs_rel, term_t time, term_t callable,
   if ( !(ev->flags & EV_NOINSTALL) )
   { int rc;
 
-    if ( (rc=installEvent(ev, NULL)) != TRUE )
+    if ( (rc=installEvent(ev, NULL)) != true )
     { freeEvent(ev);			/* not linked: no need to lock */
       return alarm_error(id, rc);
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -965,12 +965,12 @@ install_alarm(term_t alarm)
   int rc;
 
   if ( !get_timer(alarm, &ev) )
-    return FALSE;
+    return false;
 
-  if ( (rc=installEvent(ev, NULL)) != TRUE )
+  if ( (rc=installEvent(ev, NULL)) != true )
     return alarm_error(alarm, rc);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -981,17 +981,17 @@ install_alarm2(term_t alarm, term_t time)
   int rc;
 
   if ( !get_timer(alarm, &ev) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_float(time, &t) )
     return PL_type_error("number", time);
   if ( isnan(t) )
     return PL_domain_error("time", time);
 
-  if ( (rc=installEvent(ev, &t)) != TRUE )
+  if ( (rc=installEvent(ev, &t)) != true )
     return alarm_error(alarm, rc);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1000,12 +1000,12 @@ uninstall_alarm(term_t alarm)
 { Event ev = NULL;
 
   if ( !get_timer(alarm, &ev) )
-    return FALSE;
+    return false;
 
   if ( !uninstallEvent(ev) )
     return existence_error_removed(alarm);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1016,12 +1016,12 @@ remove_alarm(term_t alarm)
 
 
     if ( !get_timer(alarm, &ev) )
-      return FALSE;
+      return false;
 
     return removeEvent(ev);
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1052,15 +1052,15 @@ current_alarms(term_t time, term_t goal, term_t id, term_t status,
   if ( !PL_is_variable(id) )
   { if ( !get_timer(id, &ev) )
     { UNLOCK();
-      return FALSE;
+      return false;
     }
     if ( !pthread_equal(self, ev->thread_id) ||
 	 (ev->flags & EV_REMOVED) )
       ev = NULL;
-    iterate = FALSE;
+    iterate = false;
   } else
   { ev = TheSchedule()->first;
-    iterate = TRUE;
+    iterate = true;
   }
 
   for(; ev; ev = ev->next)
@@ -1105,12 +1105,12 @@ current_alarms(term_t time, term_t goal, term_t id, term_t status,
 	   !PL_unify_list(tail, head, tail) ||
 	   !PL_unify(head, next) )
       { UNLOCK();
-	return FALSE;
+	return false;
       }
     } else
     { if ( PL_exception(0) )
       { UNLOCK();
-	return FALSE;
+	return false;
       }
     }
 
@@ -1150,7 +1150,7 @@ install_time(void)
 
   if ( installHandler() )
     PL_on_halt(cleanup, NULL);
-  PL_thread_at_exit(cleanup_thread, NULL, TRUE);
+  PL_thread_at_exit(cleanup_thread, NULL, true);
 }
 
 

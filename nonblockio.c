@@ -338,10 +338,10 @@ static int
 need_retry(int error)
 { if ( error == WSAEINTR || error == WSAEWOULDBLOCK )
   { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, WinSockError(error)));
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -349,7 +349,7 @@ need_retry(int error)
  *  while waiting processes Windows messages, including Prolog
  *  timeout.
  *
- *  Returns TRUE if all ok and FALSE if some Prolog exception has
+ *  Returns true if all ok and false if some Prolog exception has
  *  been raised.
  */
 
@@ -359,17 +359,17 @@ wait_socket(plsocket *s)
 
   for(;;)
   { DEBUG(2, Sdprintf("waiting on socket: %d\n", s->socket));
-    index = MsgWaitForMultipleObjects(1, &s->event, FALSE, INFINITE, QS_ALLINPUT);
+    index = MsgWaitForMultipleObjects(1, &s->event, false, INFINITE, QS_ALLINPUT);
 
     if ( index == WAIT_FAILED )
     { nbio_error(GetLastError(), TCP_ERRNO);
-      return FALSE;
+      return false;
     } else if ( index == WAIT_OBJECT_0+0 ) /* socket event */
     { WSANETWORKEVENTS events;
 
       if ( WSAEnumNetworkEvents(s->socket, s->event, &events) == SOCKET_ERROR )
       { nbio_error(GET_ERRNO, TCP_ERRNO);
-        return FALSE;
+        return false;
       }
       DEBUG(2,
             { char *nm = event_name(events.lNetworkEvents);
@@ -379,25 +379,25 @@ wait_socket(plsocket *s)
       if ( events.lNetworkEvents & FD_CONNECT )
       { if ( events.iErrorCode[FD_CONNECT_BIT] )
         { nbio_error(events.iErrorCode[FD_CONNECT_BIT], TCP_ERRNO);
-          return FALSE;
+          return false;
         }
       }
       if ( events.lNetworkEvents & FD_ACCEPT )
       { if ( events.iErrorCode[FD_ACCEPT_BIT] )
         { nbio_error(events.iErrorCode[FD_ACCEPT_BIT], TCP_ERRNO);
-          return FALSE;
+          return false;
         }
       }
       if ( events.lNetworkEvents & FD_READ )
       { if ( events.iErrorCode[FD_READ_BIT] )
         { nbio_error(events.iErrorCode[FD_READ_BIT], TCP_ERRNO);
-          return FALSE;
+          return false;
         }
       }
       if ( events.lNetworkEvents & FD_WRITE )
       { if ( events.iErrorCode[FD_WRITE_BIT] )
         { nbio_error(events.iErrorCode[FD_WRITE_BIT], TCP_ERRNO);
-          return FALSE;
+          return false;
         }
       }
       break;
@@ -411,13 +411,13 @@ wait_socket(plsocket *s)
 
         if ( PL_handle_signals() < 0 )
 	{ errno = EPLEXCEPTION;
-          return FALSE;
+          return false;
 	}
         continue;
       }
     }
   }
-  return TRUE;
+  return true;
 }
 
 
@@ -435,10 +435,10 @@ static int
 need_retry(int error)
 { if ( error == EINTR || error == EAGAIN || error == EWOULDBLOCK )
   { DEBUG(1, Sdprintf("need_retry(%d): %s\n", error, strerror(error)));
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -464,7 +464,7 @@ wait_socket(plsocket *s)
       fds[0].events = POLLIN;
 
       poll(fds, 1, 250);
-      return TRUE;
+      return true;
 #else
       if ( fd < FD_SETSIZE )		/* Unix only, so ok */
       { fd_set rfds;
@@ -476,7 +476,7 @@ wait_socket(plsocket *s)
 	tv.tv_usec = 250000;
 
 	select(fd+1, &rfds, NULL, NULL, &tv);
-	return TRUE;
+	return true;
       }
 #endif
     } else
@@ -488,7 +488,7 @@ wait_socket(plsocket *s)
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -532,7 +532,7 @@ static atom_t ATOM_any;
 static atom_t ATOM_broadcast;
 static atom_t ATOM_loopback;
 
-static int initialised = FALSE;		/* Windows only */
+static int initialised = false;		/* Windows only */
 
 SOCKET
 nbio_fd(nbio_sock_t socket)
@@ -686,12 +686,12 @@ static const char *
 WinSockError(unsigned long eno)
 { char buf[1024];
   static HMODULE netmsg = 0;
-  static int netmsg_loaded = FALSE;
+  static int netmsg_loaded = false;
   unsigned long flags = (FORMAT_MESSAGE_FROM_SYSTEM|
 			 FORMAT_MESSAGE_IGNORE_INSERTS);
 
   if ( !netmsg_loaded )
-  { netmsg_loaded = TRUE;
+  { netmsg_loaded = true;
     netmsg = LoadLibraryEx("netmsg.dll", 0, LOAD_LIBRARY_AS_DATAFILE);
     if ( !netmsg )
       Sdprintf("failed to load netmsg.dll\n");
@@ -812,7 +812,7 @@ nbio_error(int code, nbio_error_map mapid)
   term_t ex;
 
   if ( code == EPLEXCEPTION || PL_exception(0) )
-    return FALSE;
+    return false;
 
 #ifdef __WINDOWS__
   msg = WinSockError(code);
@@ -864,8 +864,8 @@ nbio_last_error(nbio_sock_t socket)
 int
 nbio_init(const char *module)
 { if ( initialised )			/* called from install handlers, which */
-    return TRUE;			/* are serialized by the compiler mutex */
-  initialised = TRUE;
+    return true;			/* are serialized by the compiler mutex */
+  initialised = true;
 
   FUNCTOR_module2  = PL_new_functor(PL_new_atom(":"), 2);
   FUNCTOR_ip1	   = PL_new_functor(PL_new_atom("ip"), 1);
@@ -883,7 +883,7 @@ nbio_init(const char *module)
 }
 #endif /*__WINDOWS__*/
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1234,7 +1234,7 @@ nbio_get_sockaddr(nbio_sock_t socket,
   { port = 0;
     *varport = Address;
   } else if ( !nbio_get_port(Address, &port) )
-    return FALSE;
+    return false;
 
   switch(socket->domain)
   { case AF_INET:
@@ -1245,7 +1245,7 @@ nbio_get_sockaddr(nbio_sock_t socket,
       break;
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -1263,12 +1263,12 @@ nbio_get_ip4(term_t ip4, struct in_addr *ip, int error)
       if ( PL_cvt_i_uchar(a, &ua) )
 	hip |= (uint32_t)ua << ((4-i)*8);
       else
-	return FALSE;
+	return false;
     }
     hip = htonl(hip);
     memcpy(ip, &hip, sizeof(hip));
 
-    return TRUE;
+    return true;
   } else if ( PL_is_functor(ip4, FUNCTOR_ip1) )
   { term_t a = PL_new_term_ref();
     atom_t id;
@@ -1284,14 +1284,14 @@ nbio_get_ip4(term_t ip4, struct in_addr *ip, int error)
       else
 	return PL_domain_error("ip4_symbolic_address", a);
 
-      return TRUE;
+      return true;
     }
   }
 
   if ( error )
     return PL_domain_error("ip4_address", ip4);
   else
-    return FALSE;
+    return false;
 }
 
 
@@ -1306,10 +1306,10 @@ nbio_get_ip6(term_t ip8, struct in6_addr *ip)
       if ( PL_cvt_i_ushort(a, &ia) )
       { ip->s6_addr16[i-1] = htons(ia);
       } else
-	return FALSE;
+	return false;
     }
 
-    return TRUE;
+    return true;
   } else
     return PL_domain_error("ip6", ip8);
 }
@@ -1320,7 +1320,7 @@ nbio_get_ip(int domain, term_t Ip, struct sockaddr_storage *storage)
 { switch( domain )
   { case AF_INET:
     { struct sockaddr_in *addr = (struct sockaddr_in*)storage;
-      return nbio_get_ip4(Ip, &addr->sin_addr, TRUE);
+      return nbio_get_ip4(Ip, &addr->sin_addr, true);
     }
     case AF_INET6:
     { struct sockaddr_in6 *addr = (struct sockaddr_in6*)storage;
@@ -1330,12 +1330,12 @@ nbio_get_ip(int domain, term_t Ip, struct sockaddr_storage *storage)
     { struct sockaddr_in  *addr4 = (struct sockaddr_in*)storage;
       struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)storage;
 
-      return ( nbio_get_ip4(Ip, &addr4->sin_addr, FALSE) ||
+      return ( nbio_get_ip4(Ip, &addr4->sin_addr, false) ||
 	       nbio_get_ip6(Ip, &addr6->sin6_addr) );
     }
     default:
       assert(0);
-      return FALSE;
+      return false;
   }
 }
 

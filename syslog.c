@@ -59,15 +59,15 @@ get_option(term_t t, int *opt)
       else if ( streq(s, "pid") )    option |= LOG_PID;
       else return PL_domain_error("syslog_option", head);
     } else
-      return FALSE;
+      return false;
   }
 
   if ( PL_get_nil_ex(tail) )
   { *opt = option;
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 static int
@@ -102,10 +102,10 @@ get_facility(term_t t, int *fac)
     else if ( streq(s, "uucp") )     facility = LOG_UUCP;
     else return PL_domain_error("syslog_facility", t);
   } else
-    return FALSE;
+    return false;
 
   *fac = facility;
-  return TRUE;
+  return true;
 }
 
 static int
@@ -124,13 +124,13 @@ get_priority(term_t t, int *pri)
     else if ( streq(s, "debug") )   priority = LOG_DEBUG;
     else
     { PL_domain_error("syslog_priority", t);
-      return FALSE;
+      return false;
     }
   } else
-    return FALSE;
+    return false;
 
   *pri = priority;
-  return TRUE;
+  return true;
 }
 
 
@@ -153,10 +153,10 @@ pl_openlog(term_t Ident, term_t Option, term_t Facility)
     if ( old_ident )
       free(old_ident);
     old_ident = new_ident;
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -170,10 +170,10 @@ pl_syslog(term_t Priority, term_t Message)
 		    CVT_ALL|CVT_VARIABLE|CVT_WRITE|REP_MB|CVT_EXCEPTION) )
   { syslog(p, "%s", msg);
 
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -181,7 +181,7 @@ static foreign_t
 pl_closelog(void)
 { closelog();
 
-  return TRUE;
+  return true;
 }
 
 
