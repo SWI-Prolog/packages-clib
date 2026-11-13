@@ -293,42 +293,17 @@ free_memory_file(term_t handle)
 		 *	     CHECKING		*
 		 *******************************/
 
-#define ISUTF8_CB(c)  (((c)&0xc0) == 0x80) /* Is continuation byte */
-
 #ifdef O_SECURE
 
-#define CONT(in,i)   (assert(ISUTF8_CB(in[i])),1)
-#define IS_UTF8_2BYTE(in) \
-	((in[0]&0xe0) == 0xc0 && CONT(in,1))
-#define IS_UTF8_3BYTE(in) \
-	((in[0]&0xf0) == 0xe0 && CONT(in,1)&&CONT(in,2))
-#define IS_UTF8_4BYTE(in) \
-	((in[0]&0xf8) == 0xf0 && CONT(in,1)&&CONT(in,2)&&CONT(in,3))
-#define IS_UTF8_5BYTE(in) \
-	((in[0]&0xfc) == 0xf8 && CONT(in,1)&&CONT(in,2)&&CONT(in,3)&&CONT(in,4))
-#define IS_UTF8_6BYTE(in) \
-	((in[0]&0xfe) == 0xfc && CONT(in,1)&&CONT(in,2)&&CONT(in,3)&&CONT(in,4)&&CONT(in,5))
-
 static size_t
-check_utf8_seq(char *s, size_t len)
-{ size_t count = 0;
-  size_t skip;
+check_utf8_seq(const char *s, size_t len)
+{ const char *e = s+len;
+  size_t count = 0;
 
-  while(len > 0)
-  { if ( (*s&0x80) )
-    {      if ( IS_UTF8_2BYTE(s) ) skip = 2;
-      else if ( IS_UTF8_3BYTE(s) ) skip = 3;
-      else if ( IS_UTF8_4BYTE(s) ) skip = 4;
-      else if ( IS_UTF8_5BYTE(s) ) skip = 5;
-      else if ( IS_UTF8_6BYTE(s) ) skip = 6;
-      else assert(0);
-    } else
-      skip = 1;
+  while(s < e)
+  { int cp;
 
-    assert(len >= skip);
-    len -= skip;
-    s   += skip;
-
+    PL_utf8_code_point(&s, e, &cp);
     count++;
   }
 
@@ -916,42 +891,14 @@ can_modify_memory_file(term_t handle, memfile *mf)
 }
 
 
-/* Get the byte offset for a character.  This must agree with
-   PL_utf8_strlen() on invalid UTF-8: only the shortest encoding of a
-   code point up to U+10FFFF is a character.  Otherwise the first byte
-   is.  A surrogate is a character, decoded as U+FFFD.
-*/
+/* Get the byte offset for a character, as Prolog decodes it */
 
 static char *
 utf8_skip_char(const char *in, const char *e)
-{ static const int min_code[4] = { 0, 0x80, 0x800, 0x10000 };
-  const unsigned char *s = (const unsigned char *)in;
-  int code, n;
+{ int cp;
 
-  if ( s[0] < 0xc0 )
-    return (char*)in+1;
-  if ( s[0] < 0xe0 )
-  { code = s[0] & 0x1f;
-    n = 1;
-  } else if ( s[0] < 0xf0 )
-  { code = s[0] & 0x0f;
-    n = 2;
-  } else if ( s[0] < 0xf8 )
-  { code = s[0] & 0x07;
-    n = 3;
-  } else
-    return (char*)in+1;
-
-  for(int k=1; k<=n; k++)
-  { if ( in+k >= e || !ISUTF8_CB(s[k]) )
-      return (char*)in+1;
-    code = (code << 6) | (s[k] & 0x3f);
-  }
-
-  if ( code < min_code[n] || code > 0x10ffff )
-    return (char*)in+1;
-
-  return (char*)in+n+1;
+  PL_utf8_code_point(&in, e, &cp);
+  return (char*)in;
 }
 
 
