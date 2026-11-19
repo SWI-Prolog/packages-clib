@@ -1709,6 +1709,71 @@ posix_init()
 #define unregister_process(pid) ((void)0)
 #endif /*HAVE_PRCTL*/
 
+/* Children that made our terminal theirs (see adopt_ctty()) and the
+ * PL_save_ctty() state to repair it with once they are gone.  On BSD
+ * systems, MacOS among them, the terminal is revoked when such a child
+ * exits.  Reaping it is our first chance to notice, and the caller is
+ * about to write to that terminal.
+ */
+
+typedef struct ctty_child
+{ pid_t pid;
+  void *ctty;				/* from PL_save_ctty() */
+  struct ctty_child *next;
+} ctty_child;
+
+static ctty_child *ctty_children = NULL;
+#ifdef _REENTRANT
+static pthread_mutex_t ctty_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define CTTY_LOCK()   pthread_mutex_lock(&ctty_mutex)
+#define CTTY_UNLOCK() pthread_mutex_unlock(&ctty_mutex)
+#else
+#define CTTY_LOCK()   ((void)0)
+#define CTTY_UNLOCK() ((void)0)
+#endif
+
+static void
+register_ctty_child(pid_t pid, void *ctty)
+{ ctty_child *cc;
+
+  if ( !ctty )
+    return;
+  if ( !(cc = PL_malloc(sizeof(*cc))) )
+  { PL_restore_ctty(ctty);		/* just releases it */
+    return;
+  }
+  cc->pid  = pid;
+  cc->ctty = ctty;
+  CTTY_LOCK();
+  cc->next = ctty_children;
+  ctty_children = cc;
+  CTTY_UNLOCK();
+}
+
+/* Called after waitpid() reported pid as gone. */
+
+static void
+process_reaped(pid_t pid)
+{ ctty_child **ccp, *cc;
+  void *ctty = NULL;
+
+  unregister_process(pid);
+
+  CTTY_LOCK();
+  for(ccp=&ctty_children, cc=*ccp; cc; ccp=&cc->next, cc=*ccp)
+  { if ( cc->pid == pid )
+    { *ccp = cc->next;
+      ctty = cc->ctty;
+      PL_free(cc);
+      break;
+    }
+  }
+  CTTY_UNLOCK();
+
+  if ( ctty )
+    PL_restore_ctty(ctty);
+}
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Note the descriptors created using pipe()   are  inherited by the child.
@@ -1794,7 +1859,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
   if ( opts->has_timeout && opts->timeout == 0.0 )
   { if ( (p2=waitpid(pid, &status, WNOHANG)) == pid )
-    { unregister_process(pid);
+    { process_reaped(pid);
       return unify_exit_status(code, status);
     }
     else if ( p2 == 0 )
@@ -1812,7 +1877,7 @@ wait_for_pid(pid_t pid, term_t code, wait_options *opts)
 
   for(;;)
   { if ( (p2=waitpid(pid, &status, 0)) == pid )
-    { unregister_process(pid);
+    { process_reaped(pid);
       return unify_exit_status(code, status);
     }
 
@@ -1834,7 +1899,7 @@ wait_success(atom_t name, pid_t pid)
   { int status;
 
     if ( (p2=waitpid(pid, &status, 0)) == pid )
-    { unregister_process(pid);
+    { process_reaped(pid);
       if ( WIFEXITED(status) && WEXITSTATUS(status) == 0 )
       { return true;
       } else
@@ -2059,7 +2124,7 @@ adopt_ctty(void)
 }
 #endif
 
-#if defined(O_ADOPT_CTTY) && defined(HAVE_POSIX_SPAWN)
+#ifdef O_ADOPT_CTTY
 
 /* The fd that becomes the child's stdin, or -1 if it has none. */
 
@@ -2077,7 +2142,9 @@ child_stdin_fd(p_options *info)
 }
 
 /* Must the child adopt its terminal?  Asked in the parent, because
- * posix_spawn() has no hook to do so and we must fork() instead.
+ * posix_spawn() has no hook to do so and we must fork() instead, and
+ * because we must then be ready to repair the terminal after the child
+ * is gone (see process_reaped()).
  */
 
 static bool
@@ -2114,6 +2181,7 @@ static int
 do_create_process_fork(p_options *info, create_method method)
 { int pid;
   sigset_t set;
+  void *ctty = needs_ctty(info) ? PL_save_ctty() : NULL;
 
   blockSignal(SIGPROF, &set);
 
@@ -2257,9 +2325,11 @@ do_create_process_fork(p_options *info, create_method method)
   { term_t exe = PL_new_term_ref();
     PL_put_atom_chars(exe, info->exe);
 
+    PL_restore_ctty(ctty);		/* just releases it */
     return pl_error(NULL, 0, "fork", ERR_ERRNO, errno, "fork", "process", exe);
   } else
-  { return process_parent_side(info, pid);
+  { register_ctty_child(pid, ctty);
+    return process_parent_side(info, pid);
   }
 }
 
