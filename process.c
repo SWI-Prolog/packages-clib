@@ -1037,7 +1037,7 @@ win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
 			  CVT_ATOMIC|CVT_EXCEPTION|BUF_STACK) )
 	goto error;
       if ( wcslen(text) != len )
-      { PL_domain_error("no_zero_code_atom", arg);
+      { PL_domain_error("text_non_zero_code", arg);
 	goto error;
       }
       if ( batch && !batch_safe_arg(text, len) )
