@@ -154,7 +154,7 @@ test(stream_keeps_fd, [condition(has_exe(sh)), X == 'a\nb\n']) :-
                    ]),
     read_process(Err, X).
 test(nul_arg, [condition(has_exe(true)),
-               error(domain_error(text_non_zero_code, _))]) :-
+               error(representation_error(nul_terminated_string(_)))]) :-
     process_create(path(true), ['a\u0000b'], []).
 test(kill_0, error(domain_error(not_less_than_one, 0))) :-
     process_kill(0).

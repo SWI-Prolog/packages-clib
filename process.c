@@ -272,30 +272,20 @@ add_ecbuf(ecbuf *b, echar *data, size_t len)
 		 *	ENVIRONMENT PARSING	*
 		 *******************************/
 
-#ifndef __WINDOWS__
-static bool get_c_string(term_t t, char **s, int flags);
-#endif
-
 static bool
 get_echars_arg_ex(int i, term_t from, term_t arg, echar **sp, size_t *lenp)
-{ const echar *s, *e;
-
-  if ( !PL_get_arg(i, from, arg) )
+{ if ( !PL_get_arg(i, from, arg) )
     return false;
 
 #ifdef __WINDOWS__
-  if ( !PL_get_wchars(arg, lenp, sp,
-		      CVT_ATOMIC|CVT_EXCEPTION) )
-#else
-  if ( !PL_get_nchars(arg, lenp, sp,
-		      CVT_ATOMIC|CVT_EXCEPTION|REP_FN) )
-#endif
+  if ( !PL_get_wchars(arg, NULL, sp, CVT_ATOMIC|CVT_EXCEPTION) )
     return false;
-
-  for(s = *sp, e = s+*lenp; s<e; s++)
-  { if ( !*s )
-      return PL_domain_error("text_non_zero_code", arg);
-  }
+  *lenp = wcslen(*sp);
+#else
+  if ( !PL_get_chars(arg, sp, CVT_ATOMIC|CVT_EXCEPTION|REP_FN) )
+    return false;
+  *lenp = strlen(*sp);
+#endif
 
   return true;
 }
@@ -579,7 +569,8 @@ parse_options(term_t options, p_options *info)
 		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC) )
       return false;
 #else
-    if ( !get_c_string(cwd_t, &info->cwd, CVT_ATOM|CVT_STRING|BUF_MALLOC|REP_FN) )
+    if ( !PL_get_chars(cwd_t, &info->cwd,
+		       CVT_ATOM|CVT_STRING|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
       return false;
 #endif
   }
@@ -600,24 +591,6 @@ parse_options(term_t options, p_options *info)
 }
 
 
-#ifndef __WINDOWS__
-/* Get a 0-terminated string, raising a domain error if the text
-   contains a 0 code as this would silently truncate the value.
-*/
-
-static bool
-get_c_string(term_t t, char **s, int flags)
-{ size_t len;
-
-  if ( !PL_get_nchars(t, &len, s, flags|CVT_EXCEPTION) )
-    return false;
-  if ( strlen(*s) != len )
-    return PL_domain_error("text_non_zero_code", t);
-
-  return true;
-}
-#endif
-
 static bool
 get_exe(term_t exe, p_options *info)
 { size_t arity;
@@ -634,7 +607,8 @@ get_exe(term_t exe, p_options *info)
   if ( !win_command_line(exe, arity, info->exe, &info->cmdline) )
     return false;
 #else /*__WINDOWS__*/
-  if ( !get_c_string(arg, &info->exe, CVT_ATOM|BUF_MALLOC|REP_FN) )
+  if ( !PL_get_chars(arg, &info->exe,
+		     CVT_ATOM|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
     return false;
 
   if ( !(info->argv = PL_malloc((arity+2)*sizeof(char*))) )
@@ -649,7 +623,8 @@ get_exe(term_t exe, p_options *info)
     for(i=1; i<=arity; i++)
     { _PL_get_arg(i, exe, arg);
 
-      if ( !get_c_string(arg, &info->argv[i], CVT_ATOMIC|BUF_MALLOC|REP_FN) )
+      if ( !PL_get_chars(arg, &info->argv[i],
+			 CVT_ATOMIC|CVT_EXCEPTION|BUF_MALLOC|REP_FN) )
 	return false;
     }
     info->argv[i] = NULL;
@@ -1033,13 +1008,10 @@ win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
       wchar_t *text;
 
       _PL_get_arg(i, t, arg);
-      if ( !PL_get_wchars(arg, &len, &text,
+      if ( !PL_get_wchars(arg, NULL, &text,
 			  CVT_ATOMIC|CVT_EXCEPTION|BUF_STACK) )
 	goto error;
-      if ( wcslen(text) != len )
-      { PL_domain_error("no_zero_code_atom", arg);
-	goto error;
-      }
+      len = wcslen(text);
       if ( batch && !batch_safe_arg(text, len) )
       { PL_domain_error("batch_file_argument", arg);
 	goto error;
