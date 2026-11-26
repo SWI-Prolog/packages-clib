@@ -47,7 +47,9 @@
 test_process :-
     run_tests([ process_create,
 		process_wait,
-		process_threads
+		process_threads,
+		process_command_line_windows,
+		process_command_line_posix
 	      ]).
 
 read_process(In, Text) :-
@@ -281,3 +283,78 @@ test(concurr, [condition(has_exe(cat))]) :-
 	   create_and_wait_once).
 
 :- end_tests(process_threads).
+
+%   process_command_line/2 follows the platform: the Windows rules are
+%   tested on Windows, the POSIX rules elsewhere.
+
+win(Text, Argv) :-
+    process_command_line(Text, Argv).
+sh(Text, Argv) :-
+    process_command_line(Text, Argv).
+
+:- begin_tests(process_command_line_windows,
+		[condition(current_prolog_flag(windows, true))]).
+
+test(plain, Argv == [grep, '-n', foo]) :-
+    win("grep -n foo", Argv).
+test(blanks, Argv == [a, b]) :-
+    win(" \ta  \tb ", Argv).
+test(empty, Argv == []) :-
+    win("", Argv).
+test(quoted_path, Argv == ['C:\\Program Files\\Git\\usr\\bin\\grep.exe', '-n']) :-
+    win("\"C:\\Program Files\\Git\\usr\\bin\\grep.exe\" -n",
+			 Argv).
+test(backslash_literal, Argv == ['C:\\dir\\', x]) :-
+    win("C:\\dir\\ x", Argv).
+test(empty_arg, Argv == ['', x]) :-
+    win("\"\" x", Argv).
+test(escaped_quote, Argv == ['a"b']) :-
+    win("a\\\"b", Argv).
+test(even_backslashes, Argv == ['a\\b c']) :-
+    win("a\\\\\"b c\"", Argv).
+test(doubled_quote, Argv == ['say "hi"']) :-
+    win("\"say \"\"hi\"\"\"", Argv).
+test(partly_quoted, Argv == ['--name=a b']) :-
+    win("--name=\"a b\"", Argv).
+test(generate, Text == "grep \"a b\" \"\" C:\\dir\\ \"C:\\a dir\\\\\" \"x\\\"y\"") :-
+    win(Text, [grep, 'a b', '', 'C:\\dir\\', 'C:\\a dir\\', 'x"y']).
+test(round_trip, Argv == Argv0) :-
+    Argv0 = [prog, 'a b', '', 'C:\\dir\\', 'x"y', 'a\\"b', '\\\\', 'tab\there'],
+    win(Text, Argv0),
+    win(Text, Argv).
+
+:- end_tests(process_command_line_windows).
+
+:- begin_tests(process_command_line_posix,
+		[condition(\+ current_prolog_flag(windows, true))]).
+
+test(plain, Argv == [grep, '-n', foo]) :-
+    sh("grep -n foo", Argv).
+test(blanks, Argv == [a, b]) :-
+    sh(" \ta \n\tb ", Argv).
+test(empty, Argv == []) :-
+    sh("", Argv).
+test(single_quotes, Argv == ['a "b" \\c $d', x]) :-
+    sh("'a \"b\" \\c $d' x", Argv).
+test(double_quotes, Argv == ['a \'b\' "c\" \\d $e \\f']) :-
+    sh("\"a 'b' \\\"c\\\" \\\\d \\$e \\f\"", Argv).
+test(backslash, Argv == ['a b', 'c\'d', x]) :-
+    sh("a\\ b c\\'d x", Argv).
+test(continuation, Argv == [ab, c]) :-
+    sh("a\\\nb \\\n c", Argv).
+test(empty_arg, Argv == ['', x]) :-
+    sh("'' x", Argv).
+test(adjacent, Argv == ['--name=a b']) :-
+    sh("--name='a b'", Argv).
+test(no_expansion, Argv == ['$HOME', '*.c', '|', '~']) :-
+    sh("$HOME *.c | ~", Argv).
+test(generate, Text == "grep 'a b' '' 'it'\\''s' C:/x.c") :-
+    sh(Text, [grep, 'a b', '', 'it\'s', 'C:/x.c']).
+test(round_trip, Argv == Argv0) :-
+    Argv0 = [prog, 'a b', '', 'x"y', 'it\'s', '\\', '$x', 'tab\there',
+	     'nl\nhere'],
+    sh(Text, Argv0),
+    sh(Text, Argv).
+
+:- end_tests(process_command_line_posix).
+

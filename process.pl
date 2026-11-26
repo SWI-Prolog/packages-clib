@@ -48,13 +48,15 @@
             process_group_kill/2,       % +PID, +Signal
             process_kill/2,             % +PID, +Signal
             process_which/2,            % +Exe, -AbsoluteFile
+            process_command_line/2,     % ?Text, ?Argv
 
             process_set_method/1        % +CreateMethod
           ]).
 :- multifile prolog:prolog_tool/4.
 :- dynamic   prolog:prolog_tool/4.
 
-:- autoload(library(apply),[maplist/3]).
+:- autoload(library(apply),[maplist/2,maplist/3]).
+:- autoload(library(lists),[append/3,member/2]).
 :- autoload(library(error),[must_be/2,existence_error/2]).
 :- autoload(library(option),[select_option/3]).
 
@@ -366,6 +368,352 @@ process_which(Exe, Path) :-
     exe_options(ExeOptions),
     absolute_file_name(Exe, Path, [file_errors(fail)|ExeOptions]),
     !.
+
+%!  process_command_line(?Text, ?Argv:list) is det.
+%
+%   True when the command line Text is split into the arguments Argv, a
+%   list of atoms.  If Text is unbound, it is unified with a string that
+%   quotes the arguments that need it.  The rules are those of the
+%   platform.
+%
+%   On Windows, Text and Argv follow the rules of the C runtime
+%   (CommandLineToArgvW()), which process_create/3 uses to build the
+%   command line of a Windows process:
+%
+%     - Arguments are separated by spaces and tabs.
+%     - Text between double quotes is part of a single argument.  The
+%       quotes are removed.  Inside quotes, `""` is a literal `"`.
+%     - A backslash is literal, except before a double quote, where 2N
+%       backslashes give N backslashes and 2N+1 backslashes give N
+%       backslashes and a literal `"`.
+%
+%   Backslashes thus need no escaping, so a Windows file name such as
+%   `C:\Program Files\Git\usr\bin\grep.exe` may be written as
+%   `"C:\Program Files\Git\usr\bin\grep.exe"`.  Single quotes have
+%   no special meaning.
+%
+%   On other platforms, Text and Argv follow the quoting rules of the
+%   POSIX shell:
+%
+%     - Arguments are separated by spaces, tabs and newlines.
+%     - Text between single quotes is literal.
+%     - Inside double quotes, a backslash only escapes `"`, `\`, `$`
+%       and the backquote, and a backslash followed by a newline is
+%       removed.
+%     - Outside quotes, a backslash escapes the next character, and a
+%       backslash followed by a newline is removed.
+%
+%   Only the quoting is processed: there is no expansion of variables,
+%   wildcards or `~`, and characters such as `|`, `;` and `>` are part
+%   of the arguments.  When building Text, an argument that needs it is
+%   put between single quotes, writing a single quote as `'\''`.
+
+:- if(current_prolog_flag(windows, true)).
+
+		 /*******************************
+		 *       WINDOWS SYNTAX		*
+		 *******************************/
+
+process_command_line(Text, Argv), nonvar(Text) =>
+    text_to_string(Text, String),
+    string_codes(String, Codes),
+    phrase(cmd_args(Argv0), Codes),
+    Argv = Argv0.
+process_command_line(Text, Argv) =>
+    must_be(list, Argv),
+    maplist(quote_cmd_arg, Argv, Parts),
+    atomics_to_string(Parts, ' ', Text).
+
+cmd_args(Args) -->
+    cmd_blanks,
+    (   eos
+    ->  { Args = [] }
+    ;   cmd_arg(out, Codes),
+        { atom_codes(Arg, Codes),
+          Args = [Arg|Rest]
+        },
+        cmd_args(Rest)
+    ).
+
+cmd_blanks -->
+    [C],
+    { cmd_blank(C) },
+    !,
+    cmd_blanks.
+cmd_blanks -->
+    [].
+
+cmd_blank(0' ).
+cmd_blank(0'\t).
+
+%   cmd_arg(+Quoted, -Codes)// is det.
+%
+%   Quoted is `in` inside a double quoted part and `out` otherwise.
+
+cmd_arg(_, []) -->
+    eos,
+    !.
+cmd_arg(out, []), [C] -->
+    [C],
+    { cmd_blank(C) },
+    !.
+cmd_arg(Q, Codes) -->
+    cmd_backslashes(N),
+    { N > 0 },
+    !,
+    (   "\""
+    ->  { Half is N // 2,
+          length(BS, Half),
+          maplist(=(0'\\), BS)
+        },
+        (   { N mod 2 =:= 1 }
+        ->  { append(BS, [0'"|Rest], Codes) },
+            cmd_arg(Q, Rest)
+        ;   { append(BS, Rest, Codes) },
+            cmd_quote(Q, Rest)
+        )
+    ;   { length(BS, N),
+          maplist(=(0'\\), BS),
+          append(BS, Rest, Codes)
+        },
+        cmd_arg(Q, Rest)
+    ).
+cmd_arg(Q, Codes) -->
+    "\"",
+    !,
+    cmd_quote(Q, Codes).
+cmd_arg(Q, [C|Codes]) -->
+    [C],
+    cmd_arg(Q, Codes).
+
+%   cmd_quote(+Quoted, -Codes)// is det.
+%
+%   Process the text after a double quote that is not escaped.
+
+cmd_quote(in, [0'"|Codes]) -->
+    "\"",
+    !,
+    cmd_arg(in, Codes).
+cmd_quote(in, Codes) -->
+    !,
+    cmd_arg(out, Codes).
+cmd_quote(out, Codes) -->
+    cmd_arg(in, Codes).
+
+cmd_backslashes(N) -->
+    "\\",
+    !,
+    cmd_backslashes(N0),
+    { N is N0+1 }.
+cmd_backslashes(0) -->
+    [].
+
+%   quote_cmd_arg(+Arg, -Quoted) is det.
+%
+%   Quote Arg if it is empty or contains white space or a double quote.
+
+quote_cmd_arg(Arg, Quoted) :-
+    text_to_string(Arg, String),
+    (   String \== "",
+        \+ ( sub_string(String, _, 1, _, C),
+             cmd_special(C)
+           )
+    ->  Quoted = String
+    ;   string_codes(String, Codes),
+        phrase(quoted_cmd_arg(Codes), QCodes),
+        string_codes(Quoted, QCodes)
+    ).
+
+cmd_special(" ").
+cmd_special("\t").
+cmd_special("\n").
+cmd_special("\v").
+cmd_special("\"").
+
+quoted_cmd_arg(Codes) -->
+    "\"",
+    quoted_cmd_codes(Codes),
+    "\"".
+
+quoted_cmd_codes([]) -->
+    [].
+quoted_cmd_codes([0'\\|T0]) -->
+    !,
+    { count_backslashes(T0, 1, N, T) },
+    (   { T == [] }                     % before the closing quote
+    ->  { N2 is N*2 },
+        backslashes(N2)
+    ;   { T = [0'"|_] }
+    ->  { N2 is N*2 },
+        backslashes(N2),
+        quoted_cmd_codes(T)
+    ;   backslashes(N),
+        quoted_cmd_codes(T)
+    ).
+quoted_cmd_codes([0'"|T]) -->
+    !,
+    "\\\"",
+    quoted_cmd_codes(T).
+quoted_cmd_codes([H|T]) -->
+    [H],
+    quoted_cmd_codes(T).
+
+count_backslashes([0'\\|T0], N0, N, T) :-
+    !,
+    N1 is N0+1,
+    count_backslashes(T0, N1, N, T).
+count_backslashes(T, N, N, T).
+
+backslashes(0) -->
+    !.
+backslashes(N) -->
+    "\\",
+    { N1 is N-1 },
+    backslashes(N1).
+
+:- else.
+
+		 /*******************************
+		 *        POSIX SYNTAX		*
+		 *******************************/
+
+process_command_line(Text, Argv), nonvar(Text) =>
+    text_to_string(Text, String),
+    string_codes(String, Codes),
+    phrase(sh_args(Argv0), Codes),
+    Argv = Argv0.
+process_command_line(Text, Argv) =>
+    must_be(list, Argv),
+    maplist(quote_sh_arg, Argv, Parts),
+    atomics_to_string(Parts, ' ', Text).
+
+sh_args(Args) -->
+    sh_blanks,
+    (   eos
+    ->  { Args = [] }
+    ;   sh_word(Codes),
+        { atom_codes(Arg, Codes),
+          Args = [Arg|Rest]
+        },
+        sh_args(Rest)
+    ).
+
+sh_blanks -->
+    [C],
+    { sh_blank(C) },
+    !,
+    sh_blanks.
+sh_blanks -->
+    "\\\n",                         % line continuation
+    !,
+    sh_blanks.
+sh_blanks -->
+    [].
+
+sh_blank(0' ).
+sh_blank(0'\t).
+sh_blank(0'\n).
+
+%   sh_word(-Codes)// is det.
+
+sh_word([]) -->
+    eos,
+    !.
+sh_word([]), [C] -->
+    [C],
+    { sh_blank(C) },
+    !.
+sh_word(Codes) -->
+    "\\\n",
+    !,
+    sh_word(Codes).
+sh_word([C|Codes]) -->
+    "\\", [C],
+    !,
+    sh_word(Codes).
+sh_word(Codes) -->
+    "\\",                             % at the end
+    !,
+    sh_word(Codes).
+sh_word(Codes) -->
+    "'",
+    !,
+    sh_single(Codes, Rest),
+    sh_word(Rest).
+sh_word(Codes) -->
+    "\"",
+    !,
+    sh_double(Codes, Rest),
+    sh_word(Rest).
+sh_word([C|Codes]) -->
+    [C],
+    sh_word(Codes).
+
+%   sh_single(-Codes, ?Tail)// and sh_double(-Codes, ?Tail)//
+%
+%   Process the text up to the closing quote.  A missing closing quote
+%   is taken to be at the end.
+
+sh_single(T, T) -->
+    "'",
+    !.
+sh_single(T, T) -->
+    eos,
+    !.
+sh_single([C|Codes], T) -->
+    [C],
+    sh_single(Codes, T).
+
+sh_double(T, T) -->
+    "\"",
+    !.
+sh_double(T, T) -->
+    eos,
+    !.
+sh_double(Codes, T) -->
+    "\\\n",
+    !,
+    sh_double(Codes, T).
+sh_double([C|Codes], T) -->
+    "\\", [C],
+    { sh_double_escaped(C) },
+    !,
+    sh_double(Codes, T).
+sh_double([C|Codes], T) -->
+    [C],
+    sh_double(Codes, T).
+
+sh_double_escaped(0'").
+sh_double_escaped(0'\\).
+sh_double_escaped(0'$).
+sh_double_escaped(0'`).
+
+%   quote_sh_arg(+Arg, -Quoted) is det.
+%
+%   Quote Arg between single quotes unless it only holds characters that
+%   the shell does not interpret.
+
+quote_sh_arg(Arg, Quoted) :-
+    text_to_string(Arg, String),
+    (   String \== "",
+        string_codes(String, Codes),
+        forall(member(C, Codes), sh_safe(C))
+    ->  Quoted = String
+    ;   split_string(String, "'", "", Parts),
+        atomic_list_concat(Parts, '\'\\\'\'', Escaped),
+        format(string(Quoted), "'~w'", [Escaped])
+    ).
+
+sh_safe(C) :-
+    code_type(C, alnum),
+    C < 128,
+    !.
+sh_safe(C) :-
+    memberchk(C, `_@%+=:,./-`).
+
+:- endif.
+
+eos([], []).
 
 %!  exe_options(-Options) is multi.
 %
