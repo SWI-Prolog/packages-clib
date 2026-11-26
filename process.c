@@ -856,120 +856,13 @@ win_init(void)
 #include "win_error.c"
 
 
-/* Build a Windows command line from the arguments.  Windows programs
- * split the command line using the rules of the C runtime
- * (CommandLineToArgvW()): an argument is quoted using "..." if it is
- * empty or contains white space or a ", backslashes are literal unless
- * they precede a ", where 2n backslashes give n backslashes and 2n+1
- * give n backslashes and a literal ".  Batch files (.bat, .cmd) are run
- * by cmd.exe, which does not use these rules: there we also quote the
- * metacharacters of cmd.exe and refuse characters that cannot be passed
- * safely.
+/* Build the command line.  See win_cmdline.c, which is shared with
+ * xpce.
  */
 
-typedef struct wbuf
-{ wchar_t *base;
-  size_t   len;
-  size_t   size;
-} wbuf;
+#define WBUF_REALLOC PL_realloc
+#include "win_cmdline.c"
 
-static bool
-wbuf_add(wbuf *b, wchar_t c)
-{ if ( b->len+1 >= b->size )
-  { size_t nsize = b->size ? b->size*2 : 256;
-    wchar_t *n = PL_realloc(b->base, nsize*sizeof(wchar_t));
-
-    if ( !n )
-      return false;
-    b->base = n;
-    b->size = nsize;
-  }
-  b->base[b->len++] = c;
-  b->base[b->len] = 0;
-  return true;
-}
-
-static bool
-wbuf_add_n(wbuf *b, wchar_t c, size_t n)
-{ while(n-- > 0)
-  { if ( !wbuf_add(b, c) )
-      return false;
-  }
-  return true;
-}
-
-static bool
-is_batch_file(const wchar_t *exe)
-{ size_t len = wcslen(exe);
-
-  return ( len > 4 &&
-	   ( _wcsicmp(exe+len-4, L".bat") == 0 ||
-	     _wcsicmp(exe+len-4, L".cmd") == 0 ) );
-}
-
-static bool
-add_quoted_arg(wbuf *b, const wchar_t *s, size_t len, int batch)
-{ int needq = (len == 0);
-  size_t i;
-
-  for(i=0; i<len; i++)
-  { wchar_t c = s[i];
-
-    if ( c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '"' )
-      needq = true;
-    else if ( batch && wcschr(L"&|<>^()", c) )
-      needq = true;
-  }
-
-  if ( !needq )
-  { for(i=0; i<len; i++)
-    { if ( !wbuf_add(b, s[i]) )
-	return false;
-    }
-    return true;
-  }
-
-  if ( !wbuf_add(b, '"') )
-    return false;
-  for(i=0; i<len; )
-  { size_t bs = 0;
-
-    while(i < len && s[i] == '\\')
-    { bs++;
-      i++;
-    }
-    if ( i == len )			/* backslashes before closing quote */
-    { if ( !wbuf_add_n(b, '\\', bs*2) )
-	return false;
-      break;
-    } else if ( s[i] == '"' )		/* backslashes before a quote */
-    { if ( !wbuf_add_n(b, '\\', bs*2+1) ||
-	   !wbuf_add(b, '"') )
-	return false;
-      i++;
-    } else
-    { if ( !wbuf_add_n(b, '\\', bs) ||
-	   !wbuf_add(b, s[i]) )
-	return false;
-      i++;
-    }
-  }
-  return wbuf_add(b, '"');
-}
-
-/* Characters that cmd.exe interprets also inside "...": quotes end the
-   quoted string, % and ! expand variables, CR and LF end the command. */
-
-static bool
-batch_safe_arg(const wchar_t *s, size_t len)
-{ size_t i;
-
-  for(i=0; i<len; i++)
-  { if ( wcschr(L"\"%!\r\n", s[i]) )
-      return false;
-  }
-  return true;
-}
 
 static bool
 win_command_line(term_t t, size_t arity, const wchar_t *exe, wchar_t **cline)
