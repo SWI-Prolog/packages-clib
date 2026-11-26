@@ -98,7 +98,9 @@ static atom_t ATOM_binary;
 
 static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_process_error2;
-static functor_t FUNCTOR_system_error2;
+#ifdef __WINDOWS__
+static functor_t FUNCTOR_system_error2;	/* see win_error.c */
+#endif
 static functor_t FUNCTOR_pipe1;
 static functor_t FUNCTOR_pipe2;
 static functor_t FUNCTOR_stream1;
@@ -2613,7 +2615,9 @@ install_process()
   MKFUNCTOR(stream, 1);
   MKFUNCTOR(error, 2);
   MKFUNCTOR(process_error, 2);
+#ifdef __WINDOWS__
   MKFUNCTOR(system_error, 2);
+#endif
   MKFUNCTOR(exit, 1);
 #ifndef __WINDOWS__
   MKFUNCTOR(killed, 1);
